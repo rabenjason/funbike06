@@ -179,7 +179,11 @@ export const helmets: Product[] = [
         "position": 0
       }
     ],
-    "specifications": [],
+    "specifications": [
+      { "key": "Coque", "value": "Légère" },
+      { "key": "Ventilation", "value": "Travaillée" },
+      { "key": "Graphismes", "value": "Inédits" }
+    ],
     "status": "PUBLISHED",
     "price": "Sur devis"
   },

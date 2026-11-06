@@ -100,6 +100,10 @@ export const motorcycles: Product[] = [
       {
         "key": "Mode",
         "value": "Sport / Urbain / Pluie"
+      },
+      {
+        "key": "Tableau de bord",
+        "value": "Digital"
       }
     ],
     "status": "PUBLISHED",
@@ -280,6 +284,10 @@ export const motorcycles: Product[] = [
       {
         "key": "Freins",
         "value": "Galfer / Brembo"
+      },
+      {
+        "key": "Cartographies",
+        "value": "Deux cartographies"
       },
       {
         "key": "Poids",
