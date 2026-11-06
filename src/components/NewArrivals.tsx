@@ -3,7 +3,7 @@ import { content } from "../constants/content";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { motion, type Variants } from "framer-motion";
-import { findProductById, mainProductImage } from "../data";
+import { brands, findProductById, mainProductImage, productTypes } from "../data";
 import type { Product } from "../types/product";
 import SmartImage from "./SmartImage";
 
@@ -22,7 +22,11 @@ const ITEMS: FeaturedProduct[] = homepageHighlights.flatMap((highlight) => {
     console.warn(`Produit mis en avant introuvable : ${highlight.productId}`);
     return [];
   }
-  return [{ product, badge: highlight.badge, eyebrow: highlight.eyebrow, bullets: highlight.bullets, targetPage: highlight.targetPage, targetId: highlight.targetId }];
+  const brand = brands.find((item) => item.id === product.brandId);
+  const productType = productTypes.find((item) => item.id === product.productTypeId);
+  // Conserver le libellé éditorial comme repli si le catalogue est incomplet.
+  const eyebrow = brand && productType ? `${brand.name} / ${productType.name}` : highlight.eyebrow;
+  return [{ product, badge: highlight.badge, eyebrow, bullets: highlight.bullets, targetPage: highlight.targetPage, targetId: highlight.targetId }];
 });
 
 const list: Variants = {
@@ -95,7 +99,9 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                 <h3 className="fluid-h3 mt-1 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">
                   {featured.product.name}
                 </h3>
-                <p className="mt-2 text-xs leading-5 text-black/55 dark:text-white/55">{descriptionPreview(featured.product.description)}</p>
+                {featured.product.description && (
+                  <p className="mt-2 text-xs leading-5 text-black/55 dark:text-white/55">{descriptionPreview(featured.product.description)}</p>
+                )}
 
                 <ul className="mt-4 grid grid-cols-1 gap-y-1.5">
                   {featured.bullets.map((feature) => (
