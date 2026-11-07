@@ -433,3 +433,10 @@ Les tableaux du front commencent vides et sont remplis par l’API ; les fichier
 L’onglet Accueil liste tous les produits sélectionnés par section, y compris les brouillons, les archives et ceux qui dépassent les limites d’affichage du site. Utiliser « Tous les produits » pour ajouter un produit, ou « Retirer de la sélection » pour le retirer sans le supprimer du catalogue. Les modifications sont enregistrées individuellement.
 
 L’API `PUT /server/api/homepage-selections.php` exige une session administrateur et reçoit `id`, `categoryId`, `field` et `value` (booléen). Elle modifie uniquement le champ de sélection demandé sous verrou, sans toucher aux autres données du produit. Le site public continue d’afficher uniquement les premiers produits publiés : trois nouveautés, trois motos dans chaque section moto et quatre équipements.
+
+
+### Messages du formulaire de contact
+
+Les demandes sont enregistrées dans `server/storage/private/messages.json`, créé au premier envoi (aucun fichier de production n’est fourni dans le dépôt). L’accès direct à tout `server/storage/` doit être interdit par la configuration web, y compris si le serveur ne prend pas en charge `.htaccess`. Seuls les administrateurs authentifiés peuvent lire, modifier le statut ou supprimer les messages ; le formulaire public peut uniquement envoyer une nouvelle demande. L’enregistrement est protégé par un verrou et une écriture atomique. Un champ piège et une limite de 10 demandes par adresse réseau sur 10 minutes réduisent les abus sans les éliminer ; un réseau partagé ou un proxy mal configuré peut faire partager cette limite.
+
+Sauvegardez régulièrement `server/storage/private/` de façon confidentielle, testez la restauration et ne l’écrasez jamais lors d’un déploiement FTP. Le dossier doit être accessible en écriture au serveur PHP. Les réponses par e-mail ou WhatsApp sont envoyées manuellement depuis l’application de l’administrateur ; elles ne sont ni envoyées automatiquement ni enregistrées dans le site. Aucune notification de nouvelle demande n’est envoyée automatiquement.

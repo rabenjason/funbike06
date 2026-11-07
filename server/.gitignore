@@ -9,3 +9,7 @@
 
 /storage/data/**/.catalog-*
 /storage/data/.catalog-*
+
+# Messages clients et fichiers temporaires privés générés au fonctionnement.
+/storage/private/messages.json
+/storage/private/.catalog-*
