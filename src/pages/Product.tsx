@@ -165,7 +165,7 @@ function ProductDetail({ bike, go, back, backLabel }: ProductPageProps & { bike:
       {related.length > 0 && (
         <Section title="Dans le même esprit" subtitle="D'autres modèles à découvrir." number="À explorer / 02">
           <div className="grid gap-x-4 gap-y-6 sm:grid-cols-2 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">
-            {related.map((item) => <BikeCard key={item.id} bike={item} go={go} />)}
+            {related.map((item) => <BikeCard key={item.id} bike={item} go={go} uniformLayout />)}
           </div>
         </Section>
       )}

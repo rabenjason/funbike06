@@ -89,7 +89,7 @@ test("la forme reste stable pour des noms et descriptions de longueurs différen
     assert.match(html, /title="[^"]+"[^>]*line-clamp-2 min-h-\[2\.1em\]/);
     assert.match(html, /<p[^>]*line-clamp-2[^>]*min-h-\[3\.2em\]/);
     assert.match(html, /mt-auto pt-5/);
-    assert.match(html, /max-w-\[45%\] break-words text-right/);
+    assert.match(html, /max-w-\[45%\] min-w-0 break-words text-right/);
   }
   const otherPage = renderToStaticMarkup(React.createElement(BikeCard, { bike: base, go() {} }));
   assert.ok(!otherPage.includes("min-h-[2.1em]"), "les autres pages gardent leur présentation actuelle");
