@@ -84,9 +84,11 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                   <h3 className="fluid-h3 mt-1 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">
                     {product.name}
                   </h3>
-                  {product.description && (
-                    <p className="mt-2 text-xs leading-5 text-black/55 dark:text-white/55">{descriptionPreview(product.description)}</p>
-                  )}
+                  <div className="mt-2 min-h-10">
+                    {product.description && (
+                      <p className="line-clamp-2 text-xs leading-5 text-black/55 dark:text-white/55">{descriptionPreview(product.description)}</p>
+                    )}
+                  </div>
 
                   {product.specifications.length > 0 && (
                     <ul className="mt-4 grid grid-cols-1 gap-y-1.5">
@@ -99,18 +101,20 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                     </ul>
                   )}
 
-                  <div className="mt-5 flex items-center justify-between border-t border-black/15 pt-3 dark:border-white/15">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-[0.14em] text-black/45 dark:text-white/45">{homepageContent.nouveautes.tarif}</p>
-                      <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]">{product.price ?? "Sur devis"}</p>
+                  <div className="mt-auto pt-5">
+                    <div className="flex items-center justify-between gap-3 border-t border-black/15 pt-3 dark:border-white/15">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.14em] text-black/45 dark:text-white/45">{homepageContent.nouveautes.tarif}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]">{product.price ?? "Sur devis"}</p>
+                      </div>
+                      <button
+                        onClick={openDetail}
+                        className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#171816] transition hover:text-black/60 dark:text-[#f2f0ea] dark:hover:text-white/70"
+                      >
+                        {content.boutons.voirProduit}
+                        <FontAwesomeIcon icon={faArrowRight} className="transition-transform group-hover:translate-x-1" />
+                      </button>
                     </div>
-                    <button
-                      onClick={openDetail}
-                      className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#171816] transition hover:text-black/60 dark:text-[#f2f0ea] dark:hover:text-white/70"
-                    >
-                      {content.boutons.voirProduit}
-                      <FontAwesomeIcon icon={faArrowRight} className="transition-transform group-hover:translate-x-1" />
-                    </button>
                   </div>
                 </div>
               </motion.article>
