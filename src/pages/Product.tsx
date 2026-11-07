@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faArrowRight, faCheck, faMagnifyingGlassPlus, faPhone } from "@fortawesome/free-solid-svg-icons";
-import { brands, motorcycles, productGallery, mainProductImage } from "../data";
+import { brands, motorcycles, productGallery, mainProductImage, getProductFamily } from "../data";
 import { Section } from "../components/Layout";
 import { BikeCard } from "../components/Cards";
 import SmartImage from "../components/SmartImage";
@@ -21,11 +21,12 @@ export default function Product({
   backLabel?: string;
 }) {
   const bike = motorcycles.find((item) => item.id === id) ?? motorcycles[0];
+  const family = getProductFamily(bike);
   const gallery = productGallery(bike);
   const brand = brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée";
   const [active, setActive] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const related = motorcycles.filter((item) => item.id !== bike.id && item.family === bike.family).slice(0, 4);
+  const related = motorcycles.filter((item) => item.id !== bike.id && family && getProductFamily(item)?.id === family.id && item.status === "PUBLISHED").slice(0, 4);
 
   return (
     <div className="overflow-x-hidden bg-white dark:bg-[#141513]">
@@ -56,7 +57,7 @@ export default function Product({
               imgClassName="object-contain p-3 transition-transform duration-500 group-hover:scale-[1.025] sm:p-5"
             />
             <span className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] truncate border border-white/60 bg-white/90 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[#171816] shadow-sm backdrop-blur-xl sm:bottom-5 sm:left-5 sm:tracking-[0.14em]">
-              {brand} / {bike.family}
+              {brand} / {family?.name}
             </span>
             <span className="absolute right-3 top-3 inline-flex min-h-9 items-center gap-2 rounded-full border border-black/10 bg-white/85 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[#171816] shadow-sm backdrop-blur transition group-hover:bg-white dark:border-white/10 dark:bg-black/55 dark:text-white dark:group-hover:bg-black/75">
               <FontAwesomeIcon icon={faMagnifyingGlassPlus} />
@@ -87,7 +88,7 @@ export default function Product({
           className="min-w-0 lg:col-span-5 lg:py-4"
         >
           <p className="fluid-eyebrow break-words font-bold uppercase leading-relaxed text-[#98741b] dark:text-[#ffd100]">
-            {brand} / {bike.family} {bike.badge ? `/ ${bike.badge}` : ""}
+            {brand} / {family?.name} {bike.badge ? `/ ${bike.badge}` : ""}
           </p>
           <h1 className="fluid-h1 mt-2.5 break-words font-display font-semibold text-[#171816] [overflow-wrap:anywhere] dark:text-[#f2f0ea] sm:mt-3">
             {bike.name}

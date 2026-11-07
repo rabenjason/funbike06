@@ -1,9 +1,17 @@
-export const productTypes = [
-  { id: "enduro", name: "Enduro", categoryId: "motos" },
-  { id: "urbain", name: "Urbain", categoryId: "motos" },
-  { id: "trois-roues", name: "3 roues", categoryId: "motos" },
-  { id: "cross", name: "Cross", categoryId: "motos" },
-  { id: "road-trail", name: "Trail / aventure", categoryId: "motos" },
+export interface ProductType {
+  id: string;
+  name: string;
+  categoryId: string;
+  /** Famille pour les types de motos ; absente pour les autres catégories. */
+  familyId?: string;
+}
+
+export const productTypes: ProductType[] = [
+  { id: "enduro", name: "Enduro", categoryId: "motos", familyId: "off-road" },
+  { id: "urbain", name: "Urbain", categoryId: "motos", familyId: "urbain" },
+  { id: "trois-roues", name: "3 roues", categoryId: "motos", familyId: "trois-roues" },
+  { id: "cross", name: "Cross", categoryId: "motos", familyId: "off-road" },
+  { id: "road-trail", name: "Trail / aventure", categoryId: "motos", familyId: "off-road" },
   { id: "casque", name: "Casque", categoryId: "casques" },
   { id: "tenues", name: "Tenues", categoryId: "equipements" },
   { id: "bottes", name: "Bottes", categoryId: "equipements" },
@@ -18,4 +26,4 @@ export const productTypes = [
   { id: "pieces-moteur", name: "Pièces moteur", categoryId: "pieces-detachees" },
   { id: "consommables", name: "Consommables", categoryId: "pieces-detachees" },
   { id: "piece-diverse", name: "Pièce détachée", categoryId: "pieces-detachees" },
-] as const;
+];

@@ -29,7 +29,7 @@ test("les marques d'équipements proviennent du catalogue et de leur indicateur"
   for (const brand of data.brands) assert.equal(typeof brand.isEquipmentBrand, "boolean", brand.id);
   assert.deepEqual(new Set(data.getEquipmentBrands().map(({ id }) => id)), new Set(["troy-lee-designs", "gaerne", "mt-helmets", "tvs", "bihr"]));
   const html = render(AccessoryBrandQuickLinks, { onSelect() {} });
-  for (const brand of data.getEquipmentBrands()) {
+  for (const brand of data.getAvailableEquipmentBrands()) {
     assert.ok(html.includes(brand.name), brand.id);
     if (brand.logoUrl) assert.ok(html.includes(brand.logoUrl.replaceAll("&", "&amp;")), brand.id);
   }
@@ -79,7 +79,8 @@ test("les anciens liens tld et mt continuent à ouvrir la bonne marque", () => {
     assert.ok(selector?.includes(name), alias);
   }
   const bihr = render(Equipements, { go() {}, initialBrand: "bihr" });
-  assert.ok(bihr.includes("Équipements &amp; accessoires Bihr"));
+  assert.ok(!bihr.includes("Équipements &amp; accessoires Bihr"));
+  assert.ok(!data.getAvailableEquipmentBrands().some(({ id }) => id === "bihr"));
   const selected = render(AccessoryBrandSelector, { active: "tvs", onSelect() {} });
   assert.match(selected, /aria-pressed="true"/);
 });
