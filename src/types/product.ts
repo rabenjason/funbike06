@@ -40,6 +40,8 @@ export interface Product {
   status: ProductStatus;
   /** Sélectionner ce produit parmi les nouveautés de l’accueil. */
   isHomepageHighlight: boolean;
+  /** Réservé aux motos sélectionnées pour le bandeau d’accueil. */
+  isHomepageHero?: boolean;
   price?: string;
   tags?: string[];
   badge?: string;
