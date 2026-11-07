@@ -68,3 +68,18 @@ test('rafraîchissement, cartes accessoires, échec réseau et annulation', asyn
   globalThis.fetch = mockFetch;
   view.unmount();
 });
+
+test('le chat guide le client de motocross à une moto puis affine en 125 cc', async () => {
+  window.localStorage.clear();
+  globalThis.fetch = mockFetch;
+  const view = render(React.createElement(CatChat, { go() {} }));
+  fireEvent.click(screen.getByLabelText(/^Ouvrir la discussion/));
+  send('motocross');
+  await waitFor(() => assert.ok(screen.getByText(/cherchez-vous une moto, un équipement ou une pièce/)), { timeout: 5000 });
+  fireEvent.click(screen.getByRole('button', { name: 'Moto', exact: true }));
+  await waitFor(() => assert.ok(screen.getByText('XX 125 2026')), { timeout: 5000 });
+  assert.ok(screen.getByText(/ne peux pas confirmer le stock/));
+  fireEvent.click(screen.getByRole('button', { name: '125 cc', exact: true }));
+  await waitFor(() => assert.equal(screen.getAllByText('XX 125 2026').length, 2), { timeout: 5000 });
+  view.unmount();
+});
