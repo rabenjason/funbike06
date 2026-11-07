@@ -426,13 +426,20 @@ Les tests automatisés `npm test` couvrent aussi l'API lorsque PHP est installé
 
 À l’ajout comme à la modification d’un produit, les aperçus permettent de choisir une seule photo principale parmi les photos existantes et les nouveaux fichiers. La sélection n’est enregistrée qu’après validation du formulaire. L’ancienne photo principale reste dans la galerie à moins d’être retirée explicitement ; les fichiers retirés peuvent rester sur disque et nécessitent un nettoyage séparé après sauvegarde. Si la photo principale est retirée, en sélectionner une autre avant d’enregistrer, sauf si aucune photo ne reste.
 
-Les tableaux du front commencent vides et sont remplis par l’API ; les fichiers JSON `server/storage/data/` restent indispensables et ne doivent pas être supprimés. Les textes de présentation du site sont toujours dans le code du front.
+Les tableaux du front commencent vides et sont remplis par l’API ; les fichiers JSON `server/storage/data/` restent indispensables et ne doivent pas être supprimés. Les textes de l’accueil sont administrables ; certains textes des autres pages restent dans le code du front.
 
 ### Sélections d’accueil dans l’administration
 
 L’onglet Accueil liste tous les produits sélectionnés par section, y compris les brouillons, les archives et ceux qui dépassent les limites d’affichage du site. Utiliser « Tous les produits » pour ajouter un produit, ou « Retirer de la sélection » pour le retirer sans le supprimer du catalogue. Les modifications sont enregistrées individuellement.
 
 L’API `PUT /server/api/homepage-selections.php` exige une session administrateur et reçoit `id`, `categoryId`, `field` et `value` (booléen). Elle modifie uniquement le champ de sélection demandé sous verrou, sans toucher aux autres données du produit. Le site public continue d’afficher uniquement les premiers produits publiés : trois nouveautés, trois motos dans chaque section moto et quatre équipements.
+
+Dans **Accueil → Textes et liens**, l’équipe peut modifier les textes des sections de l’accueil, les usages animés, et ajouter, retirer ou réordonner les liens « Choisir son univers ». Pour chaque lien, choisir le titre, la destination, l’icône et éventuellement une marque. Les anciennes descriptions et images de ces liens ne sont plus utilisées. Les marques officielles et leurs slogans se gèrent ici, indépendamment de la case **Partenaire** ; leurs logos proviennent toujours des fiches de marques, et seules les marques publiées avec logo s’affichent. Les photos des produits se gèrent dans leurs fiches ; l’image de la bannière Sherco reste fixe. La description alternative du bandeau est utilisée si Sherco, Fantic ou TVS n’est pas publiée.
+
+L’API publique `GET /server/api/homepage-content.php` fournit ces données au chargement du site ; un `PUT` authentifié avec la révision reçue les enregistre sous verrou. En cas de modification simultanée, l’API renvoie 409 pour éviter d’écraser les changements d’un autre administrateur. Le navigateur doit recharger le site pour afficher les nouveaux textes.
+
+**Installation et sauvegarde :** déployer l’API et son fichier de valeurs initiales `server/api/_lib/homepage-defaults.json`. Tant que `server/storage/data/homepage.json` n’existe pas, l’API lit ces valeurs sans créer de fichier. Le premier enregistrement crée `homepage.json`, ignoré par Git : il contient les données réelles et doit être sauvegardé, jamais écrasé lors d’un déploiement. Un fichier existant invalide provoque une erreur au lieu de remplacer silencieusement les données : restaurer une sauvegarde. L’accès web direct à `server/storage/` et `server/api/_lib/` doit rester interdit.
+
 
 
 ### Messages du formulaire de contact

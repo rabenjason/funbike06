@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, brands, mainProductImage } from "../catalog";
+import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, getAvailableEquipmentBrands, brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -23,7 +23,7 @@ import TypedText from "../components/TypedText";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
-const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
+const CATEGORY_ICONS = { moto: faMotorcycle, helmet: faHelmetSafety, parts: faGears, gear: faShirt };
 
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
   const hasBrand = (id: string) => brands.some((brand) => brand.id === id && brand.isPublished !== false);
@@ -83,7 +83,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               <br className="hidden sm:inline" /> {homepageContent.hero.titreLigne2}
             </h1>
             <p className="fluid-body mt-3.5 max-w-md text-pretty text-white/80 sm:mt-4">
-              {["sherco", "fantic", "tvs"].every(hasBrand) ? homepageContent.hero.description : "Des motos faites pour aller plus loin, des pièces et de l’équipement pour suivre."}
+              {["sherco", "fantic", "tvs"].every(hasBrand) ? homepageContent.hero.description : homepageContent.hero.descriptionSansMarques}
             </p>
             <p className="fluid-body mt-3 flex items-center text-white/90">
               {homepageContent.hero.sloganPrefix}&nbsp;
@@ -172,14 +172,18 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
             {homepageCategories.map((category, index) => (
               <motion.button
-                key={category.title}
-                onClick={() => go(category.to, "brand" in category && hasBrand(category.brand === "tld" ? "troy-lee-designs" : category.brand) ? category.brand : undefined)}
+                key={`${index}-${category.title}`}
+                onClick={() => {
+                  const brand = brands.find((item) => item.id === category.brandId && item.isPublished !== false);
+                  const usable = brand && (category.to !== "equipements" || getAvailableEquipmentBrands().some((item) => item.id === brand.id));
+                  go(category.to, usable ? (category.to === "motos" ? brand.name : brand.id) : undefined);
+                }}
                 whileHover={{ x: 4 }}
                 className="group flex min-h-14 items-center gap-3 border-b border-black/10 px-2 py-3 text-left transition hover:bg-white/65 hover:backdrop-blur-xl dark:border-white/15 dark:hover:bg-white/[0.035]"
               >
                 <span className="w-7 font-display text-[10px] text-black/40 dark:text-white/40">0{index + 1}</span>
-                <FontAwesomeIcon icon={CATEGORY_ICONS[index]} className="w-4 text-[12px] text-[#98741b] dark:text-[#ffd100]" />
-                <span className="flex-1 font-display text-sm font-semibold text-[#171816] dark:text-[#f2f0ea]">{index === 0 && !hasBrand("tvs") ? "Motos & Urbain" : category.title}</span>
+                <FontAwesomeIcon icon={CATEGORY_ICONS[category.icon]} className="w-4 text-[12px] text-[#98741b] dark:text-[#ffd100]" />
+                <span className="flex-1 font-display text-sm font-semibold text-[#171816] dark:text-[#f2f0ea]">{category.title === "Motos TVS & Urbain" && category.to === "motos" && !hasBrand("tvs") ? "Motos & Urbain" : category.title}</span>
                 <FontAwesomeIcon icon={faArrowRight} className="text-[10px] text-black/40 transition group-hover:translate-x-1 group-hover:text-[#98741b] dark:text-white/40 dark:group-hover:text-[#ffd100]" />
               </motion.button>
             ))}

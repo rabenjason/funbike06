@@ -13,3 +13,6 @@
 # Messages clients et fichiers temporaires privés générés au fonctionnement.
 /storage/private/messages.json
 /storage/private/.catalog-*
+
+# Contenu de l’accueil modifié par les administrateurs.
+/storage/data/homepage.json

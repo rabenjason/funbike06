@@ -10,7 +10,7 @@ if (readDarkPreference()) document.documentElement.classList.add("dark");
 // résultat tardif remplace les tableaux après l'import des index de l'application.
 let publicData: Promise<void> | undefined;
 function initializePublicData() {
-  if (!publicData) publicData = import("./catalog/loadServerData").then(({ loadServerData }) => loadServerData()).catch((error) => { publicData = undefined; throw error; });
+  if (!publicData) publicData = Promise.all([import("./catalog/loadServerData").then(({ loadServerData }) => loadServerData()), import("./content/homepage").then(({ loadHomepageData }) => loadHomepageData())]).then(() => {}).catch((error) => { publicData = undefined; throw error; });
   return publicData;
 }
 
