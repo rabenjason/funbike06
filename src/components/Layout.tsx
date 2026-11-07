@@ -20,9 +20,10 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { LOGO, brands } from "../catalog";
 import { content } from "../constants/content";
+import { routePath, navigateLink } from "../lib/routes";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../catalog/contact";
 
-export type Route = { page: string; id?: string };
+export type Route = { page: string; id?: string; categoryId?: string };
 
 export const NAV = [
   { key: "home", label: content.navigation.accueil },
@@ -74,9 +75,10 @@ export function Header({
               (route.page === "product" && item.key === "motos") ||
               (route.page === "accessory" && item.key === "equipements");
             return (
-              <button
+              <a
                 key={item.key}
-                onClick={() => go(item.key)}
+                href={routePath({ page: item.key })}
+                onClick={(event) => navigateLink(event, go, item.key)}
                 className={
                   "fluid-btn relative flex h-full items-center font-bold uppercase transition-colors " +
                   (active
@@ -92,7 +94,7 @@ export function Header({
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 )}
-              </button>
+              </a>
             );
           })}
         </nav>
@@ -281,12 +283,13 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
               <ul className="space-y-1">
                 {NAV.map((item) => (
                   <li key={item.key}>
-                    <button
-                      onClick={() => go(item.key)}
+                    <a
+                      href={routePath({ page: item.key })}
+                      onClick={(event) => navigateLink(event, go, item.key)}
                       className="group flex min-h-9 w-full items-center text-left text-xs font-medium text-white/70 transition-colors hover:text-white active:text-[#ffd100] sm:text-sm"
                     >
                       <span className="truncate">{item.label}</span>
-                    </button>
+                    </a>
                   </li>
                 ))}
               </ul>
