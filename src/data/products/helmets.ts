@@ -3,6 +3,7 @@ import type { Product } from "../../types/product";
 export const helmets: Product[] = [
   {
     "id": "tvs-helmet-raider",
+    "isHomepageHighlight": false,
     "name": "Casque intégral TVS Raider",
     "brandId": "tvs",
     "categoryId": "casques",
@@ -24,6 +25,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "tvs-helmet-anti-matter",
+    "isHomepageHighlight": false,
     "name": "Casque TVS Racing Anti Matter",
     "brandId": "tvs",
     "categoryId": "casques",
@@ -45,6 +47,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h1",
+    "isHomepageHighlight": false,
     "name": "MT Thunder 4 SV – Black",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -65,6 +68,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h2",
+    "isHomepageHighlight": false,
     "name": "MT Thunder 4 SV – Matte Black",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -85,6 +89,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h3",
+    "isHomepageHighlight": false,
     "name": "MT Hornet – White",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -105,6 +110,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h4",
+    "isHomepageHighlight": false,
     "name": "MT Hornet – Black",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -125,6 +131,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h5",
+    "isHomepageHighlight": false,
     "name": "MT Rapide – Black/Red",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -145,6 +152,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h6",
+    "isHomepageHighlight": false,
     "name": "MT Rapide – White/Blue",
     "brandId": "mt-helmets",
     "categoryId": "casques",
@@ -190,6 +198,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t2",
+    "isHomepageHighlight": false,
     "name": "GP Pro Slides – Gray",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -210,6 +219,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t3",
+    "isHomepageHighlight": false,
     "name": "GP Pro Slides – White/Blue",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -230,6 +240,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t4",
+    "isHomepageHighlight": false,
     "name": "GP Pro Segment – Black",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -250,6 +261,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t5",
+    "isHomepageHighlight": false,
     "name": "GP Pro Segment – Red",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -270,6 +282,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t6",
+    "isHomepageHighlight": false,
     "name": "GP Pro Segment – Blue",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -290,6 +303,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t7",
+    "isHomepageHighlight": false,
     "name": "GP Pro Mono – Pumice",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -310,6 +324,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t8",
+    "isHomepageHighlight": false,
     "name": "GP Pro Fifty50 – White/Red",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -330,6 +345,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t9",
+    "isHomepageHighlight": false,
     "name": "GP Pro Crossover – Navy/Red",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -350,6 +366,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t10",
+    "isHomepageHighlight": false,
     "name": "GP Pro Trooper – Black/Caper",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
@@ -370,6 +387,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t11",
+    "isHomepageHighlight": false,
     "name": "GP Pro Crossover – Gray/Yellow",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",

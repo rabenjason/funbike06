@@ -28,6 +28,12 @@ function descendants(element) {
   return [element, ...descendants(element.props.children)];
 }
 
+test("chaque produit du catalogue possède un indicateur de mise en avant", () => {
+  for (const product of data.products) {
+    assert.equal(typeof product.isHomepageHighlight, "boolean", product.id);
+  }
+});
+
 test("les produits publiés marqués sont limités aux trois premiers, dans l'ordre du catalogue", () => {
   const base = data.products[0];
   const product = (id, flag, status = "PUBLISHED") => ({ ...base, id, isHomepageHighlight: flag, status });
@@ -70,6 +76,7 @@ test("la sélection et les spécifications changent avec les données du catalog
   const initial = data.getHomepageHighlights()[0];
   const replacement = data.products.find((product) => !product.isHomepageHighlight && product.status === "PUBLISHED");
   const oldSpecs = replacement.specifications;
+  const oldHighlight = replacement.isHomepageHighlight;
   try {
     initial.isHomepageHighlight = false;
     replacement.isHomepageHighlight = true;
@@ -82,7 +89,7 @@ test("la sélection et les spécifications changent avec les données du catalog
     assert.ok(!render().includes("Test dynamique : Valeur modifiée"));
   } finally {
     initial.isHomepageHighlight = true;
-    delete replacement.isHomepageHighlight;
+    replacement.isHomepageHighlight = oldHighlight;
     replacement.specifications = oldSpecs;
   }
 });
