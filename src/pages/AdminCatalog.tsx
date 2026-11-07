@@ -5,6 +5,8 @@ import type { ProductType } from "../catalog/productTypes";
 type Category = { id: string; name: string };
 type Family = { id: string; name: string; categoryId: string };
 export type AdminCatalog = { brands: Brand[]; categories: Category[]; families: Family[]; types: ProductType[]; models: Model[]; products: Product[] };
+export type BulkDeleteResult = { deleted: Product[]; failures: { product: Product; message: string }[]; refreshError?: string };
+const productKey = (product: Product) => JSON.stringify([product.categoryId, product.id]);
 export type HomepageField = "isNewArrival" | "isMotoAccueil" | "isHomepageHero" | "isEquipementAccueil";
 
 const control = "mt-1.5 w-full rounded-md border border-black/15 bg-white px-3 py-2.5 text-sm text-[#171816] focus:border-[#98741b] focus:outline-none";
@@ -39,22 +41,56 @@ function ProductInfo({ product, catalog, extra }: { product: Product; catalog: A
 }
 function FilterLabel({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block text-xs font-semibold text-black/65">{label}{children}</label>; }
 
-export function ProductList({ catalog, onEdit, onDelete, onAdd, editor }: { catalog: AdminCatalog; onEdit: (product: Product) => void; onDelete: (product: Product) => void; onAdd: () => void; editor?: React.ReactNode }) {
+export function ProductList({ catalog, onEdit, onDelete, onDeleteSelected, onAdd, editor }: { catalog: AdminCatalog; onEdit: (product: Product) => void; onDelete: (product: Product) => void; onDeleteSelected: (products: Product[]) => Promise<BulkDeleteResult | null>; onAdd: () => void; editor?: React.ReactNode }) {
   const [query, setQuery] = useState(""); const [category, setCategory] = useState(""); const [family, setFamily] = useState("");
   const [type, setType] = useState(""); const [brand, setBrand] = useState(""); const [status, setStatus] = useState(""); const [page, setPage] = useState(1);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
+  const [deleting, setDeleting] = useState(false);
+  const [deleteResult, setDeleteResult] = useState<BulkDeleteResult | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
+  const selectPageRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (editor) editorRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [editor]);
+  useEffect(() => {
+    const available = new Set(catalog.products.map(productKey));
+    setSelectedKeys((previous) => {
+      const next = new Set([...previous].filter((key) => available.has(key)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [catalog.products]);
   const filtered = useMemo(() => catalog.products.filter((p) => {
     const productType = catalog.types.find((t) => t.id === p.productTypeId && t.categoryId === p.categoryId);
     return productMatches(p, query, catalog) && (!category || p.categoryId === category) && (!family || productType?.familyId === family) && (!type || p.productTypeId === type) && (!brand || p.brandId === brand) && (!status || p.status === status);
   }), [catalog, query, category, family, type, brand, status]);
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
   const shown = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const selected = catalog.products.filter((product) => selectedKeys.has(productKey(product)));
+  const selectedOnPage = shown.filter((product) => selectedKeys.has(productKey(product))).length;
+  useEffect(() => { if (selectPageRef.current) selectPageRef.current.indeterminate = selectedOnPage > 0 && selectedOnPage < shown.length; }, [selectedOnPage, shown.length]);
+  function toggleProduct(product: Product, checked: boolean) {
+    setSelectedKeys((previous) => { const next = new Set(previous); if (checked) next.add(productKey(product)); else next.delete(productKey(product)); return next; });
+  }
+  function togglePage(checked: boolean) {
+    setSelectedKeys((previous) => { const next = new Set(previous); for (const product of shown) { if (checked) next.add(productKey(product)); else next.delete(productKey(product)); } return next; });
+  }
+  async function deleteSelected() {
+    if (!selected.length || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await onDeleteSelected(selected);
+      if (result) {
+        const removed = new Set(result.deleted.map(productKey));
+        setSelectedKeys((previous) => new Set([...previous].filter((key) => !removed.has(key))));
+        setDeleteResult(result);
+      }
+    } catch (err) {
+      setDeleteResult({ deleted: [], failures: [], refreshError: (err as Error).message || "Impossible de terminer la suppression." });
+    } finally { setDeleting(false); }
+  }
   const clear = () => { setQuery(""); setCategory(""); setFamily(""); setType(""); setBrand(""); setStatus(""); setPage(1); };
   const types = catalog.types.filter((v) => (!category || v.categoryId === category) && (!family || v.familyId === family));
   return <>
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Catalogue</p><h1 className="mt-1 text-2xl font-bold">Produits</h1><p className="mt-1 text-sm text-black/55">Retrouvez et gérez tous vos produits.</p></div><button type="button" onClick={onAdd} className="rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b]">+ Ajouter un produit</button></div>
-    {editor && <div ref={editorRef} className="mb-5">{editor}</div>}
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Catalogue</p><h1 className="mt-1 text-2xl font-bold">Produits</h1><p className="mt-1 text-sm text-black/55">Retrouvez et gérez tous vos produits.</p></div><button type="button" disabled={deleting} onClick={onAdd} className="rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b] disabled:opacity-50">+ Ajouter un produit</button></div>
+    {editor && <div ref={editorRef} className="mb-5"><fieldset disabled={deleting}>{editor}</fieldset></div>}
     <div className="mb-4 rounded-xl border border-black/10 bg-white p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-bold">Recherche et filtres</h2><button type="button" className="text-xs font-semibold underline" onClick={clear}>Effacer les filtres</button></div><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <div className="sm:col-span-2"><FilterLabel label="Recherche"><input type="search" className={control} placeholder="Nom, marque ou type" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} /></FilterLabel></div>
       <FilterLabel label="Catégorie"><select className={control} value={category} onChange={(e) => { setCategory(e.target.value); setType(""); setFamily(""); setPage(1); }}><option value="">Toutes</option>{catalog.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></FilterLabel>
@@ -63,7 +99,16 @@ export function ProductList({ catalog, onEdit, onDelete, onAdd, editor }: { cata
       <FilterLabel label="Marque"><select className={control} value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1); }}><option value="">Toutes</option>{catalog.brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></FilterLabel>
       <FilterLabel label="Statut"><select className={control} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">Tous</option><option value="PUBLISHED">Publié</option><option value="DRAFT">Brouillon</option><option value="ARCHIVED">Archivé</option></select></FilterLabel>
     </div></div>
-    <div className="overflow-hidden rounded-xl border border-black/10 bg-white"><div className="border-b border-black/10 px-4 py-3 text-sm font-semibold">{filtered.length} produit{filtered.length !== 1 ? "s" : ""} trouvé{filtered.length !== 1 ? "s" : ""}</div><div className="divide-y divide-black/10">{shown.map((p) => <div key={`${p.categoryId}-${p.id}`} className="flex flex-wrap items-center justify-between gap-3 p-4"><ProductInfo product={p} catalog={catalog} /><div className="flex gap-2"><button type="button" className={secondary} onClick={() => onEdit(p)}>Modifier</button><button type="button" className={secondary} onClick={() => onDelete(p)}>Supprimer</button></div></div>)}</div>{!filtered.length && <p className="p-5 text-sm text-black/50">Aucun produit ne correspond à ces critères.</p>}<Pagination count={filtered.length} page={currentPage} setPage={setPage} /></div>
+    <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 px-4 py-3">
+        <div><p className="text-sm font-semibold">{filtered.length} produit{filtered.length !== 1 ? "s" : ""} trouvé{filtered.length !== 1 ? "s" : ""}</p><p className="mt-1 text-xs text-black/55">{selected.length} sélectionné{selected.length > 1 ? "s" : ""} au total, même sur les autres pages ou avec d’autres filtres.</p></div>
+        {selected.length > 0 && <div className="flex flex-wrap gap-2"><button type="button" disabled={deleting} className={secondary} onClick={() => setSelectedKeys(new Set())}>Effacer la sélection</button><button type="button" aria-disabled={deleting} className="rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 aria-disabled:cursor-not-allowed aria-disabled:opacity-50" onClick={() => void deleteSelected()}>{deleting ? "Suppression…" : `Supprimer la sélection (${selected.length})`}</button></div>}
+      </div>
+      {deleteResult && <div className="mx-4 mt-4 space-y-2 text-sm">{deleteResult.deleted.length > 0 && <p role="status" className="rounded-md bg-emerald-50 p-3 text-emerald-800">{deleteResult.deleted.length} produit{deleteResult.deleted.length !== 1 ? "s" : ""} supprimé{deleteResult.deleted.length !== 1 ? "s" : ""}.</p>}{(deleteResult.failures.length > 0 || deleteResult.refreshError) && <div role="alert" className="rounded-md bg-red-50 p-3 text-red-700">{deleteResult.failures.length > 0 && <p>La suppression n’a pas pu être confirmée pour certains produits. Vérifiez leur état avant de réessayer.</p>}{deleteResult.failures.map(({ product, message }) => <p key={productKey(product)} className="mt-1 break-words">{product.name} : {message}</p>)}{deleteResult.refreshError && <p className="mt-1">Actualisation impossible : {deleteResult.refreshError}. Rechargez la page pour vérifier le catalogue.</p>}</div>}</div>}
+      {shown.length > 0 && <label className="flex items-center gap-3 border-b border-black/10 px-4 py-3 text-sm font-semibold"><input ref={selectPageRef} type="checkbox" className="h-4 w-4 accent-[#171816]" disabled={deleting} checked={selectedOnPage === shown.length} onChange={(event) => togglePage(event.target.checked)} /> Sélectionner les produits de cette page</label>}
+      <div className="divide-y divide-black/10">{shown.map((p) => <div key={productKey(p)} className="flex flex-wrap items-center justify-between gap-3 p-4"><div className="flex min-w-0 items-center gap-3"><input type="checkbox" className="h-4 w-4 shrink-0 accent-[#171816]" aria-label={`Sélectionner ${p.name}`} disabled={deleting} checked={selectedKeys.has(productKey(p))} onChange={(event) => toggleProduct(p, event.target.checked)} /><ProductInfo product={p} catalog={catalog} /></div><div className="flex gap-2"><button type="button" disabled={deleting} className={secondary} onClick={() => onEdit(p)}>Modifier</button><button type="button" disabled={deleting} className={secondary} onClick={() => onDelete(p)}>Supprimer</button></div></div>)}</div>
+      {!filtered.length && <p className="p-5 text-sm text-black/50">Aucun produit ne correspond à ces critères.</p>}<Pagination count={filtered.length} page={currentPage} setPage={setPage} />
+    </div>
   </>;
 }
 

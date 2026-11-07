@@ -1,13 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 export type ConfirmationOptions = {
   title: string;
   description: string;
   confirmLabel: string;
-  /** Rouge pour une suppression ; jaune pour une réinitialisation. */
+  /** Rouge pour une suppression ; sombre pour les autres actions. */
   destructive?: boolean;
 };
 type Confirm = (options: ConfirmationOptions) => Promise<boolean>;
@@ -45,18 +43,14 @@ function ConfirmationDialog({ options, onClose }: { options: ConfirmationOptions
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[#10110f]/70 p-4 backdrop-blur-sm" onClick={(event) => { if (event.target === event.currentTarget) onClose(false); }}>
-      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-black/10 bg-white text-[#171816] shadow-2xl">
-        <div className="h-1.5 bg-[#ffd100]" />
-        <div className="p-6 sm:p-7">
-          <div className="flex items-start gap-4">
-            <div aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-100 text-[#98741b]"><FontAwesomeIcon icon={faTriangleExclamation} /></div>
-            <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#98741b]">Funbike / Confirmation</p><h2 id={titleId} className="mt-1 break-words text-xl font-bold leading-tight">{options.title}</h2></div>
-          </div>
-          <p id={descriptionId} className="mt-5 break-words text-sm leading-6 text-black/65">{options.description}</p>
-          <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button ref={cancelRef} type="button" onClick={() => onClose(false)} className="rounded-md border border-black/20 px-4 py-2.5 text-sm font-semibold text-[#171816] hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#98741b]">Annuler</button>
-            <button type="button" onClick={() => onClose(true)} className={"rounded-md px-4 py-2.5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 " + (options.destructive ? "bg-red-700 text-white hover:bg-red-800 focus-visible:outline-red-700" : "bg-[#ffd100] text-[#171816] hover:bg-[#ffe36b] focus-visible:outline-[#98741b]")}>{options.confirmLabel}</button>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(false); }}>
+      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white text-[#171816] shadow-xl">
+        <div className="border-b border-black/10 px-5 py-4 sm:px-6"><h2 id={titleId} className="break-words text-lg font-bold leading-snug">{options.title}</h2></div>
+        <div className="px-5 py-5 sm:px-6">
+          <p id={descriptionId} className="break-words text-sm leading-6 text-black/65">{options.description}</p>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button ref={cancelRef} type="button" onClick={() => onClose(false)} className="rounded-md bg-black/5 px-4 py-2.5 text-sm font-semibold text-[#171816] hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#171816]">Annuler</button>
+            <button type="button" onClick={() => onClose(true)} className={"rounded-md px-4 py-2.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 " + (options.destructive ? "bg-red-700 hover:bg-red-800 focus-visible:outline-red-700" : "bg-[#171816] hover:bg-black/80 focus-visible:outline-[#171816]")}>{options.confirmLabel}</button>
           </div>
         </div>
       </div>
