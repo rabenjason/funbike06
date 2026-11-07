@@ -213,7 +213,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                     <FontAwesomeIcon icon={faClock} className={"mt-1 " + ICON} />
                     <div className="min-w-0">
                       <dt className={LABEL}>Horaires</dt>
-                      <dd>{dealer.hours}</dd>
+                      <dd className="whitespace-pre-line break-words">{dealer.hours}</dd>
                     </div>
                   </div>
                   <div className="flex gap-3 py-3">

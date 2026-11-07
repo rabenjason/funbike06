@@ -3,24 +3,17 @@ import type { Product } from "../types/product";
 import { prepareProductPhotos, type EditablePhoto } from "../lib/productPhotos";
 import { ProductList, HomepageManager, type AdminCatalog, type HomepageField, type BulkDeleteResult } from "./AdminCatalog";
 import { ConfirmationProvider, useConfirmation } from "../components/ConfirmationModal";
+import { request, json } from "../lib/adminApi";
+import { DealersManager, ContactManager } from "./AdminLocations";
 
 type User = { id: string; username: string; role: string; mustChangePassword: boolean };
 type Category = { id: string; name: string };
-type ApiResult = Record<string, any>;
 const paths: Record<string, string> = { motos: "motorcycles", casques: "helmets", equipements: "riding-gear", "pieces-detachees": "spare-parts" };
 const productKinds: Category[] = [ { id: "motos", name: "Motos" }, { id: "casques", name: "Casques" }, { id: "equipements", name: "Équipements" }, { id: "pieces-detachees", name: "Pièces détachées" } ];
 const control = "mt-1 w-full rounded-md border border-black/15 bg-white px-3 py-2.5 text-sm text-[#171816] focus:border-[#98741b] focus:outline-none";
 const primary = "rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b] disabled:opacity-50";
 const secondary = "rounded-md border border-black/20 px-3 py-2 text-sm font-semibold hover:bg-black/5";
 
-async function request(path: string, options: RequestInit = {}): Promise<ApiResult> {
-  const response = await fetch(`/server/api/${path}`, { credentials: "same-origin", cache: "no-store", ...options });
-  let result: ApiResult;
-  try { result = await response.json(); } catch { throw new Error("Réponse du serveur invalide."); }
-  if (!response.ok) throw new Error(result.message || result.error || "La demande a échoué.");
-  return result;
-}
-const json = (method: string, body?: unknown): RequestInit => ({ method, headers: { "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 function Label({ children, title }: { children: React.ReactNode; title: string }) { return <label className="block text-xs font-semibold text-black/65">{title}{children}</label>; }
 
 function Login({ onLogin }: { onLogin: (user: User) => void }) {
@@ -164,7 +157,7 @@ export default function Admin() {
 
 function AdminContent() {
   const confirm = useConfirmation();
-  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
+  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password" | "dealers" | "contact">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
   useEffect(() => { request("auth/me.php").then((r) => setUser(r.user)).catch(() => setUser(null)).finally(() => setChecking(false)); }, []);
   const refresh = useCallback(async () => { const result = await readCatalog(); setCatalog(result); }, []);
   useEffect(() => { if (user && !user.mustChangePassword) { refresh().catch((err) => setError((err as Error).message)); } }, [user, refresh]);
@@ -212,10 +205,12 @@ function AdminContent() {
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
     <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">{error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
-      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "home", name: "Accueil" }, { id: "settings", name: "Marques et classement" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy} onClick={() => { setSection(tab.id); setError(""); setEditing(null); }} className={section === tab.id ? primary : secondary}>{tab.name}</button>)}</nav>
+      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "home", name: "Accueil" }, { id: "settings", name: "Marques et classement" }, { id: "dealers", name: "Revendeurs" }, { id: "contact", name: "Contact" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy} onClick={() => { setSection(tab.id); setError(""); setEditing(null); }} className={section === tab.id ? primary : secondary}>{tab.name}</button>)}</nav>
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
       {section === "users" && user.role === "superadmin" && <UserManager user={user} />}
       {section === "settings" && <CatalogSettings catalog={catalog} refresh={refresh} />}
+      {section === "dealers" && <DealersManager />}
+      {section === "contact" && <ContactManager />}
       {section === "home" && <HomepageManager catalog={catalog} onToggle={toggleHomepage} />}
       {section === "products" && <ProductList catalog={catalog} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={remove} onDeleteSelected={removeSelected} editor={editing ? <ProductEditor key={editing === "new" ? "new" : editing.id} catalog={catalog} current={editing === "new" ? undefined : editing} close={() => setEditing(null)} refresh={refresh} /> : undefined} />}
     </>}</div>

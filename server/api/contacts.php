@@ -167,9 +167,10 @@ function validateContact($contact) {
             !is_string($social["label"]) ||
             !is_string($social["url"]) ||
             trim($social["label"]) === "" ||
-            !filter_var($social["url"], FILTER_VALIDATE_URL)
+            !filter_var($social["url"], FILTER_VALIDATE_URL) ||
+            !preg_match("#^https?://#i", $social["url"])
         ) {
-            return "Un lien de réseau social est invalide.";
+            return "Un lien de réseau social est invalide : utilisez une adresse http ou https.";
         }
     }
 

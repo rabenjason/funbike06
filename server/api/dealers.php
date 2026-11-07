@@ -333,6 +333,16 @@ if ($method === "POST") {
         ? $key
         : slugify($body["city"]);
 
+    // Plusieurs revendeurs peuvent se trouver dans la même ville. Seules les
+    // clés générées automatiquement reçoivent un suffixe en cas de collision.
+    if ($key === "" && $newKey !== "") {
+        $baseKey = $newKey;
+        $suffix = 2;
+        while (findDealerIndex($dealers, $newKey) !== -1) {
+            $newKey = $baseKey . "-" . $suffix++;
+        }
+    }
+
     if ($newKey === "") {
         response(400, [
             "error" => "Impossible de générer une clé."
@@ -392,6 +402,9 @@ if ($method === "PUT") {
     }
 
     // Conserver la clé originale
+    if (!array_key_exists("isDemo", $body) && array_key_exists("isDemo", $dealers[$index])) {
+        $body["isDemo"] = $dealers[$index]["isDemo"];
+    }
     $updatedDealer = buildDealer($body, $key);
 
     $dealers[$index] = $updatedDealer;
