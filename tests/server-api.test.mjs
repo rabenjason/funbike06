@@ -43,6 +43,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const untrusted = await fetch(base + 'auth/login.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify({ username: 'test-admin', password: initialPassword }) });
     assert.equal(untrusted.status, 403);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1')).status, 401);
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
     assert.equal((await call('families.php', { method: 'POST', body: { name: 'Test', categoryId: 'motos' } })).status, 401);
     let login = await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: initialPassword } });
     assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
@@ -83,6 +84,17 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(createdProduct.status, 201); assert.equal(createdProduct.body.data.status, 'DRAFT');
     const id = createdProduct.body.data.id;
     const imageUrl = createdProduct.body.data.images[0].url;
+    const selection = await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id, categoryId: 'motos', field: 'isNewArrival', value: true } });
+    assert.equal(selection.status, 200); assert.equal(selection.body.data.isNewArrival, true);
+    const { isNewArrival: ignoredBefore, ...beforeSelection } = createdProduct.body.data;
+    const { isNewArrival: ignoredAfter, ...afterSelection } = selection.body.data;
+    assert.deepEqual(afterSelection, beforeSelection, 'les autres données du produit ne sont pas modifiées');
+    assert.ok(!(await call('products/motorcycles.php')).body.data.some((p) => p.id === id), 'le brouillon sélectionné reste privé');
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id, categoryId: 'motos', field: 'status', value: true } })).status, 400);
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id, categoryId: 'motos', field: 'isEquipementAccueil', value: true } })).status, 400);
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id, categoryId: 'motos', field: 'isNewArrival', value: 'false' } })).status, 400);
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id: 'inconnu', categoryId: 'motos', field: 'isNewArrival', value: false } })).status, 404);
+    assert.equal((await call('homepage-selections.php', { method: 'PUT', authenticated: true, body: { id, categoryId: 'motos', field: 'isNewArrival', value: false } })).status, 200);
     const invalidImage = new FormData(); invalidImage.set('_method', 'PUT'); invalidImage.set('product', JSON.stringify({ description: 'Ne pas sauvegarder' })); invalidImage.set('mainImage', new Blob(['pas une image'], { type: 'image/png' }), 'test.png');
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: invalidImage })).status, 400);
     const stillDraft = await call(`products/motorcycles.php?id=${id}&includeDrafts=1`, { authenticated: true });
