@@ -392,6 +392,12 @@ Lors d'un `PUT` de type de produit :
 
 Une famille utilisée par un type ne peut pas être supprimée. Modifier ou supprimer d'abord les types concernés.
 
+### Revendeurs et coordonnées depuis l’administration
+
+Les onglets **Revendeurs** et **Contact** permettent de gérer les données de `server/storage/data/dealers.json` et `contacts.json`, sans modifier les fichiers à la main. Seuls les admins connectés peuvent enregistrer ou supprimer ; la lecture publique reste disponible pour le site. Les données existantes, y compris les fiches de démonstration, ne sont pas modifiées automatiquement.
+
+Pour les horaires, saisir une ligne par groupe de jours : l’aperçu de l’administration et le site conservent les retours à la ligne. Pour les revendeurs, la latitude et la longitude sont nécessaires pour la carte. Les changements sont visibles sur le site lors de son prochain chargement. Les liens WhatsApp et de réseaux sociaux ne sont affichés sur la page Contact que s’ils sont renseignés. Le formulaire de demande reste un lien vers la messagerie du visiteur : il ne stocke pas les messages.
+
 ## 12. Déploiement FTP et précautions
 
 Depuis la racine du site, le dossier dans le dépôt s'appelle maintenant `server` et les URL commencent par `/server/`. Le build Vite crée `dist/index.html` : envoyer **le contenu de `dist`** à la racine web, puis placer `server/` à cette même racine. L'hébergement doit exécuter PHP, pas seulement servir des fichiers statiques. Vérifier aussi que les fichiers `.htaccess` sont bien transférés et appliqués. L'administration s'ouvre avec `/?admin` ; le serveur exige une session pour toute écriture. L'accès `/admin` direct dépend des règles de réécriture de l'hébergement.

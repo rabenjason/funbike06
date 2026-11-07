@@ -49,6 +49,39 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+
+    // Revendeurs et contact : lectures publiques, écritures réservées aux admins.
+    const authenticatedCookie = cookie;
+    assert.equal((await call('dealers.php', { method: 'POST', body: { city: 'Test' } })).status, 401);
+    assert.equal((await call('contacts.php', { method: 'PUT', body: { address: 'Intrusion' } })).status, 401);
+    cookie = authenticatedCookie;
+    const existingDealers = (await call('dealers.php')).body.dealers;
+    const existingContact = (await call('contacts.php')).body.contact;
+    const dealer = { city: 'Testville', name: 'Essai A', kind: 'Atelier', address: 'Rue test', hours: 'Lundi : 9h – 17h\nDimanche : fermé', phone: '+261 34 12 345 67', email: 'test@example.com', desc: 'Description test', lat: -18.9, lon: 47.5, services: ['Motos', 'Atelier'] };
+    const one = await call('dealers.php', { method: 'POST', authenticated: true, body: dealer });
+    const two = await call('dealers.php', { method: 'POST', authenticated: true, body: { ...dealer, name: 'Essai B' } });
+    assert.equal(one.status, 201); assert.equal(two.status, 201); assert.notEqual(one.body.dealer.key, two.body.dealer.key);
+    assert.equal((await call(`dealers.php?key=${one.body.dealer.key}`, { method: 'PUT', authenticated: true, body: { ...dealer, name: 'Essai modifié' } })).status, 200);
+    let published = (await call('dealers.php')).body.dealers;
+    assert.equal(published.find((d) => d.key === one.body.dealer.key).hours, dealer.hours);
+    assert.equal(published.find((d) => d.key === two.body.dealer.key).name, 'Essai B');
+    const demo = existingDealers.find((d) => d.isDemo);
+    if (demo) {
+      const { key: demoKey, isDemo, ...oldClientBody } = demo;
+      const demoEdit = await call(`dealers.php?key=${demoKey}`, { method: 'PUT', authenticated: true, body: oldClientBody });
+      assert.equal(demoEdit.status, 200); assert.equal(demoEdit.body.dealer.isDemo, true);
+    }
+    const invalidGps = await call('dealers.php', { method: 'POST', authenticated: true, body: { ...dealer, lat: 500 } });
+    assert.equal(invalidGps.status, 400);
+    assert.equal((await call(`dealers.php?key=${one.body.dealer.key}`, { method: 'DELETE', authenticated: true })).status, 200);
+    assert.equal((await call(`dealers.php?key=${two.body.dealer.key}`, { method: 'DELETE', authenticated: true })).status, 200);
+    const changedHours = 'Lundi : 8h – 18h\nDimanche : fermé';
+    const updatedContact = await call('contacts.php', { method: 'PUT', authenticated: true, body: { hours: changedHours, socialLinks: [{ label: 'Facebook', url: 'https://facebook.com/funbike' }] } });
+    assert.equal(updatedContact.status, 200); assert.equal(updatedContact.body.contact.hours, changedHours);
+    assert.equal((await call('contacts.php')).body.contact.hours, changedHours);
+    assert.equal(updatedContact.body.contact.email, existingContact.email);
+    assert.equal((await call('contacts.php', { method: 'PUT', authenticated: true, body: { socialLinks: [{ label: 'Lien', url: 'ftp://example.com' }] } })).status, 400);
+    assert.equal((await call('contacts.php', { method: 'PUT', authenticated: true, body: existingContact })).status, 200);
     for (const path of ['families.php?id=off-road', 'product-types.php?id=enduro', 'brands.php?id=tvs', 'categories.php?id=motos']) {
       assert.equal((await call(path, { method: 'DELETE', authenticated: true })).status, 409, path);
     }

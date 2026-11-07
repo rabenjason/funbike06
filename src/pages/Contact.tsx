@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { findProductById } from "../catalog";
-import { CONTACT_EMAIL, CONTACT_INFO } from "../catalog/contact";
+import { CONTACT_EMAIL, CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
 
 // Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
@@ -11,6 +11,11 @@ const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, 
 export default function Contact({ inquiryId }: { inquiryId?: string }) {
   const [sent, setSent] = useState(false);
   const accessory = findProductById(inquiryId);
+  const socialLinks = CONTACT_SOCIAL_LINKS.filter((link) => {
+    try { return !!link.label && ["http:", "https:"].includes(new URL(link.url).protocol); } catch { return false; }
+  });
+  const whatsappDigits = (CONTACT_WHATSAPP ?? "").replace(/\D/g, "");
+  const whatsappUrl = /^\d{8,15}$/.test(whatsappDigits) ? `https://wa.me/${whatsappDigits}` : null;
   const inquirySubject = accessory?.brandId === "tvs"
     ? "tvs-accessoires"
     : accessory?.categoryId === "pieces-detachees"
@@ -41,12 +46,16 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
                       {item.value}
                     </a>
                   ) : (
-                    <p className="mt-1 text-sm font-medium text-[#171816] dark:text-[#f2f0ea]">{item.value}</p>
+                    <p className="mt-1 whitespace-pre-line break-words text-sm font-medium text-[#171816] dark:text-[#f2f0ea]">{item.value}</p>
                   )}
                 </div>
               </div>
             ))}
           </div>
+          {(whatsappUrl || socialLinks.length > 0) && <div className="mt-5 flex flex-wrap gap-4 text-sm font-semibold">
+            {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-[#171816] underline hover:text-[#98741b] dark:text-white dark:hover:text-[#ffd100]">WhatsApp</a>}
+            {socialLinks.map((link, index) => <a key={`${link.url}-${index}`} href={link.url} target="_blank" rel="noopener noreferrer" className="break-all text-[#171816] underline hover:text-[#98741b] dark:text-white dark:hover:text-[#ffd100]">{link.label}</a>)}
+          </div>}
           <p className="mt-6 text-xs leading-5 text-black/50 dark:text-white/50">
             Besoin d'une réponse rapide ? Ouvrez la bulle de discussion en bas à droite pour parler avec Piston.
           </p>

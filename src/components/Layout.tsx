@@ -346,7 +346,7 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
               </li>
               <li className="flex items-center gap-3 text-white/60">
                 <FontAwesomeIcon icon={faClock} className="w-3.5 shrink-0 text-[#ffd100]" />
-                <span>{CONTACT_HOURS}</span>
+                <span className="whitespace-pre-line break-words">{CONTACT_HOURS}</span>
               </li>
             </ul>
 
