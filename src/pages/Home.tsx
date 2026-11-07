@@ -41,27 +41,36 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
 
   return (
     <div className="overflow-hidden bg-white text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
-      {/* Afficher l’image entière derrière le voile de contraste du bandeau. */}
+      {/* Un fond flouté remplit le bandeau sans recadrer la photo principale. */}
       <section className="relative isolate min-h-[max(560px,calc(100svh-64px))] overflow-hidden bg-[#22231f] sm:min-h-[720px] lg:min-h-[min(820px,calc(100svh-68px))]">
         <AnimatePresence initial={false} mode="sync">
           {current && heroImage && (
-            <motion.img
+            <motion.div
               key={current.id}
-              src={heroImage.url}
-              alt={heroImage.altText || current.name}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ opacity: { duration: 0.7 } }}
-              className="absolute inset-0 h-full w-full object-contain object-center"
-            />
+              transition={{ duration: 0.7 }}
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+            >
+              <img
+                src={heroImage.url}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full scale-110 object-cover object-center blur-2xl brightness-75"
+              />
+              <img
+                src={heroImage.url}
+                alt={heroImage.altText || current.name}
+                className="absolute inset-0 hidden h-full w-full object-contain object-center sm:block"
+              />
+            </motion.div>
           )}
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/20 lg:via-black/70" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
 
-        {/* Mobile order: text → "À la une" bar → buttons at the very bottom.
-            Desktop order: text → buttons → "À la une" bar. */}
+        {/* Mobile : texte, image entière, légende puis boutons. */}
         <div className="relative z-10 mx-auto flex min-h-[max(560px,calc(100svh-64px))] w-full max-w-(--container-site) flex-col px-5 pb-4 pt-10 sm:min-h-[720px] sm:px-7 sm:pb-9 sm:pt-16 lg:min-h-[min(820px,calc(100svh-68px))] lg:px-10 lg:pb-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -86,13 +95,31 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             </p>
           </motion.div>
 
-          {/* Buttons — mobile: full-width, stacked, anchored at the bottom (chat sits right above) */}
+          {/* Sur mobile, une zone dédiée garde la moto entière entre le texte et les boutons. */}
+          {current && heroImage && (
+            <div className="relative order-2 mt-4 min-h-[clamp(150px,24svh,240px)] flex-1 sm:hidden">
+              <AnimatePresence initial={false} mode="sync">
+                <motion.img
+                  key={current.id}
+                  src={heroImage.url}
+                  alt={heroImage.altText || current.name}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.7 }}
+                  className="absolute inset-0 h-full w-full object-contain object-center"
+                />
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Les boutons restent au bas du bandeau sur mobile. */}
           <motion.div
             id="hero-cta"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.25 }}
-            className="order-3 mt-3 grid w-full grid-cols-1 gap-2.5 sm:order-2 sm:mt-8 sm:flex sm:w-auto sm:flex-wrap sm:gap-3"
+            className="order-4 mt-3 grid w-full grid-cols-1 gap-2.5 sm:order-2 sm:mt-8 sm:flex sm:w-auto sm:flex-wrap sm:gap-3"
           >
             <button
               onClick={() => go("catalogue")}
@@ -112,7 +139,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
           </motion.div>
 
           {current && (
-            <div className="order-2 mt-auto flex items-center justify-between gap-3 border-t border-white/30 pr-16 pt-3 sm:order-3 sm:items-end sm:gap-4 sm:pr-0 sm:pt-5">
+            <div className="order-3 mt-auto flex items-center justify-between gap-3 border-t border-white/30 pr-16 pt-3 sm:order-3 sm:items-end sm:gap-4 sm:pr-0 sm:pt-5">
               <div className="min-w-0 text-white">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.div
