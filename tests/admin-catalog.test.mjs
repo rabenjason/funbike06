@@ -19,7 +19,7 @@ after(async () => { dom.window.close(); await server?.close(); });
 
 test('Accueil : toutes les sélections sont accessibles, y compris après la troisième et les brouillons', () => {
   const view = render(React.createElement(HomepageManager, { catalog, onToggle: async () => {} }));
-  assert.match(view.container.textContent, /23 sélectionnés · 22 publiés/);
+  assert.match(view.container.textContent, /23 sélectionnés · 22 visibles avant limite/);
   assert.match(view.container.textContent, /Page 1 \/ 3/);
   assert.ok(view.getByText('Moto numéro 1'));
   assert.match(view.getByText('Moto numéro 1').closest('.flex.flex-wrap').textContent, /Affiché sur le site/);
@@ -102,7 +102,7 @@ test('l’administration relie Accueil à l’API et garde la sélection après 
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url).replace('/server/api/', '');
     calls.push({ path, options });
-    const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } }, 'brands.php': { brands: catalog.brands }, 'categories.php': { categories: catalog.categories }, 'families.php': { families: catalog.families }, 'product-types.php': { productTypes: catalog.types }, 'models.php': { models: [] } };
+    const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } }, 'brands.php?includeDrafts=1': { brands: catalog.brands }, 'categories.php': { categories: catalog.categories }, 'families.php': { families: catalog.families }, 'product-types.php': { productTypes: catalog.types }, 'models.php?includeDrafts=1': { models: [] } };
     if (path === 'homepage-selections.php') {
       const { id, categoryId, field, value } = JSON.parse(options.body);
       const product = records.find((p) => p.id === id && p.categoryId === categoryId);
@@ -130,4 +130,13 @@ test('l’administration relie Accueil à l’API et garde la sélection après 
     fireEvent.click(view.getByRole('button', { name: 'Nouveautés' }));
     assert.ok(view.getByText('Moto numéro 1'));
   } finally { globalThis.fetch = previousFetch; }
+});
+
+
+test('Accueil indique si un produit publié est masqué par sa marque', () => {
+  const sample = { ...catalog, brands: catalog.brands.map((b) => b.id === 'sherco' ? { ...b, isPublished: false } : b), products: [bike(1), { ...gear(1), isNewArrival: true }] };
+  const view = render(React.createElement(HomepageManager, { catalog: sample, onToggle: async () => {} }));
+  assert.match(view.container.textContent, /2 sélectionnés · 1 visible avant limite/);
+  assert.match(view.getByText('Moto numéro 1').closest('.flex.flex-wrap').textContent, /Masqué : marque non publiée/);
+  assert.match(view.getByText('Casque modèle 1').closest('.flex.flex-wrap').textContent, /Affiché sur le site/);
 });

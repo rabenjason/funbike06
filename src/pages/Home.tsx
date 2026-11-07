@@ -25,6 +25,8 @@ const brandName = (product: Product) => brands.find((brand) => brand.id === prod
 const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
 
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
+  const hasBrand = (id: string) => brands.some((brand) => brand.id === id && brand.isPublished !== false);
+  const partners = brands.filter((brand) => brand.isPublished !== false && brand.isPartner === true && brand.logo);
   const heroProducts = getHomepageHeroProducts();
   const motosAccueil = getMotosAccueil();
   const equipementsAccueil = getEquipementsAccueil();
@@ -80,7 +82,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               <br className="hidden sm:inline" /> {homepageContent.hero.titreLigne2}
             </h1>
             <p className="fluid-body mt-3.5 max-w-md text-pretty text-white/80 sm:mt-4">
-              {homepageContent.hero.description}
+              {["sherco", "fantic", "tvs"].every(hasBrand) ? homepageContent.hero.description : "Des motos faites pour aller plus loin, des pièces et de l’équipement pour suivre."}
             </p>
             <p className="fluid-body mt-3 flex items-center text-white/90">
               {homepageContent.hero.sloganPrefix}&nbsp;
@@ -170,13 +172,13 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             {homepageCategories.map((category, index) => (
               <motion.button
                 key={category.title}
-                onClick={() => go(category.to, "brand" in category ? category.brand : undefined)}
+                onClick={() => go(category.to, "brand" in category && hasBrand(category.brand === "tld" ? "troy-lee-designs" : category.brand) ? category.brand : undefined)}
                 whileHover={{ x: 4 }}
                 className="group flex min-h-14 items-center gap-3 border-b border-black/10 px-2 py-3 text-left transition hover:bg-white/65 hover:backdrop-blur-xl dark:border-white/15 dark:hover:bg-white/[0.035]"
               >
                 <span className="w-7 font-display text-[10px] text-black/40 dark:text-white/40">0{index + 1}</span>
                 <FontAwesomeIcon icon={CATEGORY_ICONS[index]} className="w-4 text-[12px] text-[#98741b] dark:text-[#ffd100]" />
-                <span className="flex-1 font-display text-sm font-semibold text-[#171816] dark:text-[#f2f0ea]">{category.title}</span>
+                <span className="flex-1 font-display text-sm font-semibold text-[#171816] dark:text-[#f2f0ea]">{index === 0 && !hasBrand("tvs") ? "Motos & Urbain" : category.title}</span>
                 <FontAwesomeIcon icon={faArrowRight} className="text-[10px] text-black/40 transition group-hover:translate-x-1 group-hover:text-[#98741b] dark:text-white/40 dark:group-hover:text-[#ffd100]" />
               </motion.button>
             ))}
@@ -184,7 +186,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         </div>
       </section>
 
-      <ShercoBanner go={go} />
+      {brands.some((brand) => brand.id === "sherco" && brand.isPublished !== false) && <ShercoBanner go={go} />}
 
       <BrandExclusif go={go} />
 
@@ -242,7 +244,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         </div>
       </section>
 
-      <section className="glass-header overflow-hidden border-y border-white/70 py-10 dark:border-white/10">
+      {partners.length > 0 && <section className="glass-header overflow-hidden border-y border-white/70 py-10 dark:border-white/10">
         <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-7 lg:px-10">
           <div className="mb-5 flex items-center justify-between border-t border-black/15 pt-3 dark:border-white/15">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/45 dark:text-white/45">{homepageContent.partenaires.titre}</p>
@@ -260,7 +262,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             />
 
             <div className="fb-partner-track flex w-max items-center gap-6 pr-6 sm:gap-10 sm:pr-10">
-              {[...brands.filter((brand) => brand.logo), ...brands.filter((brand) => brand.logo)].map((brand, index) => (
+              {[...partners, ...partners].map((brand, index) => (
                 <motion.div
                   key={`${brand.name}-${index}`}
                   whileHover={{ scale: 1.08 }}
@@ -278,7 +280,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             </div>
           </div>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

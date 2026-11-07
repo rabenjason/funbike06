@@ -43,12 +43,70 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const untrusted = await fetch(base + 'auth/login.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify({ username: 'test-admin', password: initialPassword }) });
     assert.equal(untrusted.status, 403);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1')).status, 401);
+    assert.equal((await call('brands.php?includeDrafts=1')).status, 401);
+    assert.equal((await call('models.php?includeDrafts=1')).status, 401);
     assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
     assert.equal((await call('families.php', { method: 'POST', body: { name: 'Test', categoryId: 'motos' } })).status, 401);
     let login = await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: initialPassword } });
     assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+
+    // Publication des marques : toutes les modifications ci-dessous ne concernent que la copie temporaire.
+    const dataDir = join(serverDir, 'storage/data');
+    const names = ['brands.json', 'models.json', ...['motorcycles', 'helmets', 'riding-gear', 'spare-parts'].map((n) => `products/${n}.json`)];
+    const saved = new Map(names.map((name) => [name, readFileSync(join(dataDir, name), 'utf8')]));
+    try {
+      const legacy = (await call('brands.php')).body.brands.find((b) => b.id === 'tvs');
+      assert.equal(legacy.isPublished, true); assert.equal(legacy.isPartner, false);
+      const models = JSON.parse(saved.get('models.json'));
+      models.models.push({ id: 'publication-test', name: 'Modèle publication test', brandId: 'tvs' });
+      writeFileSync(join(dataDir, 'models.json'), JSON.stringify(models));
+      for (const path of ['motorcycles', 'helmets', 'riding-gear', 'spare-parts']) {
+        const filename = `products/${path}.json`;
+        const data = JSON.parse(saved.get(filename));
+        for (const p of data.products) { p.isNewArrival = false; p.isEquipementAccueil = false; }
+        const sample = data.products[0];
+        assert.ok(sample, filename);
+        data.products.unshift({ ...sample, id: `publication-${path}`, brandId: 'tvs', status: 'PUBLISHED', isNewArrival: true, isEquipementAccueil: true });
+        if (path === 'spare-parts') data.products.unshift({ ...sample, id: 'compat-publication', brandId: 'sherco', status: 'PUBLISHED', compatibleBrandIds: ['tvs', 'sherco'], isNewArrival: false });
+        writeFileSync(join(dataDir, filename), JSON.stringify(data));
+      }
+      const editFlags = async (values) => {
+        const body = new FormData(); body.set('_method', 'PUT');
+        for (const [key, value] of Object.entries(values)) body.set(key, value);
+        return call('brands.php?id=tvs', { method: 'POST', authenticated: true, body });
+      };
+      assert.equal((await editFlags({ isPublished: 'invalid' })).status, 400);
+      assert.equal((await editFlags({ isPublished: 'false', isPartner: 'true' })).status, 200);
+      assert.ok(!(await call('brands.php')).body.brands.some((b) => b.id === 'tvs'));
+      const adminBrand = (await call('brands.php?includeDrafts=1', { authenticated: true })).body.brands.find((b) => b.id === 'tvs');
+      assert.equal(adminBrand.isPublished, false); assert.equal(adminBrand.isPartner, true); assert.equal(adminBrand.isEquipmentBrand, legacy.isEquipmentBrand);
+      assert.ok(!(await call('models.php')).body.models.some((m) => m.id === 'publication-test'));
+      assert.ok((await call('models.php?includeDrafts=1', { authenticated: true })).body.models.some((m) => m.id === 'publication-test'));
+      for (const path of ['motorcycles', 'helmets', 'riding-gear', 'spare-parts']) {
+        const id = `publication-${path}`;
+        assert.ok(!(await call(`products/${path}.php`)).body.data.some((p) => p.id === id));
+        assert.equal((await call(`products/${path}.php?id=${id}`)).status, 404);
+        assert.equal((await call(`products/${path}.php?id=${id}&includeDrafts=1`, { authenticated: true })).body.data.status, 'PUBLISHED');
+      }
+      assert.deepEqual((await call('products/spare-parts.php?id=compat-publication')).body.data.compatibleBrandIds, ['sherco']);
+      assert.deepEqual((await call('products/spare-parts.php?id=compat-publication&includeDrafts=1', { authenticated: true })).body.data.compatibleBrandIds, ['tvs', 'sherco']);
+      for (const path of ['homepage-highlights.php', 'homepage-equipment.php']) {
+        assert.ok(!(await call(`${path}?includeDrafts=1`)).body.data.some((p) => p.id.startsWith('publication-')));
+      }
+      assert.equal((await editFlags({ isPublished: 'true' })).status, 200);
+      assert.equal((await call('brands.php')).body.brands.find((b) => b.id === 'tvs').isPartner, true);
+      assert.ok((await call('models.php')).body.models.some((m) => m.id === 'publication-test'));
+      for (const path of ['motorcycles', 'helmets', 'riding-gear', 'spare-parts']) {
+        assert.equal((await call(`products/${path}.php?id=publication-${path}`)).body.data.status, 'PUBLISHED');
+      }
+      assert.deepEqual((await call('products/spare-parts.php?id=compat-publication')).body.data.compatibleBrandIds, ['tvs', 'sherco']);
+      assert.ok((await call('homepage-highlights.php')).body.data.some((p) => p.id === 'publication-motorcycles'));
+      assert.ok((await call('homepage-equipment.php')).body.data.some((p) => p.id === 'publication-helmets'));
+    } finally {
+      for (const [name, text] of saved) writeFileSync(join(dataDir, name), text);
+    }
 
     // Revendeurs et contact : lectures publiques, écritures réservées aux admins.
     const authenticatedCookie = cookie;
@@ -107,7 +165,13 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8l8AAAAASUVORK5CYII=', 'base64');
     const brandInput = new FormData(); brandInput.set('name', 'Marque test'); brandInput.set('isEquipmentBrand', 'true'); brandInput.set('logo', new Blob([png], { type: 'image/png' }), 'logo.png');
     const brand = await call('brands.php', { method: 'POST', authenticated: true, body: brandInput });
-    assert.equal(brand.status, 201); assert.ok(brand.body.brand.logo.startsWith('/server/uploads/brands/'));
+    assert.equal(brand.status, 201); assert.ok(brand.body.brand.logo.startsWith('/server/uploads/brands/')); assert.equal(brand.body.brand.isPublished, true); assert.equal(brand.body.brand.isPartner, false);
+    const hiddenInput = new FormData(); hiddenInput.set('name', 'Marque cachée test'); hiddenInput.set('isPublished', 'false'); hiddenInput.set('isPartner', 'true'); hiddenInput.set('isEquipmentBrand', 'true'); hiddenInput.set('logo', new Blob([png], { type: 'image/png' }), 'logo.png');
+    const hiddenBrand = await call('brands.php', { method: 'POST', authenticated: true, body: hiddenInput });
+    assert.equal(hiddenBrand.status, 201); assert.equal(hiddenBrand.body.brand.isPublished, false); assert.equal(hiddenBrand.body.brand.isPartner, true); assert.equal(hiddenBrand.body.brand.isEquipmentBrand, true);
+    assert.ok(!(await call('brands.php')).body.brands.some((b) => b.id === hiddenBrand.body.brand.id));
+    assert.ok((await call('brands.php?includeDrafts=1', { authenticated: true })).body.brands.some((b) => b.id === hiddenBrand.body.brand.id));
+    assert.equal((await call(`brands.php?id=${hiddenBrand.body.brand.id}`, { method: 'DELETE', authenticated: true })).status, 200);
     const updateBrand = new FormData(); updateBrand.set('_method', 'PUT'); updateBrand.set('name', 'Marque test mise à jour'); updateBrand.set('isEquipmentBrand', 'false');
     assert.equal((await call(`brands.php?id=${brand.body.brand.id}`, { method: 'POST', authenticated: true, body: updateBrand })).status, 200);
     const oldLogo = brand.body.brand.logo;

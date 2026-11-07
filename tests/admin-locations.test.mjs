@@ -35,7 +35,7 @@ beforeEach(() => {
     if (path === 'contacts.php' && method === 'GET') return ok({ contact });
     if (path === 'contacts.php' && method === 'PUT') { contact = body; return ok({ contact }); }
     const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } },
-      'brands.php': { brands: [] }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php': { models: [] },
+      'brands.php?includeDrafts=1': { brands: [] }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] },
       'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] } };
     return fixed[path] ? ok(fixed[path]) : failResponse(`Route inconnue : ${path}`);
   };

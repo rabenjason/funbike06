@@ -83,11 +83,11 @@ foreach ($files as $file) {
         $markedCount++;
 
         // Un brouillon ne doit jamais apparaître publiquement sur l'accueil.
-        if (($product["status"] ?? null) === "PUBLISHED") {
-            $publishedEquipment[] = $product;
-        }
+        $publishedEquipment[] = $product;
     }
 }
+
+$publishedEquipment = funbikePublicProducts($publishedEquipment);
 
 respond(
     true,

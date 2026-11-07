@@ -66,13 +66,39 @@ function funbikeValidateProduct($product, $categoryId)
         if (isset($product[$field]) && !is_array($product[$field])) funbikeJsonResponse(400, ['error' => 'Champ ' . $field . ' invalide.']);
 }
 
+// Les anciennes marques sont publiées tant qu'elles ne sont pas explicitement dépubliées.
+function funbikePublishedBrandIds()
+{
+    $ids = [];
+    foreach (funbikeCatalogRecords('brands.json', 'brands') as $brand) {
+        $published = $brand['isPublished'] ?? true;
+        if (is_string($published)) $published = strtolower(trim($published));
+        if (isset($brand['id']) && !in_array($published, [false, 0, '0', 'false', ''], true)) $ids[$brand['id']] = true;
+    }
+    return $ids;
+}
+
+function funbikePublicProducts($products)
+{
+    $brands = funbikePublishedBrandIds();
+    $visible = [];
+    foreach ($products as $product) {
+        if (!is_array($product) || ($product['status'] ?? null) !== 'PUBLISHED' || !isset($brands[$product['brandId'] ?? ''])) continue;
+        if (isset($product['compatibleBrandIds']) && is_array($product['compatibleBrandIds'])) {
+            $product['compatibleBrandIds'] = array_values(array_filter($product['compatibleBrandIds'], function ($id) use ($brands) { return is_string($id) && isset($brands[$id]); }));
+        }
+        $visible[] = $product;
+    }
+    return $visible;
+}
+
 function funbikeVisibleProducts($products)
 {
     if (($_GET['includeDrafts'] ?? '') === '1') {
         funbikeRequireAdmin();
         return $products;
     }
-    return array_values(array_filter($products, function ($product) { return ($product['status'] ?? null) === 'PUBLISHED'; }));
+    return funbikePublicProducts($products);
 }
 
 function funbikePreventReferencedDeletion($kind, $id)

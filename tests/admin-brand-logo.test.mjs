@@ -24,13 +24,13 @@ beforeEach(() => {
       writes.push(options.body);
       if (failWrite) return { ok: false, json: async () => ({ error: 'Transfert impossible' }) };
       const file = options.body.get('logo');
-      brands = brands.map((b) => b.id === 'tvs' ? { ...b, name: options.body.get('name'), isEquipmentBrand: options.body.get('isEquipmentBrand') === 'true', logo: file ? '/server/uploads/brands/tvs/nouveau.png' : b.logo } : b);
+      brands = brands.map((b) => b.id === 'tvs' ? { ...b, name: options.body.get('name'), isEquipmentBrand: options.body.get('isEquipmentBrand') === 'true', isPublished: options.body.get('isPublished') === 'true', isPartner: options.body.get('isPartner') === 'true', logo: file ? '/server/uploads/brands/tvs/nouveau.png' : b.logo } : b);
       return { ok: true, json: async () => ({ brand: brands[0] }) };
     }
-    if (path === 'brands.php' && failRefresh && writes.length) return { ok: false, json: async () => ({ error: 'Indisponible' }) };
+    if (path === 'brands.php?includeDrafts=1' && failRefresh && writes.length) return { ok: false, json: async () => ({ error: 'Indisponible' }) };
     const fixed = {
       'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } },
-      'brands.php': { brands }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php': { models: [] },
+      'brands.php?includeDrafts=1': { brands }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] },
       'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] },
     };
     return { ok: !!fixed[path], json: async () => fixed[path] ?? { error: 'Route inconnue' } };
@@ -94,4 +94,23 @@ test('un échec d’actualisation après enregistrement est distingué d’un é
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /modification a été enregistrée.*Rechargez/));
   assert.equal(writes.length, 1); assert.equal(brands[0].logo, '/server/uploads/brands/tvs/nouveau.png');
+});
+
+
+test('publication, partenaire et équipement sont trois choix indépendants', async () => {
+  const view = await editTVS();
+  assert.equal(view.getByLabelText('Publiée').checked, true);
+  assert.equal(view.getByLabelText('Partenaire').checked, false);
+  assert.equal(view.getByLabelText('Marque d’équipements').checked, true);
+  fireEvent.click(view.getByLabelText('Publiée'));
+  fireEvent.click(view.getByLabelText('Partenaire'));
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  await waitFor(() => assert.ok(view.getByRole('status')));
+  assert.equal(writes[0].get('isPublished'), 'false');
+  assert.equal(writes[0].get('isPartner'), 'true');
+  assert.equal(writes[0].get('isEquipmentBrand'), 'true');
+  assert.match(view.getByText('TVS').closest('.py-3').textContent, /Non publiée · Partenaire/);
+  fireEvent.click(within(view.getByText('TVS').closest('.py-3')).getByRole('button', { name: 'Modifier' }));
+  assert.equal(view.getByLabelText('Publiée').checked, false);
+  assert.equal(view.getByLabelText('Partenaire').checked, true);
 });

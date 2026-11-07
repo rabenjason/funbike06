@@ -19,6 +19,9 @@ export interface Brand {
   logo?: string;
   /** Afficher cette marque parmi les marques d’équipements. */
   isEquipmentBrand: boolean;
+  /** Les anciennes marques sont publiées par défaut et ne sont pas partenaires. */
+  isPublished?: boolean;
+  isPartner?: boolean;
 }
 
 export interface Model {
