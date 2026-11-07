@@ -10,7 +10,16 @@ const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
 export default defineConfig({
-  server: { host: "0.0.0.0", allowedHosts: [".e2b.app"], proxy: { "/server": { target: process.env.FUNBIKE_PHP_TARGET || "http://127.0.0.1:8000", changeOrigin: false } } },
+  server: {
+    host: "0.0.0.0",
+    allowedHosts: [".e2b.app"],
+    proxy: {
+      // Uniquement dans Vite : ces deux flux viennent du même PHP qu'en production.
+      "^/robots\\.txt(?:\\?.*)?$": { target: process.env.FUNBIKE_PHP_TARGET || "http://127.0.0.1:8000", changeOrigin: false, rewrite: () => "/server/api/seo-feed.php?feed=robots" },
+      "^/sitemap\\.xml(?:\\?.*)?$": { target: process.env.FUNBIKE_PHP_TARGET || "http://127.0.0.1:8000", changeOrigin: false, rewrite: () => "/server/api/seo-feed.php?feed=sitemap" },
+      "/server": { target: process.env.FUNBIKE_PHP_TARGET || "http://127.0.0.1:8000", changeOrigin: false },
+    },
+  },
   plugins: [react(), tailwindcss(), viteSingleFile()],
   resolve: {
     alias: {
