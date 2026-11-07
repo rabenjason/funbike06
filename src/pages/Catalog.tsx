@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGears, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
@@ -22,6 +22,7 @@ import { BikeCard, PartCard } from "../components/Cards";
 import { BikeCardSkeleton, PartCardSkeleton } from "../components/Skeletons";
 import Pagination from "../components/Pagination";
 import { useBriefLoading } from "../hooks/useBriefLoading";
+import { shuffleMotorcycles } from "../lib/shuffleMotorcycles";
 import {
   AccessoryBrandSelector,
   BrandVisual,
@@ -34,6 +35,9 @@ import {
 
 const BIKES_PER_PAGE = 6;
 const PARTS_PER_PAGE = 8;
+
+// Conservé uniquement dans cet onglet, pour varier la première page au retour.
+let previousMotoOrder: string[] = [];
 
 const normalizeSearch = (value: string) => value.toLocaleLowerCase("fr").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const containsAll = (text: string, terms: string[]) => {
@@ -73,15 +77,22 @@ export function Catalogue({
   const [query, setQuery] = useState(initialQuery ?? "");
   const [page, setPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
+  // Un seul mélange par visite : la pagination et la recherche ne le modifient pas.
+  const [shuffledBikes] = useState(() => motosOnly
+    ? shuffleMotorcycles(motorcycles.filter((bike) => bike.status === "PUBLISHED"), previousMotoOrder, BIKES_PER_PAGE)
+    : []);
+  useEffect(() => {
+    if (motosOnly) previousMotoOrder = shuffledBikes.map((bike) => bike.id);
+  }, [motosOnly, shuffledBikes]);
 
   const terms = useMemo(() => normalizeSearch(query).trim().split(/\s+/).filter(Boolean), [query]);
   const bikeList = useMemo(
     () =>
-      motorcycles.filter(
+      (motosOnly && family === "" ? shuffledBikes : motorcycles).filter(
         (bike) =>
           bike.status === "PUBLISHED" && (family === "" || getProductFamily(bike)?.id === family) && containsAll(`${bike.name} ${getBrandName(bike.brandId)} ${bike.description} ${getProductFamily(bike)?.name ?? ""}`, terms),
       ),
-    [family, terms],
+    [family, terms, motosOnly, shuffledBikes],
   );
   const partList = useMemo(
     () => (terms.length === 0 || motosOnly ? [] : [...spareParts, ...helmets, ...ridingGear].filter((product) => product.status === "PUBLISHED" && containsAll(itemLabel(product), terms))),
@@ -147,7 +158,7 @@ export function Catalogue({
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
           {loading
             ? Array.from({ length: Math.max(visible.length, 3) }, (_, i) => <BikeCardSkeleton key={i} />)
-            : visible.map((b) => <BikeCard key={b.id} bike={b} go={go} />)}
+            : visible.map((b) => <BikeCard key={b.id} bike={b} go={go} alignActions />)}
         </div>
         {!loading && bikeList.length === 0 && (
           <p className="py-12 text-center text-sm text-black/50 dark:text-white/50">
