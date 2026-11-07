@@ -66,12 +66,14 @@ function cleanBrands($brands) {
 
         $isEquipmentBrand = normalizeBrandBoolean($brand['isEquipmentBrand'] ?? false);
 
-        $result[] = [
-            "id" => (string) $brand['id'],
-            "name" => (string) $brand['name'],
-            "logo" => (string) ($brand['logo'] ?? ""),
-            "isEquipmentBrand" => $isEquipmentBrand === null ? false : $isEquipmentBrand
-        ];
+        // Garder les éventuels autres champs existants lors d'un enregistrement.
+        $brand['id'] = (string) $brand['id'];
+        $brand['name'] = (string) $brand['name'];
+        $brand['logo'] = (string) ($brand['logo'] ?? '');
+        $brand['isEquipmentBrand'] = $isEquipmentBrand ?? false;
+        $brand['isPublished'] = normalizeBrandBoolean($brand['isPublished'] ?? true) ?? true;
+        $brand['isPartner'] = normalizeBrandBoolean($brand['isPartner'] ?? false) ?? false;
+        $result[] = $brand;
     }
 
     return $result;
@@ -104,6 +106,11 @@ function saveData($jsonFile, $data) {
 
 if ($method === 'GET') {
     $data = loadData($jsonFile);
+    if (($_GET['includeDrafts'] ?? '') === '1') {
+        funbikeRequireAdmin();
+    } else {
+        $data['brands'] = array_values(array_filter($data['brands'], function ($brand) { return $brand['isPublished']; }));
+    }
     http_response_code(200);
     echo json_encode($data);
     exit;
@@ -128,6 +135,14 @@ if ($method === 'POST') {
             http_response_code(400);
             echo json_encode(["error" => "isEquipmentBrand doit être true, false, 1 ou 0."]);
             exit;
+        }
+    }
+
+    $flags = ['isPublished' => true, 'isPartner' => false];
+    foreach ($flags as $key => $default) {
+        if (array_key_exists($key, $_POST)) {
+            $flags[$key] = normalizeBrandBoolean($_POST[$key]);
+            if ($flags[$key] === null) funbikeJsonResponse(400, ['error' => $key . ' doit être true, false, 1 ou 0.']);
         }
     }
 
@@ -166,7 +181,9 @@ if ($method === 'POST') {
         "id" => $id,
         "name" => $name,
         "logo" => "/server/uploads/brands/$id/logo.$fileExt",
-        "isEquipmentBrand" => $isEquipmentBrand
+        "isEquipmentBrand" => $isEquipmentBrand,
+        "isPublished" => $flags['isPublished'],
+        "isPartner" => $flags['isPartner']
     ];
     $data['brands'][] = $newBrand;
     if (!saveData($jsonFile, $data)) { http_response_code(500); echo json_encode(["error" => "Impossible de sauvegarder les marques."]); exit; }
@@ -216,6 +233,14 @@ if ($method === 'PUT') {
         }
 
         $data['brands'][$brandIndex]['isEquipmentBrand'] = $isEquipmentBrand;
+    }
+
+    foreach (['isPublished', 'isPartner'] as $key) {
+        if (array_key_exists($key, $_POST)) {
+            $value = normalizeBrandBoolean($_POST[$key]);
+            if ($value === null) funbikeJsonResponse(400, ['error' => $key . ' doit être true, false, 1 ou 0.']);
+            $data['brands'][$brandIndex][$key] = $value;
+        }
     }
 
     // Une erreur de transfert ne doit jamais être traitée comme une absence de logo.

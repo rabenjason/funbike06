@@ -38,11 +38,11 @@ beforeEach(() => {
       records = records.filter((p) => !(p.categoryId === category && p.id === id));
       return { ok: true, json: async () => ({ success: true }) };
     }
-    if (failRefresh && path === 'brands.php') return { ok: false, json: async () => ({ message: 'Catalogue indisponible' }) };
+    if (failRefresh && path === 'brands.php?includeDrafts=1') return { ok: false, json: async () => ({ message: 'Catalogue indisponible' }) };
     const fixed = {
-      'auth/me.php': { user }, 'brands.php': { brands: [{ id: 'tvs', name: 'TVS' }] },
+      'auth/me.php': { user }, 'brands.php?includeDrafts=1': { brands: [{ id: 'tvs', name: 'TVS' }] },
       'categories.php': { categories: [{ id: 'motos', name: 'Motos' }, { id: 'casques', name: 'Casques' }] },
-      'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php': { models: [] },
+      'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] },
     };
     const category = Object.keys(endpoints).find((key) => path === `products/${endpoints[key]}.php?includeDrafts=1`);
     const data = fixed[path] ?? (category ? { data: structuredClone(records.filter((p) => p.categoryId === category)) } : null);

@@ -119,6 +119,12 @@ funbikeProtectWriteMethods($method);
 $models = cleanModels(readJson($dataFile, "models"));
 
 if ($method === "GET") {
+    if (($_GET['includeDrafts'] ?? '') === '1') {
+        funbikeRequireAdmin();
+    } else {
+        $brands = funbikePublishedBrandIds();
+        $models = array_values(array_filter($models, function ($model) use ($brands) { return isset($brands[$model['brandId']]); }));
+    }
     response(200, ["models" => $models]);
 }
 

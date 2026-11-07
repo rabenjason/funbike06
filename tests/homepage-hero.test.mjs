@@ -74,3 +74,44 @@ test("le bandeau s'adapte aux changements et reste utilisable sans moto sélecti
     data.motorcycles.forEach((bike, index) => { bike.isHomepageHero = selected[index]; });
   }
 });
+
+test('partenaires et marques exclusives suivent deux choix distincts et les marques publiées', () => {
+  const snapshot = structuredClone(data.brands);
+  try {
+    data.brands.splice(0, data.brands.length,
+      { id: 'tvs', name: 'TVS', logo: '/tvs.png', isEquipmentBrand: true },
+      { id: 'sherco', name: 'Sherco', logo: '/sherco.png', isEquipmentBrand: false, isPublished: false, isPartner: true },
+      { id: 'partenaire-test', name: 'Partenaire Test', logo: '/partner.png', isEquipmentBrand: false, isPartner: true },
+      { id: 'sans-logo', name: 'Sans logo', isEquipmentBrand: false, isPartner: true },
+    );
+    let html = renderToStaticMarkup(React.createElement(Home, { go() {} }));
+    assert.ok(html.includes('Nos partenaires'));
+    assert.ok(html.includes('Logo Partenaire Test'));
+    assert.ok(!html.includes('Logo Sans logo'));
+    assert.ok(!html.includes('Logo Sherco'));
+    assert.ok(html.includes('Logo TVS'), 'marque exclusive publiée même sans statut partenaire');
+    assert.ok(!html.includes('L’univers Sherco'));
+    data.brands.find((b) => b.id === 'partenaire-test').isPublished = false;
+    html = renderToStaticMarkup(React.createElement(Home, { go() {} }));
+    assert.ok(!html.includes('Nos partenaires'), 'section vide masquée');
+    assert.ok(html.includes('Logo TVS'), 'la section exclusive reste indépendante');
+    data.brands.splice(0, data.brands.length, { id: 'partenaire-test', name: 'Partenaire Test', logo: '/partner.png', isEquipmentBrand: false, isPartner: true });
+    html = renderToStaticMarkup(React.createElement(Home, { go() {} }));
+    assert.ok(html.includes('Nos partenaires'));
+    assert.ok(!html.includes('Distributeur exclusif / Madagascar'), 'un partenaire ne devient pas automatiquement exclusif');
+  } finally { data.brands.splice(0, data.brands.length, ...snapshot); }
+});
+
+
+test('le conseiller ne propose pas les marques retirées du catalogue public', async () => {
+  const { respond, initialQuick, EMPTY_MEMORY } = await server.ssrLoadModule('/src/lib/assistant.ts');
+  const snapshot = structuredClone(data.brands);
+  try {
+    data.brands.splice(0, data.brands.length, ...snapshot.filter((b) => !['tvs', 'sherco', 'gaerne'].includes(b.id)));
+    assert.ok(!initialQuick().some((text) => /sherco/i.test(text)));
+    for (const question of ['prix casque tvs', 'casque tvs', 'pièces tvs', 'quels équipements', 'catalogue', 'taille casque']) {
+      const reply = respond(question, EMPTY_MEMORY).reply;
+      assert.doesNotMatch([reply.text, ...(reply.quick ?? []), ...(reply.actions ?? []).map((a) => a.label)].join(' '), /\b(tvs|sherco|gaerne)\b/i);
+    }
+  } finally { data.brands.splice(0, data.brands.length, ...snapshot); }
+});

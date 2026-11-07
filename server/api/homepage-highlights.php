@@ -113,11 +113,11 @@ foreach ($files as $file) {
         $markedCount++;
 
         // Seuls les produits publiés sont envoyés à la page d'accueil.
-        if (($product["status"] ?? null) === "PUBLISHED") {
-            $publishedHighlights[] = $product;
-        }
+        $publishedHighlights[] = $product;
     }
 }
+
+$publishedHighlights = funbikePublicProducts($publishedHighlights);
 
 // =====================================================
 // RÉPONSE

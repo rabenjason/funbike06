@@ -276,7 +276,7 @@ export function greetingText(name?: string): string {
 }
 
 export function initialQuick(): string[] {
-  return DEFAULT_QUICK;
+  return filterUnavailableBrandChoices(DEFAULT_QUICK);
 }
 
 function withBikes(reply: BotReply, bikes: Product[], mem: Memory, max = 4): BotReply {
@@ -285,7 +285,7 @@ function withBikes(reply: BotReply, bikes: Product[], mem: Memory, max = 4): Bot
   return { ...reply, productIds: list.map((b) => b.id) };
 }
 
-export function respond(raw: string, memIn: Memory): { reply: BotReply; memory: Memory } {
+function respondRaw(raw: string, memIn: Memory): { reply: BotReply; memory: Memory } {
   const mem: Memory = { ...memIn, lastIds: [...memIn.lastIds] };
   const t = norm(raw);
   const ws = wordsOf(t);
@@ -595,6 +595,34 @@ export function respond(raw: string, memIn: Memory): { reply: BotReply; memory: 
     },
     memory: mem,
   };
+}
+
+// Certains textes historiques du conseiller citent des marques en dur. Ne pas
+// les proposer lorsque ces marques ne figurent plus dans le catalogue public.
+const editorialBrands: { id: string; pattern: RegExp }[] = [
+  { id: "sherco", pattern: /\bsherco\b/i },
+  { id: "fantic", pattern: /\bfantic\b/i },
+  { id: "tvs", pattern: /\btvs\b/i },
+  { id: "troy-lee-designs", pattern: /\btroy lee\b|\btld\b/i },
+  { id: "mt-helmets", pattern: /\bmt helmets\b/i },
+  { id: "gaerne", pattern: /\bgaerne\b/i },
+  { id: "galfer", pattern: /\bgalfer\b/i },
+];
+function mentionsUnavailableBrand(text: string): boolean {
+  return editorialBrands.some(({ id, pattern }) => pattern.test(text) && !brands.some((brand) => brand.id === id && brand.isPublished !== false));
+}
+function filterUnavailableBrandChoices(choices: string[]): string[] {
+  return choices.filter((choice) => !mentionsUnavailableBrand(choice));
+}
+
+export function respond(raw: string, memIn: Memory): { reply: BotReply; memory: Memory } {
+  const result = respondRaw(raw, memIn);
+  if (mentionsUnavailableBrand(result.reply.text)) {
+    result.reply.text = "Pour connaître les références disponibles, consultez notre catalogue ou contactez l’équipe Funbike.";
+  }
+  if (result.reply.quick) result.reply.quick = filterUnavailableBrandChoices(result.reply.quick);
+  if (result.reply.actions) result.reply.actions = result.reply.actions.filter((action) => !mentionsUnavailableBrand(`${action.label} ${action.id ?? ""}`));
+  return result;
 }
 
 /** Human-like typing time, proportional to the answer length. */

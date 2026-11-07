@@ -3,10 +3,6 @@ import { brands } from "../catalog";
 import { motion, type Variants } from "framer-motion";
 import SmartImage from "./SmartImage";
 
-const EXCLUSIVE_BRANDS = homepageExclusiveBrands.flatMap(({ brandId, tagline }) => {
-  const brand = brands.find((item) => item.id === brandId);
-  return brand?.logo ? [{ key: brand.id, name: brand.name, tagline, image: brand.logo }] : [];
-});
 
 const list: Variants = {
   hidden: {},
@@ -19,6 +15,11 @@ const item: Variants = {
 };
 
 export default function BrandExclusif({ go }: { go: (p: string, id?: string) => void }) {
+  const exclusiveBrands = homepageExclusiveBrands.flatMap(({ brandId, tagline }) => {
+    const brand = brands.find((item) => item.id === brandId && item.isPublished !== false);
+    return brand?.logo ? [{ key: brand.id, name: brand.name, tagline, image: brand.logo }] : [];
+  });
+  if (!exclusiveBrands.length) return null;
   return (
     <section className="py-10 sm:py-12 lg:py-14">
       <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-7 lg:px-10">
@@ -47,7 +48,7 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
             viewport={{ once: true, amount: 0.15 }}
             className="grid grid-cols-3 gap-2.5 sm:gap-5"
           >
-            {EXCLUSIVE_BRANDS.map((brand) => (
+            {exclusiveBrands.map((brand) => (
               <motion.button
                 key={brand.key}
                 variants={item}

@@ -30,11 +30,11 @@ beforeEach(() => {
     if (path === 'auth/users.php?id=editor-1' && options.method === 'PUT') return { ok: true, json: async () => ({ temporaryPassword: 'temporaire-affiche-une-fois' }) };
     const fixed = {
       'auth/me.php': { user: currentUser }, 'auth/users.php': { users: [user, editor] },
-      'brands.php': { brands: [{ id: 'tvs', name: 'TVS', isEquipmentBrand: true }] },
+      'brands.php?includeDrafts=1': { brands: [{ id: 'tvs', name: 'TVS', isEquipmentBrand: true }] },
       'categories.php': { categories: [{ id: 'motos', name: 'Motos' }] },
       'families.php': { families: [{ id: 'urbain', name: 'Urbain', categoryId: 'motos' }] },
       'product-types.php': { productTypes: [{ id: 'urbain', name: 'Urbain', categoryId: 'motos', familyId: 'urbain' }] },
-      'models.php': { models: [] },
+      'models.php?includeDrafts=1': { models: [] },
       'products/motorcycles.php?includeDrafts=1': { data: [product] },
       'products/helmets.php?includeDrafts=1': { data: [] },
       'products/riding-gear.php?includeDrafts=1': { data: [] },

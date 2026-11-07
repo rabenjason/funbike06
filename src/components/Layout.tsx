@@ -18,7 +18,7 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { LOGO } from "../catalog";
+import { LOGO, brands } from "../catalog";
 import { content } from "../constants/content";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../catalog/contact";
 
@@ -171,11 +171,12 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const exclusiveBrands = content.footer.marquesExclusives.filter((name) => brands.some((brand) => brand.name.toLowerCase() === name.toLowerCase() && brand.isPublished !== false));
   const shopIcons = [faMotorcycle, faMotorcycle, faHelmetSafety, faGears, faStore];
   const shop = content.footer.catalogueLiens.map((item, index) => ({
     ...item,
     icon: shopIcons[index] ?? faMotorcycle,
-  }));
+  })).filter((item) => !("id" in item) || brands.some((brand) => brand.name.toLowerCase() === item.id.toLowerCase() && brand.isPublished !== false));
 
   const stagger = {
     hidden: {},
@@ -253,21 +254,21 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
               <BrandMark large />
             </button>
             <p className="mt-3.5 max-w-sm text-xs leading-relaxed text-white/60 sm:text-sm">
-              {content.footer.descriptionMarque}
+              {exclusiveBrands.length === content.footer.marquesExclusives.length ? content.footer.descriptionMarque : "Le terrain change. La passion reste. Motos, pièces détachées et équipements pilote pour les routes de Madagascar."}
             </p>
-            <div className="mt-4 border-t border-white/[0.08] pt-3">
+            {exclusiveBrands.length > 0 && <div className="mt-4 border-t border-white/[0.08] pt-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#ffd100]">
                 {content.footer.distributeurExclusif}
               </p>
               <p className="mt-1 text-xs font-semibold text-white/85">
-                {content.footer.marquesExclusives.map((name, index) => (
+                {exclusiveBrands.map((name, index) => (
                   <span key={name}>
                     {index > 0 && <span className="text-[#ffd100]"> · </span>}
                     {name}
                   </span>
                 ))}
               </p>
-            </div>
+            </div>}
           </motion.div>
 
           {/* Links Section: On mobile, grouped into a responsive 2-column grid */}

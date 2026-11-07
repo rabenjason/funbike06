@@ -2,13 +2,14 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
-import { findProductById } from "../catalog";
+import { brands, findProductById } from "../catalog";
 import { CONTACT_EMAIL, CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
 
 // Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
 
 export default function Contact({ inquiryId }: { inquiryId?: string }) {
+  const hasBrand = (id: string) => brands.some((brand) => brand.id === id && brand.isPublished !== false);
   const [sent, setSent] = useState(false);
   const accessory = findProductById(inquiryId);
   const socialLinks = CONTACT_SOCIAL_LINKS.filter((link) => {
@@ -132,11 +133,11 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
               className="contact-subject mt-1.5 min-h-11 w-full cursor-pointer border-x-0 border-b border-t-0 border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition focus:border-[#98741b] focus:outline-none focus:ring-0 dark:border-white/20 dark:text-[#f2f0ea] dark:focus:border-[#ffd100]"
             >
               <option value="" disabled className="text-black/50">Choisissez un sujet</option>
-              <option value="tvs">Informations TVS</option>
+              {hasBrand("tvs") && <><option value="tvs">Informations TVS</option>
               <option value="tvs-accessoires">Équipements TVS (casques, blousons, gants)</option>
-              <option value="tuktuk-tvs">Informations TukTuk TVS</option>
-              <option value="fantic">Informations Fantic</option>
-              <option value="sherco">Informations Sherco</option>
+              <option value="tuktuk-tvs">Informations TukTuk TVS</option></>}
+              {hasBrand("fantic") && <option value="fantic">Informations Fantic</option>}
+              {hasBrand("sherco") && <option value="sherco">Informations Sherco</option>}
               <option value="pieces">Pièces détachées</option>
               <option value="autres">Autres</option>
             </select>
