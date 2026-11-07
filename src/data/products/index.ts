@@ -16,6 +16,9 @@ export const findProductById = (id?: string): Product | undefined =>
   id ? products.find((product) => product.id === id) : undefined;
 export const getProductsByBrand = (brandId: string): Product[] =>
   products.filter((product) => product.brandId === brandId);
+/** Casques et équipements publiés fabriqués par cette marque. */
+export const getEquipmentProducts = (brandId: string, catalog: Product[] = products): Product[] =>
+  catalog.filter((product) => product.brandId === brandId && product.status === "PUBLISHED" && (product.categoryId === "casques" || product.categoryId === "equipements"));
 export const getProductsByCategory = (categoryId: string): Product[] =>
   products.filter((product) => product.categoryId === categoryId);
 export const getProductsByType = (productTypeId: string): Product[] =>
