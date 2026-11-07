@@ -425,11 +425,10 @@ textarea.chat-composer:focus-visible {
   background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.08), transparent);
 }
 
-/* Reliable partner ticker: the track contains two identical logo sets, so
-   -50% always lands on an exact loop boundary. */
+/* Two identical halves; each is repeated as needed to fill the viewport. */
 .fb-partner-track {
   will-change: transform;
-  animation: fb-partners-left 22s linear infinite;
+  animation: fb-partners-left var(--partner-duration, 22s) linear infinite;
 }
 
 .group\/marquee:hover .fb-partner-track {
@@ -485,6 +484,11 @@ textarea.chat-composer:focus-visible {
 .animate-fb-ear { animation: fb-ear 2.6s ease-in-out infinite; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
+  .fb-partner-track { animation: none !important; width: 100%; }
+  .fb-partner-half { width: 100%; }
+  .fb-partner-half + .fb-partner-half, .fb-partner-set + .fb-partner-set, .fb-partner-fade { display: none; }
+  .fb-partner-set { width: 100%; flex-wrap: wrap; padding-right: 0; }
+
   *,
   *::before,
   *::after {
