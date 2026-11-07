@@ -1,4 +1,4 @@
-import { motorcycles, helmets, spareParts, brands } from "../data";
+import { motorcycles, helmets, spareParts, brands, getProductFamily } from "../data";
 import type { Product } from "../types/product";
 import { runRecommender, isSpecificModelRequest, detectBrandText, type NeedProfile } from "./recommender";
 
@@ -143,7 +143,7 @@ const BRAND_WORDS: Record<string, string[]> = {
 const INDEX = motorcycles.map((bike) => ({
   bike,
   name: norm(bike.name),
-  hay: norm(`${bike.name} ${bikeBrand(bike)} ${bike.family ?? ""} ${bike.description} ${bike.specifications.map((spec) => spec.value).join(" ")}`),
+  hay: norm(`${bike.name} ${bikeBrand(bike)} ${getProductFamily(bike)?.name ?? ""} ${bike.description} ${bike.specifications.map((spec) => spec.value).join(" ")}`),
 }));
 
 function detectFamily(t: string): BikeFamily | undefined {
@@ -174,7 +174,7 @@ export function searchBikes(t: string): Product[] {
     MODEL_WORDS.forEach((kw) => {
       if (hasAny(t, [kw]) && new RegExp(`\\b${kw}`).test(name)) score += 6;
     });
-    if (family && bike.family === family) score += 3;
+    if (family && getProductFamily(bike)?.name === family) score += 3;
     numbers.forEach((n) => {
       if (new RegExp(`\\b${n}\\b`).test(name)) score += 7;
       else if (hay.includes(`${n} cc`)) score += 4;
@@ -567,7 +567,7 @@ export function respond(raw: string, memIn: Memory): { reply: BotReply; memory: 
 
   /* --- Catalogue overview ------------------------------------------ */
   if (hasAny(t, I.catalog)) {
-    const count = (f: BikeFamily) => motorcycles.filter((b) => b.family === f).length;
+    const count = (f: BikeFamily) => motorcycles.filter((b) => getProductFamily(b)?.name === f).length;
     return done({
       text: `Notre catalogue compte **${motorcycles.length} véhicules** :\n• ${count("Off-road")} motos off-road (Sherco, Fantic)\n• ${count("Urbain")} motos urbaines (TVS)\n• ${count("3 roues")} tuktuk 3 roues\nQuelle famille vous intéresse ?`,
       quick: ["Enduro / off-road", "Motos TVS", "Tuktuk 3 roues"],

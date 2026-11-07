@@ -3,13 +3,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import type { Product } from "../types/product";
-import { brands, mainProductImage, productGallery, productTypes } from "../data";
+import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../data";
 import SmartImage from "./SmartImage";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
 export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean }) {
   const gallery = productGallery(bike);
+  const family = getProductFamily(bike)?.name;
   const [active, setActive] = useState(0);
 
   return (
@@ -63,7 +64,7 @@ export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; g
 
       <div className="flex flex-1 flex-col border-t border-black/[0.07] p-4 sm:p-5 dark:border-white/[0.07]">
         <p className={"text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45 dark:text-white/45 " + (uniformLayout ? "line-clamp-1" : "")}>
-          {brandName(bike)}{bike.family ? ` · ${bike.family}` : ""}
+          {brandName(bike)}{family ? ` · ${family}` : ""}
         </p>
         <h3
           title={uniformLayout ? bike.name : undefined}

@@ -1,3 +1,4 @@
+import { getProductFamily } from "../data";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -274,7 +275,7 @@ function ProductStrip({
               />
               <div className="p-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 dark:text-white/45">
-                  {brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée"} · {bike.family}
+                  {brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée"} · {getProductFamily(bike)?.name}
                 </p>
                 <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-[#171816] dark:text-[#f2f0ea]">
                   {bike.name}

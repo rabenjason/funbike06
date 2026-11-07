@@ -51,8 +51,6 @@ export interface Product {
   price?: string;
   tags?: string[];
   badge?: string;
-  /** Existing vehicle family classification. */
-  family?: string;
   /** Compatibility is separate from the product's manufacturer. */
   compatibleBrandIds?: string[];
   compatibilityNote?: string;

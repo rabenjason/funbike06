@@ -36,8 +36,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Urbain"
+    "price": "Sur devis"
   },
   {
     "id": "tvs-hlx-plus",
@@ -74,8 +73,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Urbain"
+    "price": "Sur devis"
   },
   {
     "id": "tvs-200-4v",
@@ -116,8 +114,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Urbain"
+    "price": "Sur devis"
   },
   {
     "id": "sherco-sef-300-factory-2026",
@@ -166,8 +163,7 @@ export const motorcycles: Product[] = [
     "badge": "Nouveauté 2026",
     "tags": [
       "Nouveauté 2026"
-    ],
-    "family": "Off-road"
+    ]
   },
   {
     "id": "tvs-red",
@@ -200,8 +196,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Urbain"
+    "price": "Sur devis"
   },
   {
     "id": "tuktuk",
@@ -238,8 +233,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "3 roues"
+    "price": "Sur devis"
   },
   {
     "id": "sherco-sef-250-factory-2026",
@@ -320,8 +314,7 @@ export const motorcycles: Product[] = [
     "badge": "Nouveauté 2026",
     "tags": [
       "Nouveauté 2026"
-    ],
-    "family": "Off-road"
+    ]
   },
   {
     "id": "tvs-bleu",
@@ -376,8 +369,7 @@ export const motorcycles: Product[] = [
     "badge": "3 coloris",
     "tags": [
       "3 coloris"
-    ],
-    "family": "Urbain"
+    ]
   },
   {
     "id": "concept-urbain",
@@ -406,8 +398,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Urbain"
+    "price": "Sur devis"
   },
   {
     "id": "xx-125-2026",
@@ -452,8 +443,7 @@ export const motorcycles: Product[] = [
     "badge": "Best-seller",
     "tags": [
       "Best-seller"
-    ],
-    "family": "Off-road"
+    ]
   },
   {
     "id": "offroad-trail",
@@ -486,8 +476,7 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Off-road"
+    "price": "Sur devis"
   },
   {
     "id": "offroad-450",
@@ -524,7 +513,6 @@ export const motorcycles: Product[] = [
       }
     ],
     "status": "PUBLISHED",
-    "price": "Sur devis",
-    "family": "Off-road"
+    "price": "Sur devis"
   }
 ] satisfies (Product & { isHomepageHero: boolean; isMotoAccueil: boolean })[];
