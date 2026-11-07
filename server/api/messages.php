@@ -75,6 +75,12 @@ if ($method === 'POST') {
 }
 
 if ($method === 'GET') {
+    // Le compteur couvre toute la boîte, indépendamment de la page affichée.
+    if (($_GET['count'] ?? '') === 'unread') {
+        $unread = 0;
+        foreach ($data['messages'] as $item) if (($item['status'] ?? null) === 'NEW') $unread++;
+        funbikeJsonResponse(200, ['unreadCount' => $unread]);
+    }
     $order = $_GET['order'] ?? 'desc';
     if (!in_array($order, ['asc', 'desc'], true)) funbikeJsonResponse(400, ['error' => 'Tri invalide.']);
     $pageValue = $_GET['page'] ?? '1';

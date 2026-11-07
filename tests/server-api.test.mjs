@@ -51,6 +51,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const inquiry = { name: 'Client Essai', phone: '034 12 345 67', email: 'client@example.com', whatsapp: '+261 34 12 345 67', subject: 'pieces', message: 'Bonjour,\nje cherche une pièce.', website: '' };
     assert.equal((await fetch(`http://127.0.0.1:${port}/server/storage/private/messages.json`)).status, 404);
     assert.equal((await call('messages.php')).status, 401);
+    assert.equal((await call('messages.php?count=unread')).status, 401);
     assert.equal((await call('messages.php?id=00000000000000000000000000000000', { method: 'PUT', body: { status: 'READ' } })).status, 401);
     assert.equal((await call('messages.php?id=00000000000000000000000000000000', { method: 'DELETE' })).status, 401);
     const evilMessage = await fetch(base + 'messages.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify(inquiry) });
@@ -75,6 +76,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(storedMessages.messages[0].status, 'NEW');
     for (let i = 1; i <= 15; i++) storedMessages.messages.push({ ...storedMessages.messages[0], id: randomBytes(16).toString('hex'), name: `Ancien ${i}`, createdAt: `2024-01-${String(i).padStart(2, '0')}T10:00:00Z` });
     writeFileSync(messageFile, JSON.stringify(storedMessages));
+    assert.deepEqual((await call('messages.php?count=unread', { authenticated: true })).body, { unreadCount: 25 });
     const recent = await call('messages.php?page=1&order=desc', { authenticated: true });
     assert.equal(recent.status, 200); assert.equal(recent.body.total, 25); assert.equal(recent.body.pages, 3); assert.equal(recent.body.messages.length, 10);
     assert.equal(recent.body.messages[0].name, 'Client 8');
@@ -88,13 +90,25 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'WRONG' } })).status, 400);
     const readMessage = await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'READ', message: 'intrusion' } });
     assert.equal(readMessage.status, 200); assert.equal(readMessage.body.message.status, 'READ'); assert.equal(readMessage.body.message.message, inquiry.message);
+    assert.equal((await call('messages.php?count=unread', { authenticated: true })).body.unreadCount, 24);
+    assert.equal((await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'NEW' } })).body.message.status, 'NEW');
+    assert.equal((await call('messages.php?count=unread', { authenticated: true })).body.unreadCount, 25);
     assert.equal((await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'PROCESSED' } })).body.message.status, 'PROCESSED');
+    assert.equal((await call('messages.php?count=unread', { authenticated: true })).body.unreadCount, 24);
     assert.equal((await call(`messages.php?id=${messageId}`, { method: 'DELETE', authenticated: true })).status, 200);
     assert.equal((await call(`messages.php?id=${messageId}`, { method: 'DELETE', authenticated: true })).status, 404);
     assert.equal((await call('messages.php', { authenticated: true })).body.total, 24);
     storedMessages = JSON.parse(readFileSync(messageFile, 'utf8'));
     assert.equal(storedMessages.messages.length, 24);
     assert.ok(!storedMessages.messages.some((m) => m.id === messageId));
+    const unreadId = storedMessages.messages.find((m) => m.status === 'NEW').id;
+    assert.equal((await call(`messages.php?id=${unreadId}`, { method: 'DELETE', authenticated: true })).status, 200);
+    assert.equal((await call('messages.php?count=unread', { authenticated: true })).body.unreadCount, 23);
+    storedMessages = JSON.parse(readFileSync(messageFile, 'utf8'));
+    storedMessages.messages.forEach((m) => { m.status = 'READ'; });
+    writeFileSync(messageFile, JSON.stringify(storedMessages));
+    assert.equal((await call('messages.php?count=unread', { authenticated: true })).body.unreadCount, 0);
+
     // Un fichier endommagé ne doit jamais être remplacé par une boîte vide.
     const messagesBackup = readFileSync(messageFile, 'utf8');
     writeFileSync(messageFile, '{"messages":');

@@ -23,7 +23,7 @@ function dateLabel(value: string) {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export function AdminMessages() {
+export function AdminMessages({ onChanged }: { onChanged: () => void }) {
   const confirm = useConfirmation();
   const [inbox, setInbox] = useState<Inbox>(empty);
   const [page, setPage] = useState(1); const [order, setOrder] = useState<"asc" | "desc">("desc");
@@ -48,6 +48,7 @@ export function AdminMessages() {
       const saved: Message = result.message;
       setSelected((current) => current?.id === saved.id ? saved : current);
       setInbox((current) => ({ ...current, messages: current.messages.map((message) => message.id === saved.id ? saved : message) }));
+      onChanged();
     } catch (err) { setError((err as Error).message); }
     finally { setBusy(false); }
   }
@@ -60,7 +61,7 @@ export function AdminMessages() {
     setBusy(true); setError(""); setNotice("");
     try {
       await request(`messages.php?id=${encodeURIComponent(item.id)}`, json("DELETE"));
-      setSelected(null); setNotice("Le message a été supprimé."); setAttempt((value) => value + 1);
+      onChanged(); setSelected(null); setNotice("Le message a été supprimé."); setAttempt((value) => value + 1);
     } catch (err) { setError((err as Error).message); }
     finally { setBusy(false); }
   }
@@ -73,7 +74,7 @@ export function AdminMessages() {
     {notice && <p role="status" className="mb-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.15fr]">
       <section className={panel} aria-label="Liste des messages">
-        <div className="flex flex-wrap items-end justify-between gap-3"><h2 className="text-lg font-bold">Messages {loaded && `(${inbox.total})`}</h2><label className="text-xs font-semibold text-black/65">Trier par date<select value={order} disabled={busy || loading} onChange={(e) => { setOrder(e.target.value as "asc" | "desc"); setPage(1); setSelected(null); setNotice(""); }} className="ml-2 rounded-md border border-black/20 bg-white px-2 py-2 text-sm text-[#171816]"><option value="desc">Plus récents d’abord</option><option value="asc">Plus anciens d’abord</option></select></label></div>
+        <div className="flex flex-wrap items-end justify-between gap-3"><button type="button" className={secondary} disabled={busy || loading} onClick={() => { setSelected(null); setAttempt((value) => value + 1); }}>Actualiser</button><h2 className="text-lg font-bold">Messages {loaded && `(${inbox.total})`}</h2><label className="text-xs font-semibold text-black/65">Trier par date<select value={order} disabled={busy || loading} onChange={(e) => { setOrder(e.target.value as "asc" | "desc"); setPage(1); setSelected(null); setNotice(""); }} className="ml-2 rounded-md border border-black/20 bg-white px-2 py-2 text-sm text-[#171816]"><option value="desc">Plus récents d’abord</option><option value="asc">Plus anciens d’abord</option></select></label></div>
         {loading ? <p className="mt-4 text-sm text-black/55">Chargement des messages…</p> : !loaded ? <button type="button" className={`${secondary} mt-4`} onClick={() => setAttempt((value) => value + 1)}>Réessayer le chargement</button> : inbox.total === 0 ? <p className="mt-4 text-sm text-black/55">Aucun message pour le moment.</p> : <>
           <div className="mt-4 divide-y divide-black/10">{inbox.messages.map((item) => <button type="button" key={item.id} disabled={busy} onClick={() => open(item)} className={`block w-full py-3 text-left disabled:opacity-50 ${selected?.id === item.id ? "bg-black/[0.03]" : "hover:bg-black/[0.02]"}`}><span className="flex flex-wrap items-center justify-between gap-2"><span className="break-words font-semibold">{item.name}</span><span className="text-xs text-black/55">{dateLabel(item.createdAt)}</span></span><span className="mt-1 block break-words text-sm text-black/60">{item.subjectLabel}</span><span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${item.status === "NEW" ? "bg-sky-50 text-sky-800" : item.status === "PROCESSED" ? "bg-emerald-50 text-emerald-800" : "bg-black/5 text-black/60"}`}>{labels[item.status] ?? item.status}</span></button>)}</div>
           <nav aria-label="Pagination des messages" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-4"><p className="text-xs text-black/60">Page {inbox.page} / {inbox.pages} · {inbox.total} message{inbox.total > 1 ? "s" : ""}</p><div className="flex gap-2"><button type="button" disabled={busy || inbox.page <= 1} className={secondary} onClick={() => goPage(inbox.page - 1)}>Précédent</button><button type="button" disabled={busy || inbox.page >= inbox.pages} className={secondary} onClick={() => goPage(inbox.page + 1)}>Suivant</button></div></nav>

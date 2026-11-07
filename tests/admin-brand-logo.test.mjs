@@ -28,7 +28,7 @@ beforeEach(() => {
       return { ok: true, json: async () => ({ brand: brands[0] }) };
     }
     if (path === 'brands.php?includeDrafts=1' && failRefresh && writes.length) return { ok: false, json: async () => ({ error: 'Indisponible' }) };
-    const fixed = {
+    const fixed = { 'messages.php?count=unread': { unreadCount: 0 },
       'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } },
       'brands.php?includeDrafts=1': { brands }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] },
       'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] },
