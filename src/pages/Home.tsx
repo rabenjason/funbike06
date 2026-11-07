@@ -17,6 +17,7 @@ import { BikeCard, PartCard } from "../components/Cards";
 import { AccessoryBrandQuickLinks } from "../components/AccessoryBrands";
 import ShercoBanner from "../components/ShercoBanner";
 import BrandExclusif from "../components/BrandExclusif";
+import PartnerMarquee from "../components/PartnerMarquee";
 import NewArrivals from "../components/NewArrivals";
 import TypedText from "../components/TypedText";
 
@@ -250,35 +251,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-black/45 dark:text-white/45">{homepageContent.partenaires.titre}</p>
             <span className="text-[9px] uppercase tracking-[0.16em] text-black/35 dark:text-white/35">{homepageContent.partenaires.description}</span>
           </div>
-          <div className="group/marquee relative overflow-hidden">
-            {/* Fade edges so logos slide in and out smoothly */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-white to-transparent sm:w-24 dark:from-[#141513]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-white to-transparent sm:w-24 dark:from-[#141513]"
-            />
-
-            <div className="fb-partner-track flex w-max items-center gap-6 pr-6 sm:gap-10 sm:pr-10">
-              {[...partners, ...partners].map((brand, index) => (
-                <motion.div
-                  key={`${brand.name}-${index}`}
-                  whileHover={{ scale: 1.08 }}
-                  transition={{ type: "spring", stiffness: 320, damping: 20 }}
-                  className="brand-logo-tile shrink-0"
-                >
-                  <img
-                    src={brand.logo ?? ""}
-                    alt={`${homepageContent.partenaires.logoPrefix} ${brand.name}`}
-                    loading="lazy"
-                    className="partner-logo h-full w-full object-contain transition-opacity hover:opacity-100"
-                  />
-                </motion.div>
-              ))}
-            </div>
-          </div>
+          <PartnerMarquee partners={partners} />
         </div>
       </section>}
     </div>
