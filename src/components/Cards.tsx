@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import type { Product } from "../types/product";
-import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../data";
+import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../catalog";
 import SmartImage from "./SmartImage";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";

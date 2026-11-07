@@ -413,3 +413,9 @@ Avant de renommer l'ancien dossier `serveur` en `server` sur l'hébergement, sau
 L'interface admin gère les produits des quatre catégories existantes, les marques, catégories, familles, types, modèles et comptes. Les nouvelles familles et nouveaux types alimentent les filtres selon les produits publiés. Pour les motos, la famille utilisée est celle du type (`productTypeId` → type → `familyId`) : le champ texte historique `family` n'est pas la référence. Les catégories de produits restent les quatre catégories prises en charge par les routes et pages existantes : créer une catégorie supplémentaire ne crée pas automatiquement une nouvelle page ou un nouvel endpoint. L'édition des revendeurs et coordonnées reste disponible par API, mais n'a pas encore de formulaire dans l'admin.
 
 Les tests automatisés `npm test` couvrent aussi l'API lorsque PHP est installé (sinon le test PHP est indiqué comme ignoré). Ils utilisent une copie temporaire isolée, jamais les données de production.
+
+### Photos dans l’administration
+
+À l’ajout comme à la modification d’un produit, les aperçus permettent de choisir une seule photo principale parmi les photos existantes et les nouveaux fichiers. La sélection n’est enregistrée qu’après validation du formulaire. L’ancienne photo principale reste dans la galerie à moins d’être retirée explicitement ; les fichiers retirés peuvent rester sur disque et nécessitent un nettoyage séparé après sauvegarde. Si la photo principale est retirée, en sélectionner une autre avant d’enregistrer, sauf si aucune photo ne reste.
+
+Les tableaux du front commencent vides et sont remplis par l’API ; les fichiers JSON `server/storage/data/` restent indispensables et ne doivent pas être supprimés. Les textes de présentation du site sont toujours dans le code du front.

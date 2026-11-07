@@ -1,4 +1,4 @@
-import { motorcycles, brands } from "../data";
+import { motorcycles, brands } from "../catalog";
 import type { Product } from "../types/product";
 import type { ChatAction } from "./assistant";
 

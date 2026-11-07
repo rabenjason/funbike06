@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowUpRightFromSquare, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
-import { getAvailableEquipmentBrands } from "../data";
+import { getAvailableEquipmentBrands } from "../catalog";
 
 /** Visualisation partagée avec les filtres des pièces détachées. */
 export type AccessoryBrand = {

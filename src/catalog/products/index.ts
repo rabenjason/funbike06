@@ -1,16 +1,9 @@
-import { motorcycles } from "./motorcycles";
-import { spareParts } from "./spareParts";
-import { helmets } from "./helmets";
-import { ridingGear } from "./ridingGear";
 import type { Product } from "../../types/product";
-
-export { motorcycles, spareParts, helmets, ridingGear };
-export const products: Product[] = [
-  ...motorcycles,
-  ...spareParts,
-  ...helmets,
-  ...ridingGear,
-];
+export const motorcycles: Product[] = [];
+export const spareParts: Product[] = [];
+export const helmets: Product[] = [];
+export const ridingGear: Product[] = [];
+export const products: Product[] = [];
 
 export const findProductById = (id?: string): Product | undefined =>
   id ? products.find((product) => product.id === id) : undefined;

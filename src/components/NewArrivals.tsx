@@ -1,9 +1,9 @@
-import { homepageContent } from "../data/homepage";
+import { homepageContent } from "../content/homepage";
 import { content } from "../constants/content";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { motion, type Variants } from "framer-motion";
-import { brands, getNewArrivals, mainProductImage, productDetailPage, productTypes } from "../data";
+import { brands, getNewArrivals, mainProductImage, productDetailPage, productTypes } from "../catalog";
 import SmartImage from "./SmartImage";
 
 const list: Variants = {
@@ -72,7 +72,7 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                     src={image?.url ?? ""}
                     alt={image?.altText ?? product.name}
                     className="absolute inset-0"
-                    imgClassName="object-contain p-2 transition-transform duration-500 group-hover:scale-[1.035]"
+                    imgClassName="object-contain p-3"
                   />
 
                 </button>

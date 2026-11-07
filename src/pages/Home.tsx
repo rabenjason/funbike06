@@ -1,4 +1,4 @@
-import { homepageContent, homepageCategories } from "../data/homepage";
+import { homepageContent, homepageCategories } from "../content/homepage";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, brands, mainProductImage } from "../data";
+import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";

@@ -2,10 +2,10 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
-import { findProductById } from "../data";
-import { CONTACT_EMAIL, CONTACT_INFO } from "../data/contact";
+import { findProductById } from "../catalog";
+import { CONTACT_EMAIL, CONTACT_INFO } from "../catalog/contact";
 
-// Les coordonnées affichées sont centralisées dans src/data/contact.ts.
+// Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
 
 export default function Contact({ inquiryId }: { inquiryId?: string }) {

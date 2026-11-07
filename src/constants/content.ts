@@ -12,7 +12,7 @@ export const content = {
     logoAlt: "Funbike Madagascar",
     pays: "Madagascar",
     ville: "Antananarivo",
-    // Adresse, téléphone, e-mail et horaires : source unique dans src/data/contact.ts.
+    // Adresse, téléphone, e-mail et horaires : source unique dans l’API de contact.
   },
 
   navigation: {
@@ -278,7 +278,7 @@ export const content = {
     whatsappNonRenseigne: "WhatsApp : non renseigné",
     demandePiecePrefix: "Bonjour, je souhaiterais connaître le prix, la disponibilité et la compatibilité de : ",
     demandePieceSuffix: ".",
-    // Les lignes d'informations de contact sont centralisées dans src/data/contact.ts (CONTACT_INFO).
+    // Les lignes d'informations de contact sont centralisées dans l’API de contact (CONTACT_INFO).
   },
 
   blog: {
@@ -301,7 +301,7 @@ export const content = {
     catalogue: "Catalogue",
     nousTrouver: "Nous trouver",
     showroom: "Showroom & atelier Funbike",
-    // Adresse affichée : source unique dans src/data/contact.ts (CONTACT_ADDRESS).
+    // Adresse affichée : source unique dans l’API de contact (CONTACT_ADDRESS).
     revendeurs: "Tous nos revendeurs",
     droitsReserves: "Funbike Madagascar · Tous droits réservés",
     cookies: "Cookies",

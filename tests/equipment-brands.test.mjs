@@ -1,3 +1,4 @@
+import { seedCatalog } from "./helpers/catalog.mjs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
@@ -12,7 +13,8 @@ let AccessoryBrandSelector;
 
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
-  data = await server.ssrLoadModule("/src/data/index.ts");
+  data = await server.ssrLoadModule("/src/catalog/index.ts");
+  await seedCatalog(server);
   ({ Equipements } = await server.ssrLoadModule("/src/pages/Catalog.tsx"));
   ({ AccessoryBrandQuickLinks, AccessoryBrandSelector } = await server.ssrLoadModule("/src/components/AccessoryBrands.tsx"));
 });

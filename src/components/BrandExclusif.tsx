@@ -1,5 +1,5 @@
-import { homepageContent, homepageExclusiveBrands } from "../data/homepage";
-import { brands } from "../data";
+import { homepageContent, homepageExclusiveBrands } from "../content/homepage";
+import { brands } from "../catalog";
 import { motion, type Variants } from "framer-motion";
 import SmartImage from "./SmartImage";
 

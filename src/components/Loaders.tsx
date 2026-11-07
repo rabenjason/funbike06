@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { LOGO } from "../data";
+import { LOGO } from "../catalog";
 
 /** Short branded splash shown while the first hero image preloads. */
 export function SplashLoader({ show }: { show: boolean }) {

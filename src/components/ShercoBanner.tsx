@@ -1,4 +1,4 @@
-import { homepageContent } from "../data/homepage";
+import { homepageContent } from "../content/homepage";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { motion, useInView, type Variants } from "framer-motion";
