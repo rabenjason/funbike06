@@ -8,7 +8,7 @@ import SmartImage from "./SmartImage";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
-export function BikeCard({ bike, go }: { bike: Product; go: (p: string, id?: string) => void }) {
+export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean }) {
   const gallery = productGallery(bike);
   const [active, setActive] = useState(0);
 
@@ -62,15 +62,18 @@ export function BikeCard({ bike, go }: { bike: Product; go: (p: string, id?: str
       </div>
 
       <div className="flex flex-1 flex-col border-t border-black/[0.07] p-4 sm:p-5 dark:border-white/[0.07]">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45 dark:text-white/45">
+        <p className={"text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45 dark:text-white/45 " + (uniformLayout ? "line-clamp-1" : "")}>
           {brandName(bike)}{bike.family ? ` · ${bike.family}` : ""}
         </p>
-        <h3 className="mt-2 font-display text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] font-bold uppercase leading-[1.05] tracking-[-0.02em] text-[#171816] dark:text-white">
+        <h3
+          title={uniformLayout ? bike.name : undefined}
+          className={"mt-2 font-display text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] font-bold uppercase leading-[1.05] tracking-[-0.02em] text-[#171816] dark:text-white " + (uniformLayout ? "line-clamp-2 min-h-[2.1em] [overflow-wrap:anywhere]" : "")}
+        >
           {bike.name}
         </h3>
-        <p className="fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55">{bike.description}</p>
+        <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em]" : "")}>{bike.description}</p>
 
-        <div className="mt-5 flex items-center justify-between gap-3">
+        <div className={"flex items-center justify-between gap-3 " + (uniformLayout ? "mt-auto pt-5" : "mt-5")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
@@ -80,7 +83,7 @@ export function BikeCard({ bike, go }: { bike: Product; go: (p: string, id?: str
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
-          <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60">
+          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (uniformLayout ? "max-w-[45%] break-words text-right" : "shrink-0")}>
             {bike.price ?? "Sur devis"}
           </span>
         </div>

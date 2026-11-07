@@ -195,7 +195,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         number={homepageContent.motos.numero}
       >
         <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8">
-          {motosAccueil.map((product) => <BikeCard key={product.id} bike={product} go={go} />)}
+          {motosAccueil.map((product) => <BikeCard key={product.id} bike={product} go={go} uniformLayout />)}
         </div>
         <button
           onClick={() => go("motos")}
