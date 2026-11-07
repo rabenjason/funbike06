@@ -7,11 +7,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 let server;
 let data;
 let Home;
+let BikeCard;
 
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
   data = await server.ssrLoadModule("/src/data/index.ts");
   Home = (await server.ssrLoadModule("/src/pages/Home.tsx")).default;
+  BikeCard = (await server.ssrLoadModule("/src/components/Cards.tsx")).BikeCard;
 });
 after(async () => { await server?.close(); });
 
@@ -60,4 +62,33 @@ test("les cartes motos suivent leur propre sélection indépendamment des nouvea
   } finally {
     data.motorcycles.forEach((bike, index) => { bike.isMotoAccueil = flags[index]; });
   }
+});
+
+
+test("les cartes motos de l'accueil conservent des espaces réguliers pour les titres, descriptions et actions", () => {
+  const html = renderMotosSection();
+  const cards = html.match(/<article\b[\s\S]*?<\/article>/g) ?? [];
+  assert.equal(cards.length, data.getMotosAccueil().length);
+  for (const card of cards) {
+    assert.match(card, /<h3[^>]*line-clamp-2 min-h-\[2\.1em\]/);
+    assert.match(card, /<p[^>]*line-clamp-2[^>]*min-h-\[3\.2em\]/);
+    assert.match(card, /class="[^"]*mt-auto pt-5/);
+  }
+});
+
+test("la forme reste stable pour des noms et descriptions de longueurs différentes", () => {
+  const base = data.motorcycles[0];
+  for (const bike of [
+    { ...base, name: "Moto", description: "" },
+    { ...base, name: "Une moto avec un nom particulièrement long et plusieurs mots pour le pilote", description: "Une description longue. ".repeat(20), price: "Tarif sur demande auprès de l'équipe" },
+  ]) {
+    const html = renderToStaticMarkup(React.createElement(BikeCard, { bike, go() {}, uniformLayout: true }));
+    assert.ok(html.includes(escapeHtml(bike.name)));
+    assert.match(html, /title="[^"]+"[^>]*line-clamp-2 min-h-\[2\.1em\]/);
+    assert.match(html, /<p[^>]*line-clamp-2[^>]*min-h-\[3\.2em\]/);
+    assert.match(html, /mt-auto pt-5/);
+    assert.match(html, /max-w-\[45%\] break-words text-right/);
+  }
+  const otherPage = renderToStaticMarkup(React.createElement(BikeCard, { bike: base, go() {} }));
+  assert.ok(!otherPage.includes("min-h-[2.1em]"), "les autres pages gardent leur présentation actuelle");
 });
