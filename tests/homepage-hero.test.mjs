@@ -46,15 +46,10 @@ test("le bandeau utilise le nom, la marque et l'image du produit sélectionné",
   assert.ok(hero.includes(escapeHtml(brand.name)));
   assert.ok(hero.includes(escapeHtml(data.mainProductImage(bike).url)));
   const images = hero.match(/<img[^>]*>/g) ?? [];
-  const imageUrl = escapeHtml(data.mainProductImage(bike).url);
-  const background = images.find((image) => image.includes("blur-2xl"));
-  const desktop = images.find((image) => image.includes("object-contain") && image.includes("sm:block"));
-  const mobile = images.find((image) => image.includes("object-contain") && !image.includes("sm:block"));
-  assert.ok(background && desktop && mobile, "fond flouté et images entières sur ordinateur et mobile");
-  for (const image of [background, desktop, mobile]) assert.ok(image.includes(imageUrl));
-  assert.match(background, /aria-hidden="true"/);
-  assert.match(background, /alt=""/);
-  assert.ok(hero.includes("sm:hidden"), "zone de la moto réservée au mobile");
+  assert.equal(images.length, 1, "une seule image pour tout le bandeau");
+  assert.ok(images[0].includes("object-cover"), "l'image remplit le bandeau");
+  assert.ok(images[0].includes(escapeHtml(data.mainProductImage(bike).url)));
+  assert.ok(!images[0].includes("blur-2xl"));
   assert.equal((hero.match(/aria-pressed=/g) ?? []).length, 3);
 });
 
