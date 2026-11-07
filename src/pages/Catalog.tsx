@@ -5,6 +5,8 @@ import { faGears, faMagnifyingGlass, type IconDefinition } from "@fortawesome/fr
 import {
   motorcycles,
   brands,
+  getEquipmentBrands,
+  getEquipmentProducts,
   spareParts,
   helmets,
   ridingGear,
@@ -17,11 +19,9 @@ import { BikeCardSkeleton, PartCardSkeleton } from "../components/Skeletons";
 import Pagination from "../components/Pagination";
 import { useBriefLoading } from "../hooks/useBriefLoading";
 import {
-  ACCESSORY_BRANDS,
   AccessoryBrandSelector,
   BrandVisual,
   type AccessoryBrand,
-  type AccessoryBrandKey,
 } from "../components/AccessoryBrands";
 
 /* ------------------------------------------------------------------ */
@@ -31,15 +31,6 @@ import {
 const FAMILIES = ["Tous", "Off-road", "Urbain", "3 roues"] as const;
 const BIKES_PER_PAGE = 6;
 const PARTS_PER_PAGE = 8;
-
-const brandProducts = (brandId: string) => [...helmets, ...ridingGear].filter((product) => product.brandId === brandId);
-const GEAR_BY_BRAND: Record<AccessoryBrandKey, Product[]> = {
-  tld: brandProducts("troy-lee-designs"),
-  gaerne: brandProducts("gaerne"),
-  mt: brandProducts("mt-helmets"),
-  tvs: brandProducts("tvs"),
-  bihr: [],
-};
 
 const TVS_CATEGORIES = ["Tous", "Casques", "Blousons", "Gants"] as const;
 
@@ -268,7 +259,7 @@ export function Catalogue({
           {!terms.length && (
             <Section title="Équipements pilote" subtitle="Casques, tenues, bottes et accessoires pour le pilote." number="03 / Équipement">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-                {[...GEAR_BY_BRAND.tvs.slice(0, 2), ...GEAR_BY_BRAND.tld.slice(0, 3)].map((p) => (
+                {[...getEquipmentProducts("tvs").slice(0, 2), ...getEquipmentProducts("troy-lee-designs").slice(0, 3)].map((p) => (
                   <PartCard key={p.id} part={p} go={go} onEnquire={p.brandId === "tvs" ? () => go("contact", p.id) : undefined} />
                 ))}
               </div>
@@ -290,34 +281,19 @@ export function Catalogue({
 /*  Page ÉQUIPEMENTS                                                   */
 /* ------------------------------------------------------------------ */
 
-const GEAR_HEADING: Record<AccessoryBrandKey, { title: string; text: string }> = {
-  tld: {
-    title: "Troy Lee Designs",
-    text: "Parcourez la collection pilote, puis contactez Funbike pour vérifier les tailles et coloris disponibles.",
-  },
-  gaerne: {
-    title: "Bottes & chaussures moto Gaerne",
-    text: "Sélectionnez votre pratique et votre pointure — l'équipe Funbike confirme la disponibilité.",
-  },
-  mt: {
-    title: "Casques moto MT Helmets",
-    text: "Choisissez un usage, puis contactez Funbike pour les tailles, coloris et tarifs disponibles.",
-  },
-  tvs: {
-    title: "Équipements TVS",
-    text: "Casques, blousons et gants TVS Racing : sélection de références issues du catalogue officiel TVS Motor.",
-  },
-  bihr: { title: "", text: "" },
-};
-
 export function Equipements({ go, initialBrand }: { go: (p: string, id?: string) => void; initialBrand?: string }) {
-  const validBrand = ACCESSORY_BRANDS.some((brand) => brand.key === initialBrand);
-  const [tab, setTab] = useState<AccessoryBrandKey>(validBrand ? (initialBrand as AccessoryBrandKey) : "tld");
+  const equipmentBrands = getEquipmentBrands();
+  // Compatibilité avec les liens existants de l'accueil et de l'assistant.
+  const aliases: Record<string, string> = { tld: "troy-lee-designs", mt: "mt-helmets" };
+  const requestedBrand = initialBrand && equipmentBrands.some((brand) => brand.id === initialBrand)
+    ? initialBrand
+    : initialBrand ? (aliases[initialBrand] ?? initialBrand) : "troy-lee-designs";
+  const [tab, setTab] = useState(() => equipmentBrands.some((brand) => brand.id === requestedBrand) ? requestedBrand : (equipmentBrands[0]?.id ?? ""));
   const [category, setCategory] = useState<string>("Tous");
   const [page, setPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const allItems = GEAR_BY_BRAND[tab];
+  const allItems = getEquipmentProducts(tab);
   const items =
     tab === "tvs" && category !== "Tous" ? allItems.filter((item) => item.productTypeId === productTypeForTvsCategory[category]) : allItems;
   const totalPages = Math.max(1, Math.ceil(items.length / PARTS_PER_PAGE));
@@ -325,8 +301,12 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
   const visible = items.slice((safePage - 1) * PARTS_PER_PAGE, safePage * PARTS_PER_PAGE);
   const loading = useBriefLoading(`gear-${tab}-${category}-${safePage}`);
 
-  const heading = GEAR_HEADING[tab];
-  const isBihr = tab === "bihr";
+  const selectedBrand = equipmentBrands.find((brand) => brand.id === tab);
+  const heading = {
+    title: selectedBrand ? `Équipements ${selectedBrand.name}` : "Équipements",
+    text: "Contactez Funbike pour connaître les tailles, tarifs et disponibilités.",
+  };
+  const showBihrInfo = tab === "bihr" && allItems.length === 0;
 
   return (
     <div>
@@ -356,7 +336,7 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
             transition={{ duration: 0.22 }}
             className="mt-8"
           >
-            {isBihr ? (
+            {showBihrInfo ? (
               <BrandInfoPanel
                 logo={brands.find((brand) => brand.id === "bihr")?.logoUrl ?? ""}
                 alt="Logo Bihr"
@@ -408,6 +388,10 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
                         <PartCard key={part.id} part={part} go={go} onEnquire={() => go("contact", part.id)} />
                       ))}
                 </div>
+
+                {!loading && items.length === 0 && (
+                  <p className="mt-4 text-sm text-black/55 dark:text-white/55">Produits et disponibilités sur demande auprès de l'équipe Funbike.</p>
+                )}
 
                 {tab === "tvs" && (
                   <p className="mt-4 text-xs leading-5 text-black/50 dark:text-white/50">

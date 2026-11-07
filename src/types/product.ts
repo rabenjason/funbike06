@@ -17,6 +17,8 @@ export interface Brand {
   id: string;
   name: string;
   logoUrl?: string;
+  /** Afficher cette marque parmi les marques d’équipements. */
+  isEquipmentBrand: boolean;
 }
 
 export interface Model {
