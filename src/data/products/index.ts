@@ -40,6 +40,10 @@ export const getHomepageHeroProducts = (catalog: Product[] = motorcycles): Produ
 export const getMotosAccueil = (catalog: Product[] = motorcycles): Product[] =>
   catalog.filter((product) => product.categoryId === "motos" && product.isMotoAccueil === true && product.status === "PUBLISHED").slice(0, 3);
 
+/** Les quatre premiers casques et équipements publiés sélectionnés pour l’accueil. */
+export const getEquipementsAccueil = (catalog: Product[] = products): Product[] =>
+  catalog.filter((product) => (product.categoryId === "casques" || product.categoryId === "equipements") && product.isEquipementAccueil === true && product.status === "PUBLISHED").slice(0, 4);
+
 /** Les motos et les autres produits ont des pages de détail distinctes. */
 export const productDetailPage = (product: Product): "product" | "accessory" =>
   product.categoryId === "motos" ? "product" : "accessory";

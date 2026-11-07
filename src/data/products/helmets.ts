@@ -3,6 +3,7 @@ import type { Product } from "../../types/product";
 export const helmets: Product[] = [
   {
     "id": "tvs-helmet-raider",
+    "isEquipementAccueil": true,
     "isNewArrival": false,
     "name": "Casque intégral TVS Raider",
     "brandId": "tvs",
@@ -25,6 +26,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "tvs-helmet-anti-matter",
+    "isEquipementAccueil": true,
     "isNewArrival": false,
     "name": "Casque TVS Racing Anti Matter",
     "brandId": "tvs",
@@ -47,6 +49,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h1",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Thunder 4 SV – Black",
     "brandId": "mt-helmets",
@@ -68,6 +71,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h2",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Thunder 4 SV – Matte Black",
     "brandId": "mt-helmets",
@@ -89,6 +93,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h3",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Hornet – White",
     "brandId": "mt-helmets",
@@ -110,6 +115,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h4",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Hornet – Black",
     "brandId": "mt-helmets",
@@ -131,6 +137,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h5",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Rapide – Black/Red",
     "brandId": "mt-helmets",
@@ -152,6 +159,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "h6",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "MT Rapide – White/Blue",
     "brandId": "mt-helmets",
@@ -173,6 +181,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t1",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Pulse – Black",
     "brandId": "troy-lee-designs",
@@ -198,6 +207,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t2",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Slides – Gray",
     "brandId": "troy-lee-designs",
@@ -219,6 +229,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t3",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Slides – White/Blue",
     "brandId": "troy-lee-designs",
@@ -240,6 +251,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t4",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Segment – Black",
     "brandId": "troy-lee-designs",
@@ -261,6 +273,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t5",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Segment – Red",
     "brandId": "troy-lee-designs",
@@ -282,6 +295,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t6",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Segment – Blue",
     "brandId": "troy-lee-designs",
@@ -303,6 +317,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t7",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Mono – Pumice",
     "brandId": "troy-lee-designs",
@@ -324,6 +339,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t8",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Fifty50 – White/Red",
     "brandId": "troy-lee-designs",
@@ -345,6 +361,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t9",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Crossover – Navy/Red",
     "brandId": "troy-lee-designs",
@@ -366,6 +383,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t10",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Trooper – Black/Caper",
     "brandId": "troy-lee-designs",
@@ -387,6 +405,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t11",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "GP Pro Crossover – Gray/Yellow",
     "brandId": "troy-lee-designs",
