@@ -2,6 +2,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowUpRightFromSquare, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import { getAvailableEquipmentBrands } from "../catalog";
+import type { Brand } from "../types/product";
 
 /** Visualisation partagée avec les filtres des pièces détachées. */
 export type AccessoryBrand = {
@@ -30,11 +31,12 @@ export function BrandVisual({ brand }: { brand: AccessoryBrand }) {
 export function AccessoryBrandSelector({
   active,
   onSelect,
+  equipmentBrands,
 }: {
   active: string;
   onSelect: (brand: string) => void;
+  equipmentBrands: Brand[];
 }) {
-  const equipmentBrands = getAvailableEquipmentBrands();
   return (
     <div className="no-scrollbar flex overflow-x-auto border-b border-black/15 dark:border-white/15">
       {equipmentBrands.map((brand) => {

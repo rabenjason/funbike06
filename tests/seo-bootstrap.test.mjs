@@ -39,6 +39,7 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   assert.match(document.getElementById('seo-fallback').textContent, /Contenu SEO public/);
   blocked = false;
   fireEvent.click(document.querySelector('#root button'));
-  await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null));
+  // L'import à froid de l'application par Vite peut dépasser le délai par défaut.
+  await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
   await waitFor(() => assert.match(document.title, /TVS HLX Plus/));
 });

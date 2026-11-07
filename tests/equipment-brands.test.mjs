@@ -83,6 +83,6 @@ test("les anciens liens tld et mt continuent à ouvrir la bonne marque", () => {
   const bihr = render(Equipements, { go() {}, initialBrand: "bihr" });
   assert.ok(!bihr.includes("Équipements &amp; accessoires Bihr"));
   assert.ok(!data.getAvailableEquipmentBrands().some(({ id }) => id === "bihr"));
-  const selected = render(AccessoryBrandSelector, { active: "tvs", onSelect() {} });
+  const selected = render(AccessoryBrandSelector, { active: "tvs", onSelect() {}, equipmentBrands: data.getEquipmentBrandsByProductCount() });
   assert.match(selected, /aria-pressed="true"/);
 });

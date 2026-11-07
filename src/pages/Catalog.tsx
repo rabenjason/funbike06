@@ -5,7 +5,7 @@ import { faGears, faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import {
   motorcycles,
   brands,
-  getAvailableEquipmentBrands,
+  getEquipmentBrandsByProductCount,
   getProductFamily,
   getAvailableMotoFamilies,
   getAvailableSpareBrands,
@@ -210,13 +210,13 @@ export function Catalogue({
 /* ------------------------------------------------------------------ */
 
 export function Equipements({ go, initialBrand }: { go: (p: string, id?: string) => void; initialBrand?: string }) {
-  const equipmentBrands = getAvailableEquipmentBrands();
-  // Compatibilité avec les liens existants de l'accueil et de l'assistant.
+  const equipmentBrands = getEquipmentBrandsByProductCount();
+  // Une marque explicitement demandée reste prioritaire, y compris les anciens liens.
   const aliases: Record<string, string> = { tld: "troy-lee-designs", mt: "mt-helmets" };
   const requestedBrand = initialBrand && equipmentBrands.some((brand) => brand.id === initialBrand)
     ? initialBrand
-    : initialBrand ? (aliases[initialBrand] ?? initialBrand) : "troy-lee-designs";
-  const [tab, setTab] = useState(() => equipmentBrands.some((brand) => brand.id === requestedBrand) ? requestedBrand : (initialBrand ? "" : (equipmentBrands[0]?.id ?? "")));
+    : initialBrand ? (aliases[initialBrand] ?? initialBrand) : (equipmentBrands[0]?.id ?? "");
+  const [tab, setTab] = useState(() => equipmentBrands.some((brand) => brand.id === requestedBrand) ? requestedBrand : "");
   const [category, setCategory] = useState<string>("");
   const [page, setPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -244,6 +244,7 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
       >
         <div ref={gridRef}>
           <AccessoryBrandSelector
+            equipmentBrands={equipmentBrands}
             active={tab}
             onSelect={(key) => {
               setTab(key);
