@@ -16,7 +16,7 @@ export interface ProductSpecification {
 export interface Brand {
   id: string;
   name: string;
-  logoUrl?: string;
+  logo?: string;
   /** Afficher cette marque parmi les marques d’équipements. */
   isEquipmentBrand: boolean;
 }

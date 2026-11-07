@@ -260,7 +260,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             />
 
             <div className="fb-partner-track flex w-max items-center gap-6 pr-6 sm:gap-10 sm:pr-10">
-              {[...brands.filter((brand) => brand.logoUrl), ...brands.filter((brand) => brand.logoUrl)].map((brand, index) => (
+              {[...brands.filter((brand) => brand.logo), ...brands.filter((brand) => brand.logo)].map((brand, index) => (
                 <motion.div
                   key={`${brand.name}-${index}`}
                   whileHover={{ scale: 1.08 }}
@@ -268,7 +268,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
                   className="brand-logo-tile shrink-0"
                 >
                   <img
-                    src={brand.logoUrl ?? ""}
+                    src={brand.logo ?? ""}
                     alt={`${homepageContent.partenaires.logoPrefix} ${brand.name}`}
                     loading="lazy"
                     className="partner-logo h-full w-full object-contain transition-opacity hover:opacity-100"

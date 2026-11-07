@@ -1,0 +1,104 @@
+{
+  "productTypes": [
+    {
+      "id": "enduro",
+      "name": "Enduro",
+      "categoryId": "motos",
+      "familyId": "off-road"
+    },
+    {
+      "id": "urbain",
+      "name": "Urbain",
+      "categoryId": "motos",
+      "familyId": "urbain"
+    },
+    {
+      "id": "trois-roues",
+      "name": "3 roues",
+      "categoryId": "motos",
+      "familyId": "trois-roues"
+    },
+    {
+      "id": "cross",
+      "name": "Cross",
+      "categoryId": "motos",
+      "familyId": "off-road"
+    },
+    {
+      "id": "road-trail",
+      "name": "Trail / aventure",
+      "categoryId": "motos",
+      "familyId": "off-road"
+    },
+    {
+      "id": "casque",
+      "name": "Casque",
+      "categoryId": "casques"
+    },
+    {
+      "id": "tenues",
+      "name": "Tenues",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "bottes",
+      "name": "Bottes",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "protection",
+      "name": "Protections",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "blousons",
+      "name": "Blousons",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "gants",
+      "name": "Gants",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "equipement-pilote",
+      "name": "Équipement pilote",
+      "categoryId": "equipements"
+    },
+    {
+      "id": "freinage",
+      "name": "Freinage",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "transmission",
+      "name": "Transmission",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "filtration",
+      "name": "Filtration",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "pneus",
+      "name": "Pneus",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "pieces-moteur",
+      "name": "Pièces moteur",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "consommables",
+      "name": "Consommables",
+      "categoryId": "pieces-detachees"
+    },
+    {
+      "id": "piece-diverse",
+      "name": "Pièce détachée",
+      "categoryId": "pieces-detachees"
+    }
+  ]
+}

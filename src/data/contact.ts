@@ -8,33 +8,33 @@
  */
 
 /** Adresse e-mail principale (affichée et utilisée par le formulaire de demande). */
-export const CONTACT_EMAIL = "contact@funbike.mg";
+export let CONTACT_EMAIL = "contact@funbike.mg";
 
 /** Numéro de téléphone principal. */
-export const CONTACT_PHONE = "+261 34 00 000 00";
+export let CONTACT_PHONE = "+261 34 00 000 00";
 
 /** Lien d'appel du numéro de téléphone principal. */
-export const CONTACT_PHONE_HREF = "tel:+261340000000";
+export let CONTACT_PHONE_HREF = "tel:+261340000000";
 
 /** Adresse physique affichée. */
-export const CONTACT_ADDRESS = "Antananarivo, Madagascar";
+export let CONTACT_ADDRESS = "Antananarivo, Madagascar";
 
 /** Horaires d'ouverture affichés. */
-export const CONTACT_HOURS = "Lun - sam · 8h00 - 17h30";
+export let CONTACT_HOURS = "Lun - sam · 8h00 - 17h30";
 
 /**
  * Numéro WhatsApp FunBike.
  * Aucun numéro WhatsApp FunBike n'est actuellement affiché sur le site :
  * renseigner ici le numéro dès qu'il existe (ne rien inventer en attendant).
  */
-export const CONTACT_WHATSAPP = null;
+export let CONTACT_WHATSAPP: string | null = null;
 
 /**
  * Liens des réseaux sociaux.
  * Aucun lien réseau social n'est actuellement affiché sur la page Contact :
  * compléter cette liste dès qu'ils existent (ne rien inventer en attendant).
  */
-export const CONTACT_SOCIAL_LINKS: { label: string; url: string }[] = [];
+export let CONTACT_SOCIAL_LINKS: { label: string; url: string }[] = [];
 
 export interface ContactInfoRow {
   id: "address" | "hours" | "phone" | "email";
@@ -50,3 +50,16 @@ export const CONTACT_INFO: ContactInfoRow[] = [
   { id: "phone", label: "Téléphone", value: CONTACT_PHONE, href: CONTACT_PHONE_HREF },
   { id: "email", label: "Email", value: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}` },
 ];
+
+/** Actualise les coordonnées de l'API avant l'affichage du site. */
+export function setContactInfo(contact: { email: string; phone: string; phoneHref: string; address: string; hours: string; whatsapp?: string | null; socialLinks?: { label: string; url: string }[] }) {
+  CONTACT_EMAIL = contact.email; CONTACT_PHONE = contact.phone; CONTACT_PHONE_HREF = contact.phoneHref;
+  CONTACT_ADDRESS = contact.address; CONTACT_HOURS = contact.hours;
+  CONTACT_WHATSAPP = contact.whatsapp ?? null; CONTACT_SOCIAL_LINKS = contact.socialLinks ?? [];
+  CONTACT_INFO.splice(0, CONTACT_INFO.length,
+    { id: "address", label: "Showroom & atelier", value: CONTACT_ADDRESS },
+    { id: "hours", label: "Horaires", value: CONTACT_HOURS },
+    { id: "phone", label: "Téléphone", value: CONTACT_PHONE, href: CONTACT_PHONE_HREF },
+    { id: "email", label: "Email", value: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}` },
+  );
+}

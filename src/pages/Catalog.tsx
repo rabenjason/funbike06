@@ -338,7 +338,7 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
 /* ------------------------------------------------------------------ */
 
 function SpareBrandSelector({ active, onSelect, available }: { active: string; onSelect: (brand: string) => void; available: ReturnType<typeof getAvailableSpareBrands> }) {
-  const tabs = [{ key: "", name: "Toutes", icon: faGears }, ...available.map((brand) => ({ key: brand.id, name: brand.name, logo: brand.logoUrl }))];
+  const tabs = [{ key: "", name: "Toutes", icon: faGears }, ...available.map((brand) => ({ key: brand.id, name: brand.name, logo: brand.logo }))];
   return (
     <div className="no-scrollbar flex overflow-x-auto border-b border-black/15 dark:border-white/15">
       {tabs.map((brand) => {

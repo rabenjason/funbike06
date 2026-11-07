@@ -31,7 +31,7 @@ test("les marques d'équipements proviennent du catalogue et de leur indicateur"
   const html = render(AccessoryBrandQuickLinks, { onSelect() {} });
   for (const brand of data.getAvailableEquipmentBrands()) {
     assert.ok(html.includes(brand.name), brand.id);
-    if (brand.logoUrl) assert.ok(html.includes(brand.logoUrl.replaceAll("&", "&amp;")), brand.id);
+    if (brand.logo) assert.ok(html.includes(brand.logo.replaceAll("&", "&amp;")), brand.id);
   }
 });
 

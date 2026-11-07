@@ -1,0 +1,123 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createServer as netServer } from 'node:net';
+import { randomBytes } from 'node:crypto';
+
+const wasm = resolve('node_modules/.bin/php-wasm-cli');
+const php = process.env.PHP_BINARY || (spawnSync('php', ['-v'], { stdio: 'ignore' }).status === 0 ? 'php' : existsSync(wasm) ? wasm : null);
+
+test('API PHP : authentification, brouillons et cohérence des données', { skip: !php && 'PHP non installé : tests PHP ignorés', timeout: 90000 }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'funbike-api-test-'));
+  cpSync(resolve('server'), join(dir, 'server'), { recursive: true });
+  // Les fixtures sont isolées et le routeur empêche tout accès direct au stockage privé.
+  const router = join(dir, 'router.php');
+  writeFileSync(router, `<?php\n$p=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);\nif(preg_match('#^/server/(storage|scripts|api/_lib)(/|$)#',$p)){http_response_code(404);exit;}\nreturn false;\n`);
+  const serverDir = join(dir, 'server');
+  const initialPassword = `initial-${randomBytes(12).toString('hex')}`;
+  const nextPassword = `changed-${randomBytes(12).toString('hex')}`;
+  const created = spawnSync(php, [join(serverDir, 'scripts/create-admin.php'), 'test-admin'], { env: { ...process.env, FUNBIKE_TEMP_PASSWORD: initialPassword }, encoding: 'utf8' });
+  assert.equal(created.status, 0, created.stderr);
+  const listener = netServer();
+  await new Promise((resolveReady) => listener.listen(0, '127.0.0.1', resolveReady));
+  const port = listener.address().port;
+  await new Promise((resolveClosed) => listener.close(resolveClosed));
+  const child = spawn(php, ['-S', `127.0.0.1:${port}`, '-t', dir, router], { stdio: 'ignore', env: process.env });
+  const base = `http://127.0.0.1:${port}/server/api/`;
+  let cookie = '';
+  async function call(path, { method = 'GET', body, authenticated = false } = {}) {
+    const headers = {}; if (authenticated && cookie) headers.Cookie = cookie;
+    if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
+    const res = await fetch(base + path, { method, headers, body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined });
+    const setCookie = res.headers.get('set-cookie'); if (setCookie) cookie = setCookie.split(';')[0];
+    return { status: res.status, body: await res.json() };
+  }
+  try {
+    let ready = false;
+    for (let n = 0; n < 100; n++) { try { if ((await fetch(base + 'brands.php')).ok) { ready = true; break; } } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    assert.ok(ready, 'le serveur de test PHP doit démarrer');
+    assert.equal((await fetch(`http://127.0.0.1:${port}/server/storage/data/brands.json`)).status, 404);
+    const untrusted = await fetch(base + 'auth/login.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify({ username: 'test-admin', password: initialPassword }) });
+    assert.equal(untrusted.status, 403);
+    assert.equal((await call('products/motorcycles.php?includeDrafts=1')).status, 401);
+    assert.equal((await call('families.php', { method: 'POST', body: { name: 'Test', categoryId: 'motos' } })).status, 401);
+    let login = await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: initialPassword } });
+    assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
+    assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
+    assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+    for (const path of ['families.php?id=off-road', 'product-types.php?id=enduro', 'brands.php?id=tvs', 'categories.php?id=motos']) {
+      assert.equal((await call(path, { method: 'DELETE', authenticated: true })).status, 409, path);
+    }
+    const createdUser = await call('auth/users.php', { method: 'POST', authenticated: true, body: { username: 'test-editor' } });
+    assert.equal(createdUser.status, 201); assert.equal(createdUser.body.user.role, 'admin');
+    const superCookie = cookie;
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-editor', password: createdUser.body.temporaryPassword } })).status, 200);
+    assert.equal((await call('auth/users.php', { authenticated: true })).status, 403);
+    assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: createdUser.body.temporaryPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+    assert.equal((await call('auth/users.php', { authenticated: true })).status, 403);
+    cookie = superCookie;
+    assert.equal((await call(`auth/users.php?id=${createdUser.body.user.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    const family = await call('families.php', { method: 'POST', authenticated: true, body: { name: 'Famille test', categoryId: 'motos' } });
+    assert.equal(family.status, 201);
+    const type = await call('product-types.php', { method: 'POST', authenticated: true, body: { name: 'Type test', categoryId: 'motos', familyId: family.body.family.id } });
+    assert.equal(type.status, 201);
+    assert.equal((await call(`families.php?id=${family.body.family.id}`, { method: 'DELETE', authenticated: true })).status, 409);
+    assert.equal((await call(`product-types.php?id=${type.body.productType.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    assert.equal((await call(`families.php?id=${family.body.family.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    const model = await call('models.php', { method: 'POST', authenticated: true, body: { name: 'Modèle test', brandId: 'tvs' } });
+    assert.equal(model.status, 201);
+    assert.equal((await call(`models.php?id=${model.body.model.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8l8AAAAASUVORK5CYII=', 'base64');
+    const brandInput = new FormData(); brandInput.set('name', 'Marque test'); brandInput.set('isEquipmentBrand', 'true'); brandInput.set('logo', new Blob([png], { type: 'image/png' }), 'logo.png');
+    const brand = await call('brands.php', { method: 'POST', authenticated: true, body: brandInput });
+    assert.equal(brand.status, 201); assert.ok(brand.body.brand.logo.startsWith('/server/uploads/brands/'));
+    const updateBrand = new FormData(); updateBrand.set('_method', 'PUT'); updateBrand.set('name', 'Marque test mise à jour'); updateBrand.set('isEquipmentBrand', 'false');
+    assert.equal((await call(`brands.php?id=${brand.body.brand.id}`, { method: 'POST', authenticated: true, body: updateBrand })).status, 200);
+    assert.equal((await call(`brands.php?id=${brand.body.brand.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    const product = { name: 'Moto test intégration', brandId: 'tvs', categoryId: 'motos', productTypeId: 'urbain', description: 'Essai', images: [], specifications: [] };
+    const form = new FormData(); form.set('product', JSON.stringify(product)); form.set('mainImage', new Blob([png], { type: 'image/png' }), 'test.png');
+    const createdProduct = await call('products/motorcycles.php', { method: 'POST', authenticated: true, body: form });
+    assert.equal(createdProduct.status, 201); assert.equal(createdProduct.body.data.status, 'DRAFT');
+    const id = createdProduct.body.data.id;
+    const imageUrl = createdProduct.body.data.images[0].url;
+    const invalidImage = new FormData(); invalidImage.set('_method', 'PUT'); invalidImage.set('product', JSON.stringify({ description: 'Ne pas sauvegarder' })); invalidImage.set('mainImage', new Blob(['pas une image'], { type: 'image/png' }), 'test.png');
+    assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: invalidImage })).status, 400);
+    const stillDraft = await call(`products/motorcycles.php?id=${id}&includeDrafts=1`, { authenticated: true });
+    assert.equal(stillDraft.body.data.images[0].url, imageUrl);
+    assert.equal(stillDraft.body.data.description, 'Essai');
+    assert.ok(existsSync(join(dir, imageUrl)));
+    assert.ok(!(await call('products/motorcycles.php')).body.data.some((p) => p.id === id));
+    assert.ok((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).body.data.some((p) => p.id === id));
+    assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'PUT', authenticated: true, body: { productTypeId: 'bottes' } })).status, 400);
+    const update = new FormData(); update.set('_method', 'PUT'); update.set('product', JSON.stringify({ status: 'PUBLISHED' }));
+    assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: update })).status, 200);
+    assert.ok((await call('products/motorcycles.php')).body.data.some((p) => p.id === id));
+    assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    for (const [path, categoryId, productTypeId] of [['helmets', 'casques', 'casque'], ['riding-gear', 'equipements', 'gants'], ['spare-parts', 'pieces-detachees', 'pneus']]) {
+      const input = new FormData();
+      input.set('product', JSON.stringify({ name: `Test ${path}`, brandId: 'tvs', categoryId, productTypeId, description: '', images: [], specifications: [], isEquipementAccueil: path === 'helmets' }));
+      input.set('mainImage', new Blob([png], { type: 'image/png' }), 'test.png');
+      const created = await call(`products/${path}.php`, { method: 'POST', authenticated: true, body: input });
+      assert.equal(created.status, 201, JSON.stringify(created.body));
+      assert.equal(created.body.data.status, 'DRAFT');
+      assert.ok(created.body.data.images[0].url.startsWith('/server/uploads/'));
+      const publish = new FormData(); publish.set('_method', 'PUT'); publish.set('product', JSON.stringify({ status: 'PUBLISHED' }));
+      assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: publish })).status, 200);
+      if (path === 'helmets') assert.ok((await call('homepage-equipment.php')).body.data.length <= 4);
+      assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    }
+    assert.equal((await call('auth/logout.php', { method: 'POST', authenticated: true })).status, 200);
+    assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 401);
+    for (let i = 0; i < 5; i++) assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: 'incorrect' } })).status, 401);
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: 'incorrect' } })).status, 429);
+    // Le dépôt de départ ne doit pas être modifié par les tests.
+    assert.ok(readFileSync(join(serverDir, 'storage/data/products/motorcycles.json'), 'utf8').includes('tvs-125-hlx-5g'));
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((r) => { if (child.exitCode !== null) r(); else { child.once('exit', r); setTimeout(r, 1000); } });
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

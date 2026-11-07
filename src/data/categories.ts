@@ -3,4 +3,4 @@ export const categories = [
   { id: "casques", name: "Casques" },
   { id: "pieces-detachees", name: "Pièces détachées" },
   { id: "equipements", name: "Équipements" },
-] as const;
+];
