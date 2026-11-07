@@ -173,7 +173,7 @@ export const helmets: Product[] = [
   },
   {
     "id": "t1",
-    "isHomepageHighlight": true,
+    "isHomepageHighlight": false,
     "name": "GP Pro Pulse – Black",
     "brandId": "troy-lee-designs",
     "categoryId": "casques",
