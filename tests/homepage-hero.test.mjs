@@ -22,10 +22,10 @@ const renderHero = () => {
   return html.slice(html.indexOf("<section"), html.indexOf("</section>") + "</section>".length);
 };
 
-test("toutes les motos possèdent le champ de sélection et les trois motos initiales sont conservées", () => {
+test("toutes les motos possèdent le champ de sélection et les trois motos choisies apparaissent", () => {
   for (const bike of data.motorcycles) assert.equal(typeof bike.isHomepageHero, "boolean", bike.id);
   assert.deepEqual(new Set(data.getHomepageHeroProducts().map(({ id }) => id)), new Set([
-    "sherco-sef-250-factory-2026", "sherco-sef-300-factory-2026", "xx-125-2026",
+    "tvs-200-4v", "sherco-sef-250-factory-2026", "xx-125-2026",
   ]));
 });
 
