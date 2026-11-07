@@ -1,0 +1,108 @@
+{
+  "content": {
+    "hero": {
+      "localisation": "Madagascar / Motos, équipement, liberté",
+      "titreLigne1": "Le terrain est",
+      "titreLigne2": "votre point de départ.",
+      "description": "Sherco, Fantic et TVS. Des motos faites pour aller plus loin, des pièces et de l'équipement pour suivre.",
+      "sloganPrefix": "Une moto faite pour",
+      "usages": [
+        "la ville",
+        "le travail",
+        "le cross",
+        "l'enduro",
+        "les voyages",
+        "les balades"
+      ],
+      "boutonCatalogue": "Explorer le catalogue",
+      "aLaUne": "À la une",
+      "choisirModele": "Choisir le modèle mis en avant",
+      "afficherModele": "Afficher",
+      "descriptionSansMarques": "Des motos faites pour aller plus loin, des pièces et de l’équipement pour suivre."
+    },
+    "univers": {
+      "surTitre": "Choisir son univers",
+      "titre": "Pas de mauvaise direction."
+    },
+    "sherco": {
+      "surTitre": "L'univers Sherco / À partir de 50 cc",
+      "titreLigne1": "La première piste",
+      "titreLigne2": "est la plus belle.",
+      "description": "Découvrez l'esprit Sherco avec Funbike. Pour les jeunes pilotes, les familles et les amoureux du tout-terrain.",
+      "bouton": "Explorer les motos Sherco",
+      "imageAlt": "Moto Sherco 50 cc tout-terrain"
+    },
+    "distributeur": {
+      "surTitre": "Distributeur exclusif / Madagascar",
+      "titre": "Nos marques officielles.",
+      "boutonToutVoir": "Tout voir →",
+      "boutonToutesMotos": "Voir toutes les motos →",
+      "logoPrefix": "Logo"
+    },
+    "nouveautes": {
+      "surTitre": "Nouveautés / Arrivages",
+      "titre": "Frais de l'atelier.",
+      "description": "Une sélection de l'équipe Funbike. Disponibilités sur demande.",
+      "tarif": "Tarif",
+      "boutonCatalogue": "Parcourir le catalogue",
+      "decouvrirPrefix": "Découvrir"
+    },
+    "motos": {
+      "numero": "01 / Motos",
+      "titre": "À chaque terrain, sa machine.",
+      "description": "Une sélection de modèles disponibles chez Funbike.",
+      "bouton": "Toutes les motos"
+    },
+    "atelier": {
+      "surTitre": "Atelier / Essentiels",
+      "titre": "Prêt pour la suite.",
+      "description": "Casques, blousons et autres équipements pour accompagner tous vos trajets.",
+      "bouton": "Voir tous les équipements"
+    },
+    "partenaires": {
+      "titre": "Nos partenaires",
+      "description": "Des marques qui roulent avec nous",
+      "logoPrefix": "Logo"
+    }
+  },
+  "links": [
+    {
+      "title": "Motos TVS & Urbain",
+      "to": "motos",
+      "brandId": "",
+      "icon": "moto"
+    },
+    {
+      "title": "Casques & Protections",
+      "to": "equipements",
+      "brandId": "troy-lee-designs",
+      "icon": "helmet"
+    },
+    {
+      "title": "Pièces détachées",
+      "to": "spares",
+      "brandId": "",
+      "icon": "parts"
+    },
+    {
+      "title": "Tenues & Équipements",
+      "to": "equipements",
+      "brandId": "troy-lee-designs",
+      "icon": "gear"
+    }
+  ],
+  "exclusiveBrands": [
+    {
+      "brandId": "tvs",
+      "tagline": "Robustesse garantie"
+    },
+    {
+      "brandId": "fantic",
+      "tagline": "Performance italienne"
+    },
+    {
+      "brandId": "sherco",
+      "tagline": "ADN Compétition"
+    }
+  ]
+}

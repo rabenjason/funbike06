@@ -1,4 +1,6 @@
-import defaults from "../../server/api/_lib/homepage-defaults.json";
+// Copie des valeurs d'installation PHP, gardée synchronisée par un test.
+// Ne pas importer depuis /server : Vite transmet ce chemin au serveur PHP.
+import defaults from "./homepage-defaults.json";
 
 export type HomepageContent = {
   hero: { localisation: string; titreLigne1: string; titreLigne2: string; description: string; descriptionSansMarques: string; sloganPrefix: string; usages: string[]; boutonCatalogue: string; aLaUne: string; choisirModele: string; afficherModele: string };
