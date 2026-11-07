@@ -2,7 +2,7 @@
  * Textes fixes du site FunBike.
  *
  * Objectif : modifier un texte visible sans ouvrir chaque composant.
- * Les données dynamiques (motos, produits, images, revendeurs, promotions)
+ * Les données dynamiques (motos, produits, images, revendeurs)
  * restent dans leurs fichiers de données et sont typées dans src/types/.
  */
 export const content = {

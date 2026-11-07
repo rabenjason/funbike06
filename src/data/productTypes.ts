@@ -18,5 +18,4 @@ export const productTypes = [
   { id: "pieces-moteur", name: "Pièces moteur", categoryId: "pieces-detachees" },
   { id: "consommables", name: "Consommables", categoryId: "pieces-detachees" },
   { id: "piece-diverse", name: "Pièce détachée", categoryId: "pieces-detachees" },
-  { id: "accessoire-moto", name: "Accessoire moto", categoryId: "accessoires" },
 ] as const;

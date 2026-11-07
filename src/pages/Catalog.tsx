@@ -8,7 +8,6 @@ import {
   spareParts,
   helmets,
   ridingGear,
-  accessories,
   productTypes,
 } from "../data";
 import type { Product } from "../types/product";
@@ -33,7 +32,7 @@ const FAMILIES = ["Tous", "Off-road", "Urbain", "3 roues"] as const;
 const BIKES_PER_PAGE = 6;
 const PARTS_PER_PAGE = 8;
 
-const brandProducts = (brandId: string) => [...helmets, ...ridingGear, ...accessories].filter((product) => product.brandId === brandId);
+const brandProducts = (brandId: string) => [...helmets, ...ridingGear].filter((product) => product.brandId === brandId);
 const GEAR_BY_BRAND: Record<AccessoryBrandKey, Product[]> = {
   tld: brandProducts("troy-lee-designs"),
   gaerne: brandProducts("gaerne"),
@@ -63,7 +62,7 @@ const SPARE_TYPE_IDS: Partial<Record<SpareType, string>> = {
   "Pièces moteur": "pieces-moteur", Consommables: "consommables",
 };
 
-const ALL_ITEMS = [...spareParts, ...helmets, ...ridingGear, ...accessories];
+const ALL_ITEMS = [...spareParts, ...helmets, ...ridingGear];
 const normalizeSearch = (value: string) => value.toLocaleLowerCase("fr").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const containsAll = (text: string, terms: string[]) => {
   const normalized = normalizeSearch(text);
