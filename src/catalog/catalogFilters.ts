@@ -17,6 +17,14 @@ export const getAvailableMotoFamilies = (catalog: Product[] = products) =>
 export const getAvailableEquipmentBrands = () =>
   getEquipmentBrands().filter((brand) => getEquipmentProducts(brand.id).length > 0);
 
+/** Page équipements : nombre de casques et équipements publiés, puis nom. */
+export const getEquipmentBrandsByProductCount = () =>
+  getAvailableEquipmentBrands()
+    .filter((brand) => brand.isPublished !== false)
+    .map((brand) => ({ brand, count: getEquipmentProducts(brand.id).length }))
+    .sort((a, b) => b.count - a.count || a.brand.name.localeCompare(b.brand.name, "fr", { sensitivity: "base" }) || a.brand.id.localeCompare(b.brand.id, "fr"))
+    .map(({ brand }) => brand);
+
 /** Types réellement présents dans une sélection de produits publiés. */
 export const getAvailableTypes = (catalog: Product[]) =>
   productTypes.filter((type) => catalog.some((product) => product.status === "PUBLISHED" && product.categoryId === type.categoryId && product.productTypeId === type.id));
