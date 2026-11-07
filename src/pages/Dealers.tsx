@@ -29,7 +29,12 @@ const telHref = (phone: string) => `tel:${phone.replace(/\s/g, "")}`;
 const ICON = "w-4 shrink-0 text-[#98741b] dark:text-[#ffd100]";
 const LABEL = "text-[10px] font-semibold uppercase tracking-[0.1em] text-black/40 dark:text-white/40";
 
-export default function Dealers({ go, initialCity }: { go: (p: string, id?: string) => void; initialCity?: string }) {
+export default function Dealers(props: { go: (p: string, id?: string) => void; initialCity?: string }) {
+  if (DEALERS.length === 0) return <div className="mx-auto max-w-5xl p-8 text-sm">Aucun revendeur renseigné pour le moment.</div>;
+  return <DealerContent {...props} />;
+}
+
+function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => void; initialCity?: string }) {
   const valid = DEALERS.some((d) => d.key === initialCity);
   const [activeKey, setActiveKey] = useState(valid ? initialCity! : DEALERS[0].key);
   const [zoom, setZoom] = useState(1);

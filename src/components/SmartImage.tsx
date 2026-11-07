@@ -15,11 +15,11 @@ type Props = {
 
 function Inner({ src, alt, className = "", imgClassName = "", eager = false }: Props) {
   const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(!src);
 
   return (
     <div className={"relative overflow-hidden " + className}>
-      {!loaded && <div className="skeleton absolute inset-0" aria-hidden="true" />}
+      {!loaded && !failed && <div className="skeleton absolute inset-0" aria-hidden="true" />}
       {failed ? (
         <div className="absolute inset-0 grid place-items-center text-black/25 dark:text-white/25" aria-label={alt}>
           <FontAwesomeIcon icon={faImage} />

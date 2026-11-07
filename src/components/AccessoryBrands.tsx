@@ -50,7 +50,7 @@ export function AccessoryBrandSelector({
               (selected ? "bg-[#ffd100]/15" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]")
             }
           >
-            <BrandVisual brand={{ name: brand.name, logo: brand.logoUrl }} />
+            <BrandVisual brand={{ name: brand.name, logo: brand.logo }} />
             <span
               className={
                 "block truncate text-xs font-bold " +
@@ -97,7 +97,7 @@ export function AccessoryBrandQuickLinks({ onSelect }: { onSelect: (brand: strin
             (index === equipmentBrands.length - 1 && equipmentBrands.length % 2 ? "col-span-2 sm:col-span-1" : "")
           }
         >
-          <BrandVisual brand={{ name: brand.name, logo: brand.logoUrl }} />
+          <BrandVisual brand={{ name: brand.name, logo: brand.logo }} />
           <span className="min-w-0 truncate text-[10px] font-bold text-black/65 dark:text-white/65">{brand.name}</span>
           <FontAwesomeIcon
             icon={faArrowUpRightFromSquare}

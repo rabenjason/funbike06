@@ -4,23 +4,26 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faArrowRight, faCheck, faMagnifyingGlassPlus, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { brands, motorcycles, productGallery, mainProductImage, getProductFamily } from "../data";
 import { Section } from "../components/Layout";
+import type { Product as CatalogProduct } from "../types/product";
 import { BikeCard } from "../components/Cards";
 import SmartImage from "../components/SmartImage";
 import ImageZoomViewer from "../components/ImageZoomViewer";
 
-export default function Product({
-  id,
-  go,
-  back,
-  backLabel,
-}: {
+type ProductPageProps = {
   id?: string;
   go: (p: string, i?: string) => void;
   back: (fallback?: import("../components/Layout").Route) => void;
   canGoBack?: boolean;
   backLabel?: string;
-}) {
-  const bike = motorcycles.find((item) => item.id === id) ?? motorcycles[0];
+};
+
+export default function Product(props: ProductPageProps) {
+  const bike = motorcycles.find((item) => item.id === props.id);
+  if (!bike) return <div className="p-8 text-sm">Produit indisponible. <button className="underline" onClick={() => props.back()}>Retour</button></div>;
+  return <ProductDetail {...props} bike={bike} />;
+}
+
+function ProductDetail({ bike, go, back, backLabel }: ProductPageProps & { bike: CatalogProduct }) {
   const family = getProductFamily(bike);
   const gallery = productGallery(bike);
   const brand = brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée";

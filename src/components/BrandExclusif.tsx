@@ -5,7 +5,7 @@ import SmartImage from "./SmartImage";
 
 const EXCLUSIVE_BRANDS = homepageExclusiveBrands.flatMap(({ brandId, tagline }) => {
   const brand = brands.find((item) => item.id === brandId);
-  return brand?.logoUrl ? [{ key: brand.id, name: brand.name, tagline, image: brand.logoUrl }] : [];
+  return brand?.logo ? [{ key: brand.id, name: brand.name, tagline, image: brand.logo }] : [];
 });
 
 const list: Variants = {

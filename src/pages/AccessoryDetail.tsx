@@ -49,8 +49,13 @@ function autoSpecs(product: Product): ProductSpecification[] {
   return specs.slice(0, 5);
 }
 
-export default function AccessoryDetail({ id, go, back, backLabel }: Props) {
-  const part = findProductById(id) ?? products.find((product) => product.categoryId !== "motos") ?? products[0];
+export default function AccessoryDetail(props: Props) {
+  const part = findProductById(props.id);
+  if (!part) return <div className="p-8 text-sm">Produit indisponible. <button className="underline" onClick={() => props.back()}>Retour</button></div>;
+  return <AccessoryDetailContent {...props} part={part} />;
+}
+
+function AccessoryDetailContent({ part, go, back, backLabel }: Props & { part: Product }) {
   const gallery = productGallery(part);
   const brand = brandName(part);
   const category = categories.find((item) => item.id === part.categoryId)?.name ?? "Produit";

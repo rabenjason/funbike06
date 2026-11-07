@@ -1,3 +1,4 @@
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS } from "../data/contact";
 import { motorcycles, helmets, spareParts, brands, getProductFamily } from "../data";
 import type { Product } from "../types/product";
 import { runRecommender, isSpecificModelRequest, detectBrandText, type NeedProfile } from "./recommender";
@@ -80,10 +81,10 @@ const byId = (id: string) => motorcycles.find((b) => b.id === id);
 /* ------------------------------------------------------------------ */
 
 export const SHOP = {
-  phone: "+261 34 00 000 00",
-  email: "contact@funbike.mg",
-  city: "Antananarivo",
-  hours: "du lundi au samedi, de 8h à 17h30",
+  phone: CONTACT_PHONE,
+  email: CONTACT_EMAIL,
+  city: CONTACT_ADDRESS,
+  hours: CONTACT_HOURS,
 };
 
 /** Opening status computed in Madagascar time (UTC+3). */
