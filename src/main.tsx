@@ -28,7 +28,11 @@ function Bootstrap() {
         } else {
           await initializePublicData();
           const { default: App } = await import("./App");
-          if (active) setContent(<App />);
+          if (active) {
+            // Le contenu HTML reste visible si l'API échoue ou est bloquée pour un robot.
+            document.getElementById("seo-fallback")?.remove();
+            setContent(<App />);
+          }
         }
       } catch {
         if (active) setError("Impossible de charger les données du serveur. Vérifiez la connexion puis réessayez.");
