@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { twMerge } from "tailwind-merge";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faImage } from "@fortawesome/free-solid-svg-icons";
 
@@ -18,7 +19,7 @@ function Inner({ src, alt, className = "", imgClassName = "", eager = false }: P
   const [failed, setFailed] = useState(!src);
 
   return (
-    <div className={"relative overflow-hidden " + className}>
+    <div className={twMerge("relative overflow-hidden", className)}>
       {!loaded && !failed && <div className="skeleton absolute inset-0" aria-hidden="true" />}
       {failed ? (
         <div className="absolute inset-0 grid place-items-center text-black/25 dark:text-white/25" aria-label={alt}>

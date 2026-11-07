@@ -18,9 +18,9 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { LOGO } from "../data";
+import { LOGO } from "../catalog";
 import { content } from "../constants/content";
-import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../data/contact";
+import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../catalog/contact";
 
 export type Route = { page: string; id?: string };
 

@@ -340,7 +340,7 @@ if ($method === "POST") {
     if (isset($_FILES["mainImage"])) {
         $savedFile = saveUploadedImage(
             $_FILES["mainImage"],
-            $productDir . "/main"
+            $productDir . "/main-" . bin2hex(random_bytes(8))
         );
         $fileName = basename($savedFile);
 
@@ -374,7 +374,7 @@ if ($method === "POST") {
 
             $savedFile = saveUploadedImage(
                 $file,
-                $productDir . "/image-" . $imageNumber
+                $productDir . "/image-" . $imageNumber . "-" . bin2hex(random_bytes(8))
             );
             $fileName = basename($savedFile);
 
@@ -503,7 +503,7 @@ if ($method === "PUT") {
 
                 $savedFile = saveUploadedImage(
                     $file,
-                    $productDir . "/image-" . $imageNumber
+                    $productDir . "/image-" . $imageNumber . "-" . bin2hex(random_bytes(8))
                 );
                 $fileName = basename($savedFile);
 

@@ -10,7 +10,7 @@ import Product from "./pages/Product";
 import AccessoryDetail from "./pages/AccessoryDetail";
 import Contact from "./pages/Contact";
 import Dealers from "./pages/Dealers";
-import { motorcycles, findProductById, getHomepageHeroProducts, mainProductImage } from "./data";
+import { motorcycles, findProductById, getHomepageHeroProducts, mainProductImage } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
 
 function sameRoute(a: Route, b: Route) {

@@ -1,3 +1,4 @@
+import { seedCatalog } from "./helpers/catalog.mjs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
@@ -9,7 +10,8 @@ let data;
 let Home;
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
-  data = await server.ssrLoadModule("/src/data/index.ts");
+  data = await server.ssrLoadModule("/src/catalog/index.ts");
+  await seedCatalog(server);
   Home = (await server.ssrLoadModule("/src/pages/Home.tsx")).default;
 });
 after(async () => { await server?.close(); });

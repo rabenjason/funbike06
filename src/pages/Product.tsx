@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft, faArrowRight, faCheck, faMagnifyingGlassPlus, faPhone } from "@fortawesome/free-solid-svg-icons";
-import { brands, motorcycles, productGallery, mainProductImage, getProductFamily } from "../data";
+import { brands, motorcycles, productGallery, mainProductImage, getProductFamily } from "../catalog";
 import { Section } from "../components/Layout";
 import type { Product as CatalogProduct } from "../types/product";
 import { BikeCard } from "../components/Cards";

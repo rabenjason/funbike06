@@ -15,7 +15,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import type { Dealer } from "../types";
-import { DEALERS } from "../data/dealers";
+import { DEALERS } from "../catalog/dealers";
 
 export type { Dealer };
 export { DEALERS };
@@ -67,7 +67,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
   }
 
   /* Slider des fiches revendeurs : les flèches parcourent la liste générée
-     depuis src/data/dealers.ts, quel que soit le nombre de revendeurs. */
+     depuis l’API des revendeurs, quel que soit le nombre de revendeurs. */
   function updateSliderEdges() {
     const el = dealerTrackRef.current;
     if (!el) return;
@@ -309,7 +309,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
           </div>
 
           {/* Slider de fiches : une fiche par revendeur, générée depuis
-              src/data/dealers.ts — s'adapte automatiquement au nombre de
+              l’API des revendeurs — s'adapte automatiquement au nombre de
               revendeurs, sur ordinateur, tablette et mobile. */}
           <ul
             ref={dealerTrackRef}

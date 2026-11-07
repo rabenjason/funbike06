@@ -15,7 +15,7 @@ import {
   helmets,
   ridingGear,
   productTypes,
-} from "../data";
+} from "../catalog";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";

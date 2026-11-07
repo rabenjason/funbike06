@@ -181,9 +181,9 @@ function normalizeImages($images, $productId, $productName)
     $normalized = [];
 
     foreach (array_values($validImages) as $index => $image) {
-        $imageId = !empty($image["id"])
-            ? (string) $image["id"]
-            : $productId . "-image-" . ($index + 1);
+        // Un identifiant unique après réordonnancement, y compris lorsque
+        // une nouvelle photo principale remplace un ancien identifiant.
+        $imageId = $productId . "-image-" . ($index + 1);
 
         $altText = !empty($image["altText"])
             ? (string) $image["altText"]

@@ -1,11 +1,15 @@
+import { seedCatalog } from "./helpers/catalog.mjs";
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 let server, data, loadServerData, originalFetch, initialProducts;
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
-  data = await server.ssrLoadModule('/src/data/index.ts');
-  ({ loadServerData } = await server.ssrLoadModule('/src/data/loadServerData.ts'));
+  data = await server.ssrLoadModule('/src/catalog/index.ts');
+  ({ loadServerData } = await server.ssrLoadModule('/src/catalog/loadServerData.ts'));
+  assert.deepEqual(data.products, [], "pas de copie statique des produits dans le front");
+  assert.deepEqual(data.brands, [], "les marques sont chargées par l’API");
+  await seedCatalog(server);
   initialProducts = Object.fromEntries(["motorcycles", "helmets", "ridingGear", "spareParts"].map((key) => [key, structuredClone(data[key])]));
   originalFetch = globalThis.fetch;
 });

@@ -1,5 +1,5 @@
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS } from "../data/contact";
-import { motorcycles, helmets, spareParts, brands, getProductFamily } from "../data";
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS } from "../catalog/contact";
+import { motorcycles, helmets, spareParts, brands, getProductFamily } from "../catalog";
 import type { Product } from "../types/product";
 import { runRecommender, isSpecificModelRequest, detectBrandText, type NeedProfile } from "./recommender";
 

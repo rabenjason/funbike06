@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Brand, Model, Product } from "../types/product";
-import type { ProductType } from "../data/productTypes";
+import type { ProductType } from "../catalog/productTypes";
+import { prepareProductPhotos, type EditablePhoto } from "../lib/productPhotos";
 
 type User = { id: string; username: string; role: string; mustChangePassword: boolean };
 type Family = { id: string; name: string; categoryId: string };
@@ -46,17 +47,38 @@ async function readCatalog(): Promise<Catalog> {
 function defaultProduct(categoryId: string): Product {
   return { id: "", name: "", brandId: "", categoryId, productTypeId: "", description: "", images: [], specifications: [], status: "DRAFT", price: "Sur devis", isNewArrival: false, isHomepageHero: false, isMotoAccueil: false, isEquipementAccueil: false };
 }
-function ProductEditor({ catalog, current, close, refresh }: { catalog: Catalog; current?: Product; close: () => void; refresh: () => Promise<void> }) {
+export function ProductEditor({ catalog, current, close, refresh }: { catalog: Catalog; current?: Product; close: () => void; refresh: () => Promise<void> }) {
   const [item, setItem] = useState<Product>(() => current ? { ...current } : defaultProduct("motos"));
   const [familyId, setFamilyId] = useState(() => catalog.types.find((t) => t.id === current?.productTypeId)?.familyId ?? "");
-  const [photo, setPhoto] = useState<File | null>(null); const [gallery, setGallery] = useState<File[]>([]); const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<EditablePhoto[]>(() => (current?.images ?? []).map((image, index) => ({ key: `saved-${index}`, preview: image.url, image })));
+  const [mainKey, setMainKey] = useState<string | null>(() => { const index = (current?.images ?? []).findIndex((image) => image.isMain); return current?.images.length ? `saved-${index < 0 ? 0 : index}` : null; });
+  const photoCounter = useRef(0);
+  const previewUrls = useRef(new Set<string>());
+  const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => { const urls = previewUrls.current; return () => { for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }; }, []);
+  function addPhotos(files: FileList | null) {
+    if (!files?.length) return;
+    const added = Array.from(files).map((file) => {
+      const preview = URL.createObjectURL(file); previewUrls.current.add(preview);
+      return { key: `new-${photoCounter.current++}`, preview, file };
+    });
+    setPhotos((previous) => [...previous, ...added]);
+    if (!photos.length && !mainKey) setMainKey(added[0].key);
+    setMessage("");
+  }
+  function removePhoto(photo: EditablePhoto) {
+    if (photo.file) { URL.revokeObjectURL(photo.preview); previewUrls.current.delete(photo.preview); }
+    setPhotos((previous) => previous.filter((item) => item.key !== photo.key));
+    if (mainKey === photo.key) setMainKey(null);
+  }
   const types = catalog.types.filter((t) => t.categoryId === item.categoryId && (item.categoryId !== "motos" || t.familyId === familyId));
   const set = <K extends keyof Product>(key: K, value: Product[K]) => setItem((p) => ({ ...p, [key]: value }));
   async function submit(e: FormEvent) {
     e.preventDefault(); setMessage(""); setBusy(true);
     try {
+      const { images, mainImage, gallery } = prepareProductPhotos(photos, mainKey);
       const form = new FormData(); const { id, ...fields } = item;
-      form.set("product", JSON.stringify(fields)); if (current) form.set("_method", "PUT"); if (photo) form.set("mainImage", photo); for (const file of gallery) form.append("gallery[]", file);
+      form.set("product", JSON.stringify({ ...fields, images })); if (current) form.set("_method", "PUT"); if (mainImage) form.set("mainImage", mainImage); for (const file of gallery) form.append("gallery[]", file);
       await request(`products/${paths[item.categoryId]}.php${current ? `?id=${encodeURIComponent(id)}` : ""}`, { method: "POST", body: form });
       await refresh(); close();
     } catch (err) { setMessage((err as Error).message); } finally { setBusy(false); }
@@ -70,10 +92,19 @@ function ProductEditor({ catalog, current, close, refresh }: { catalog: Catalog;
     {item.categoryId === "motos" && <Label title="Modèle (facultatif)"><select className={control} value={item.modelId ?? ""} onChange={(e) => set("modelId", e.target.value || undefined)}><option value="">Aucun modèle</option>{catalog.models.filter((m) => m.brandId === item.brandId).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></Label>}
     <Label title="Statut"><select className={control} value={item.status} onChange={(e) => set("status", e.target.value as Product["status"])}><option value="DRAFT">Brouillon</option><option value="PUBLISHED">Publié</option><option value="ARCHIVED">Archivé</option></select></Label>
     <Label title="Prix ou mention"><input className={control} value={item.price ?? ""} onChange={(e) => set("price", e.target.value)} /></Label>
-    <Label title={current ? "Remplacer la photo principale" : "Photo principale"}><input type="file" accept="image/jpeg,image/png,image/webp" className={control} onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} /></Label>
     <div className="sm:col-span-2"><Label title="Description"><textarea rows={3} className={control} value={item.description} onChange={(e) => set("description", e.target.value)} /></Label></div>
-    <div className="sm:col-span-2"><Label title="Ajouter des photos à la galerie"><input type="file" multiple accept="image/jpeg,image/png,image/webp" className={control} onChange={(e) => setGallery(Array.from(e.target.files ?? []))} /></Label></div>
-    {item.images.length > 0 && <div className="sm:col-span-2"><p className="text-xs font-semibold text-black/65">Photos actuelles</p><div className="mt-2 flex flex-wrap gap-3">{item.images.map((image, index) => <div key={image.id} className="w-24 rounded-md border border-black/10 p-1"><img src={image.url} alt={image.altText} className="h-20 w-full object-contain" /><p className="text-center text-xs text-black/50">{image.isMain ? "Principale" : "Galerie"}</p><button type="button" className="w-full text-xs underline" onClick={() => set("images", item.images.filter((_, i) => i !== index))}>Retirer</button></div>)}</div></div>}
+    <fieldset className="sm:col-span-2 rounded-lg border border-black/10 p-4">
+      <legend className="px-1 text-sm font-bold">Photos du produit</legend>
+      <p className="text-xs leading-5 text-black/60">Ajoutez une ou plusieurs photos, puis choisissez celle qui sera affichée en premier sur le site. Les modifications seront appliquées après enregistrement.</p>
+      <Label title="Ajouter des photos (JPG, PNG ou WebP)"><input type="file" multiple accept="image/jpeg,image/png,image/webp" className={control} onChange={(e) => { addPhotos(e.target.files); e.currentTarget.value = ""; }} /></Label>
+      {photos.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{photos.map((image) => <div key={image.key} className={`rounded-lg border p-2 ${mainKey === image.key ? "border-[#b58b16] bg-amber-50" : "border-black/10 bg-white"}`}>
+        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded bg-white"><img src={image.preview} alt={image.image?.altText || image.file?.name || "Photo du produit"} className="h-full w-full object-contain" /></div>
+        <p className="mt-2 truncate text-xs font-semibold" title={image.file?.name}>{image.file ? image.file.name : "Photo enregistrée"}</p>
+        {mainKey === image.key ? <span className="mt-2 block text-xs font-bold text-amber-800">✓ Photo principale</span> : <button type="button" className="mt-2 block text-left text-xs font-semibold underline" onClick={() => { setMainKey(image.key); setMessage(""); }}>Définir comme principale</button>}
+        <button type="button" className="mt-2 block text-xs text-red-700 underline" onClick={() => removePhoto(image)}>Retirer</button>
+      </div>)}</div> : <p className="mt-3 text-xs text-black/50">Aucune photo sélectionnée.</p>}
+      {photos.length > 0 && !mainKey && <p role="status" className="mt-3 text-xs font-semibold text-amber-800">Choisissez une nouvelle photo principale avant d’enregistrer.</p>}
+    </fieldset>
     <fieldset className="sm:col-span-2"><legend className="text-xs font-semibold text-black/65">Caractéristiques</legend><div className="mt-2 space-y-2">{item.specifications.map((spec, index) => <div key={index} className="flex flex-wrap gap-2"><input aria-label={`Nom de la caractéristique ${index + 1}`} placeholder="Ex. Cylindrée" value={spec.key} onChange={(e) => set("specifications", item.specifications.map((v, i) => i === index ? { ...v, key: e.target.value } : v))} className="min-w-36 flex-1 rounded-md border border-black/15 px-3 py-2 text-sm" /><input aria-label={`Valeur de la caractéristique ${index + 1}`} placeholder="Ex. 125 cc" value={spec.value} onChange={(e) => set("specifications", item.specifications.map((v, i) => i === index ? { ...v, value: e.target.value } : v))} className="min-w-36 flex-1 rounded-md border border-black/15 px-3 py-2 text-sm" /><button type="button" className={secondary} onClick={() => set("specifications", item.specifications.filter((_, i) => i !== index))}>Retirer</button></div>)}</div><button type="button" className={`${secondary} mt-2`} onClick={() => set("specifications", [...item.specifications, { key: "", value: "" }])}>+ Ajouter une caractéristique</button></fieldset>
     {item.categoryId === "pieces-detachees" && <fieldset className="sm:col-span-2"><legend className="text-xs font-semibold text-black/65">Marques compatibles</legend><div className="mt-2 flex flex-wrap gap-3">{catalog.brands.filter((b) => b.id !== "unknown-brand").map((b) => <label key={b.id} className="text-sm"><input type="checkbox" checked={(item.compatibleBrandIds ?? []).includes(b.id)} onChange={(e) => set("compatibleBrandIds", e.target.checked ? [...(item.compatibleBrandIds ?? []), b.id] : (item.compatibleBrandIds ?? []).filter((id) => id !== b.id))} /> {b.name}</label>)}</div></fieldset>}
     <fieldset className="sm:col-span-2"><legend className="text-xs font-semibold text-black/65">Sélections de l’accueil</legend><div className="mt-2 flex flex-wrap gap-4 text-sm"><label><input type="checkbox" checked={item.isNewArrival} onChange={(e) => set("isNewArrival", e.target.checked)} /> Nouveautés</label>{item.categoryId === "motos" && <><label><input type="checkbox" checked={!!item.isHomepageHero} onChange={(e) => set("isHomepageHero", e.target.checked)} /> Bandeau</label><label><input type="checkbox" checked={!!item.isMotoAccueil} onChange={(e) => set("isMotoAccueil", e.target.checked)} /> Motos accueil</label></>}{["casques", "equipements"].includes(item.categoryId) && <label><input type="checkbox" checked={!!item.isEquipementAccueil} onChange={(e) => set("isEquipementAccueil", e.target.checked)} /> Équipements accueil</label>}</div><p className="mt-2 text-xs text-black/50">Les sélections affichent les premiers produits publiés : 3 nouveautés, 3 motos par section et 4 équipements.</p></fieldset>

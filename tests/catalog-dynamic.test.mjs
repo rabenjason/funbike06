@@ -1,3 +1,4 @@
+import { seedCatalog } from "./helpers/catalog.mjs";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "vite";
@@ -8,7 +9,8 @@ let server, data, Catalogue, Equipements, Spares, Product;
 const render = (component, props = {}) => renderToStaticMarkup(React.createElement(component, { go() {}, ...props }));
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
-  data = await server.ssrLoadModule("/src/data/index.ts");
+  data = await server.ssrLoadModule("/src/catalog/index.ts");
+  await seedCatalog(server);
   ({ Catalogue, Equipements, Spares } = await server.ssrLoadModule("/src/pages/Catalog.tsx"));
   Product = (await server.ssrLoadModule("/src/pages/Product.tsx")).default;
 });

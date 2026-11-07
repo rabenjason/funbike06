@@ -1,4 +1,4 @@
-import { getProductFamily } from "../data";
+import { getProductFamily } from "../catalog";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -20,7 +20,7 @@ import {
   faXmark,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
-import { motorcycles, brands, mainProductImage } from "../data";
+import { motorcycles, brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import SmartImage from "./SmartImage";
 import {

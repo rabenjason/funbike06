@@ -96,14 +96,33 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: update })).status, 200);
     assert.ok((await call('products/motorcycles.php')).body.data.some((p) => p.id === id));
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'DELETE', authenticated: true })).status, 200);
-    for (const [path, categoryId, productTypeId] of [['helmets', 'casques', 'casque'], ['riding-gear', 'equipements', 'gants'], ['spare-parts', 'pieces-detachees', 'pneus']]) {
+    for (const [path, categoryId, productTypeId] of [['motorcycles', 'motos', 'urbain'], ['helmets', 'casques', 'casque'], ['riding-gear', 'equipements', 'gants'], ['spare-parts', 'pieces-detachees', 'pneus']]) {
       const input = new FormData();
       input.set('product', JSON.stringify({ name: `Test ${path}`, brandId: 'tvs', categoryId, productTypeId, description: '', images: [], specifications: [], isEquipementAccueil: path === 'helmets' }));
       input.set('mainImage', new Blob([png], { type: 'image/png' }), 'test.png');
+      input.append('gallery[]', new Blob([png], { type: 'image/png' }), 'galerie.png');
       const created = await call(`products/${path}.php`, { method: 'POST', authenticated: true, body: input });
       assert.equal(created.status, 201, JSON.stringify(created.body));
       assert.equal(created.body.data.status, 'DRAFT');
       assert.ok(created.body.data.images[0].url.startsWith('/server/uploads/'));
+      assert.equal(created.body.data.images.length, 2);
+      const [originalMain, galleryImage] = created.body.data.images;
+      const chooseExisting = new FormData(); chooseExisting.set('_method', 'PUT');
+      chooseExisting.set('product', JSON.stringify({ images: [{ ...galleryImage, isMain: true, position: 0 }, { ...originalMain, isMain: false, position: 1 }] }));
+      const chosen = await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: chooseExisting });
+      assert.equal(chosen.status, 200, JSON.stringify(chosen.body));
+      assert.equal(chosen.body.data.images[0].url, galleryImage.url);
+      assert.equal(chosen.body.data.images[0].isMain, true);
+      const chooseNew = new FormData(); chooseNew.set('_method', 'PUT');
+      chooseNew.set('product', JSON.stringify({ images: chosen.body.data.images.map((image, index) => ({ ...image, isMain: false, position: index + 1 })) }));
+      chooseNew.set('mainImage', new Blob([png], { type: 'image/png' }), 'nouvelle.png');
+      const changed = await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: chooseNew });
+      assert.equal(changed.status, 200, JSON.stringify(changed.body));
+      assert.equal(changed.body.data.images.length, 3);
+      assert.equal(changed.body.data.images.filter((image) => image.isMain).length, 1);
+      assert.ok(changed.body.data.images.some((image) => image.url === originalMain.url));
+      assert.ok(changed.body.data.images.some((image) => image.url === galleryImage.url));
+      assert.equal(new Set(changed.body.data.images.map((image) => image.id)).size, 3);
       const publish = new FormData(); publish.set('_method', 'PUT'); publish.set('product', JSON.stringify({ status: 'PUBLISHED' }));
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: publish })).status, 200);
       if (path === 'helmets') assert.ok((await call('homepage-equipment.php')).body.data.length <= 4);
