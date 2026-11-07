@@ -9,7 +9,8 @@ import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
-export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean }) {
+export function BikeCard({ bike, go, uniformLayout = false, alignActions = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean }) {
+  const aligned = uniformLayout || alignActions;
   const gallery = productGallery(bike);
   const family = getProductFamily(bike)?.name;
   const [active, setActive] = useState(0);
@@ -69,23 +70,23 @@ export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; g
         </p>
         <h3
           title={uniformLayout ? bike.name : undefined}
-          className={"mt-2 font-display text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] font-bold uppercase leading-[1.05] tracking-[-0.02em] text-[#171816] dark:text-white " + (uniformLayout ? "line-clamp-2 min-h-[2.1em] [overflow-wrap:anywhere]" : "")}
+          className={"mt-2 font-display text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] font-bold uppercase leading-[1.05] tracking-[-0.02em] text-[#171816] dark:text-white " + (uniformLayout ? "line-clamp-2 min-h-[2.1em] [overflow-wrap:anywhere]" : alignActions ? "[overflow-wrap:anywhere]" : "")}
         >
           {bike.name}
         </h3>
         <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em] [overflow-wrap:anywhere]" : "")}>{bike.description}</p>
 
-        <div className={"flex justify-between gap-3 " + (uniformLayout ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
+        <div className={"flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => go("product", bike.id)}
-            className={"fluid-btn inline-flex min-h-10 items-center gap-2.5 border border-black/25 px-4 py-2.5 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (uniformLayout ? "shrink-0 whitespace-nowrap" : "")}
+            className={"fluid-btn inline-flex min-h-10 items-center gap-2.5 border border-black/25 px-4 py-2.5 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (aligned ? "shrink-0 whitespace-nowrap" : "")}
           >
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
-          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (uniformLayout ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
+          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
             {bike.price ?? "Sur devis"}
           </span>
         </div>
