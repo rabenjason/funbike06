@@ -100,7 +100,7 @@ test('suppression d’un produit : seule la confirmation envoie la requête', as
 test('suppression d’une marque : modal nominative, annulation et erreur du serveur protégée', async () => {
   const view = await openAdmin();
   fireEvent.click(view.getByRole('button', { name: 'Marques et classement' }));
-  const row = view.getByText('TVS').parentElement.parentElement;
+  const row = view.getByText('TVS').closest('.py-3');
   fireEvent.click(within(row).getByRole('button', { name: 'Supprimer' }));
   let dialog = view.getByRole('alertdialog');
   assert.match(dialog.textContent, /Supprimer « TVS »/); assert.match(dialog.textContent, /ne peuvent pas être supprimés/);
