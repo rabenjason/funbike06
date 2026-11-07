@@ -218,6 +218,15 @@ if ($method === 'PUT') {
         $data['brands'][$brandIndex]['isEquipmentBrand'] = $isEquipmentBrand;
     }
 
+    // Une erreur de transfert ne doit jamais être traitée comme une absence de logo.
+    if (isset($_FILES['logo']) && !in_array($_FILES['logo']['error'], [UPLOAD_ERR_OK, UPLOAD_ERR_NO_FILE], true)) {
+        $uploadError = $_FILES['logo']['error'];
+        http_response_code(in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? 413 : 400);
+        echo json_encode(["error" => "Impossible de transférer le logo. Vérifiez la taille autorisée par le serveur et réessayez."]);
+        exit;
+    }
+
+    $newLogoFile = null;
     // Mise à jour du logo (si un nouveau fichier est fourni)
     if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
         $file = $_FILES['logo'];
@@ -236,6 +245,7 @@ if ($method === 'PUT') {
         $fileName = 'logo-' . bin2hex(random_bytes(8)) . '.' . $fileExt;
         $destination = $brandDir . '/' . $fileName;
         if (move_uploaded_file($file['tmp_name'], $destination)) {
+            $newLogoFile = $destination;
             $data['brands'][$brandIndex]['logo'] = "/server/uploads/brands/$id/$fileName";
         } else {
             http_response_code(500);
@@ -244,14 +254,12 @@ if ($method === 'PUT') {
         }
     }
 
-    if (!saveData($jsonFile, $data)) { http_response_code(500); echo json_encode(["error" => "Impossible de sauvegarder les marques."]); exit; }
-    // Ne supprimer les fichiers qu'après l'enregistrement du JSON.
-    $brandDir = $uploadsDir . '/' . basename($id);
-    if (is_dir($brandDir)) {
-        $files = array_diff(scandir($brandDir), ['.', '..']);
-        foreach ($files as $file) @unlink($brandDir . '/' . $file);
-        @rmdir($brandDir);
+    if (!saveData($jsonFile, $data)) {
+        // Le JSON pointe encore sur l'ancien logo : seul le nouveau fichier peut être retiré.
+        if ($newLogoFile !== null) @unlink($newLogoFile);
+        http_response_code(500); echo json_encode(["error" => "Impossible de sauvegarder les marques."]); exit;
     }
+    // Ne pas effacer les anciens logos : d'autres pages ou sauvegardes peuvent encore les utiliser.
     http_response_code(200);
     echo json_encode(["message" => "Marque mise à jour.", "brand" => $data['brands'][$brandIndex]]);
     exit;
