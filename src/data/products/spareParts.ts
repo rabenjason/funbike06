@@ -3,6 +3,7 @@ import type { Product } from "../../types/product";
 export const spareParts: Product[] = [
   {
     "id": "p1",
+    "isHomepageHighlight": false,
     "name": "Plaquettes de frein haute performance",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -23,6 +24,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "p2",
+    "isHomepageHighlight": false,
     "name": "Kit filtration & entretien",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -43,6 +45,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "p3",
+    "isHomepageHighlight": false,
     "name": "Disque de frein Galfer Wave",
     "brandId": "galfer",
     "categoryId": "pieces-detachees",
@@ -63,6 +66,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "p4",
+    "isHomepageHighlight": false,
     "name": "Consommables moteur d'origine",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -83,6 +87,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "p5",
+    "isHomepageHighlight": false,
     "name": "Kit chaîne renforcé",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -103,6 +108,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "p6",
+    "isHomepageHighlight": false,
     "name": "Pièce mécanique d'origine",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -123,6 +129,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-tyre-front",
+    "isHomepageHighlight": false,
     "name": "Pneu avant route TVS 90/90-17",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -146,6 +153,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-tyre-rear",
+    "isHomepageHighlight": false,
     "name": "Pneu arrière TVS 100/90-17",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -169,6 +177,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-chain-kit",
+    "isHomepageHighlight": false,
     "name": "Kit chaîne renforcé TVS 428",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -192,6 +201,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-brake-pads",
+    "isHomepageHighlight": false,
     "name": "Plaquettes de frein avant TVS",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -215,6 +225,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-air-filter",
+    "isHomepageHighlight": false,
     "name": "Filtre à air TVS HLX / Raider",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -238,6 +249,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-brake-disc",
+    "isHomepageHighlight": false,
     "name": "Disque de frein avant TVS",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -261,6 +273,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-clutch-cable",
+    "isHomepageHighlight": false,
     "name": "Câble d’embrayage TVS",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -284,6 +297,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "tvs-part-service-kit",
+    "isHomepageHighlight": false,
     "name": "Kit entretien moteur TVS",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -307,6 +321,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "sherco-part-chain-kit",
+    "isHomepageHighlight": false,
     "name": "Kit chaîne enduro Sherco",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -330,6 +345,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "sherco-part-brake-disc",
+    "isHomepageHighlight": false,
     "name": "Disque de frein Galfer Sherco",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -353,6 +369,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "sherco-part-filter-kit",
+    "isHomepageHighlight": false,
     "name": "Kit filtres enduro Sherco",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -376,6 +393,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "fantic-part-chain-kit",
+    "isHomepageHighlight": false,
     "name": "Kit chaîne cross Fantic XX 125",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -399,6 +417,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "fantic-part-brake-pads",
+    "isHomepageHighlight": false,
     "name": "Plaquettes de frein Fantic",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",
@@ -422,6 +441,7 @@ export const spareParts: Product[] = [
   },
   {
     "id": "fantic-part-air-filter",
+    "isHomepageHighlight": false,
     "name": "Filtre à air Fantic XX 125",
     "brandId": "unknown-brand",
     "categoryId": "pieces-detachees",

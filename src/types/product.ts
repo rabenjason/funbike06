@@ -38,8 +38,8 @@ export interface Product {
   images: ProductImage[];
   specifications: ProductSpecification[];
   status: ProductStatus;
-  /** Afficher parmi les nouveautés de l’accueil (absent = false). */
-  isHomepageHighlight?: boolean;
+  /** Sélectionner ce produit parmi les nouveautés de l’accueil. */
+  isHomepageHighlight: boolean;
   price?: string;
   tags?: string[];
   badge?: string;

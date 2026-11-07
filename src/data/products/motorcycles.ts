@@ -3,6 +3,7 @@ import type { Product } from "../../types/product";
 export const motorcycles: Product[] = [
   {
     "id": "tvs-125-hlx-5g",
+    "isHomepageHighlight": false,
     "name": "TVS 125 HLX 5G",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -38,6 +39,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "tvs-hlx-plus",
+    "isHomepageHighlight": false,
     "name": "TVS HLX Plus",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -113,6 +115,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "sherco-sef-300-factory-2026",
+    "isHomepageHighlight": false,
     "name": "Sherco SEF 300 Factory 2026",
     "brandId": "sherco",
     "categoryId": "motos",
@@ -160,6 +163,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "tvs-red",
+    "isHomepageHighlight": false,
     "name": "TVS Raider Rouge",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -191,6 +195,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "tuktuk",
+    "isHomepageHighlight": false,
     "name": "TVS King Tuktuk",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -306,6 +311,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "tvs-bleu",
+    "isHomepageHighlight": false,
     "name": "TVS Sport Series",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -359,6 +365,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "concept-urbain",
+    "isHomepageHighlight": false,
     "name": "Édition Spéciale Funbike",
     "brandId": "funbike",
     "categoryId": "motos",
@@ -386,6 +393,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "xx-125-2026",
+    "isHomepageHighlight": false,
     "name": "XX 125 2026",
     "brandId": "fantic",
     "categoryId": "motos",
@@ -429,6 +437,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "offroad-trail",
+    "isHomepageHighlight": false,
     "name": "Trail Adventure",
     "brandId": "fantic",
     "categoryId": "motos",
@@ -460,6 +469,7 @@ export const motorcycles: Product[] = [
   },
   {
     "id": "offroad-450",
+    "isHomepageHighlight": false,
     "name": "Enduro 450 Factory",
     "brandId": "sherco",
     "categoryId": "motos",
