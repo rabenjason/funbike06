@@ -102,7 +102,7 @@ test('l’administration relie Accueil à l’API et garde la sélection après 
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url).replace('/server/api/', '');
     calls.push({ path, options });
-    const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } }, 'brands.php?includeDrafts=1': { brands: catalog.brands }, 'categories.php': { categories: catalog.categories }, 'families.php': { families: catalog.families }, 'product-types.php': { productTypes: catalog.types }, 'models.php?includeDrafts=1': { models: [] } };
+    const fixed = { 'messages.php?count=unread': { unreadCount: 0 }, 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } }, 'brands.php?includeDrafts=1': { brands: catalog.brands }, 'categories.php': { categories: catalog.categories }, 'families.php': { families: catalog.families }, 'product-types.php': { productTypes: catalog.types }, 'models.php?includeDrafts=1': { models: [] } };
     if (path === 'homepage-selections.php') {
       const { id, categoryId, field, value } = JSON.parse(options.body);
       const product = records.find((p) => p.id === id && p.categoryId === categoryId);

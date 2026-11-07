@@ -39,7 +39,7 @@ beforeEach(() => {
       return { ok: true, json: async () => ({ success: true }) };
     }
     if (failRefresh && path === 'brands.php?includeDrafts=1') return { ok: false, json: async () => ({ message: 'Catalogue indisponible' }) };
-    const fixed = {
+    const fixed = { 'messages.php?count=unread': { unreadCount: 0 },
       'auth/me.php': { user }, 'brands.php?includeDrafts=1': { brands: [{ id: 'tvs', name: 'TVS' }] },
       'categories.php': { categories: [{ id: 'motos', name: 'Motos' }, { id: 'casques', name: 'Casques' }] },
       'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] },

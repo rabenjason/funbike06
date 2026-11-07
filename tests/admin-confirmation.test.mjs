@@ -28,7 +28,7 @@ beforeEach(() => {
     if (path === 'brands.php?id=tvs' && options.method === 'DELETE') return { ok: false, json: async () => ({ error: 'Cette marque est encore utilisée.' }) };
     if (options.method === 'DELETE') return { ok: true, json: async () => ({}) };
     if (path === 'auth/users.php?id=editor-1' && options.method === 'PUT') return { ok: true, json: async () => ({ temporaryPassword: 'temporaire-affiche-une-fois' }) };
-    const fixed = {
+    const fixed = { 'messages.php?count=unread': { unreadCount: 0 },
       'auth/me.php': { user: currentUser }, 'auth/users.php': { users: [user, editor] },
       'brands.php?includeDrafts=1': { brands: [{ id: 'tvs', name: 'TVS', isEquipmentBrand: true }] },
       'categories.php': { categories: [{ id: 'motos', name: 'Motos' }] },
