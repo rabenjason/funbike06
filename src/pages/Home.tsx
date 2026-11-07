@@ -41,7 +41,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
 
   return (
     <div className="overflow-hidden bg-white text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
-      {/* Full-bleed hero image with a smooth contrast veil for the headline */}
+      {/* Afficher l’image entière derrière le voile de contraste du bandeau. */}
       <section className="relative isolate min-h-[max(560px,calc(100svh-64px))] overflow-hidden bg-[#22231f] sm:min-h-[720px] lg:min-h-[min(820px,calc(100svh-68px))]">
         <AnimatePresence initial={false} mode="sync">
           {current && heroImage && (
@@ -49,11 +49,11 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               key={current.id}
               src={heroImage.url}
               alt={heroImage.altText || current.name}
-              initial={{ opacity: 0, scale: 1.035 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
-              className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
+              transition={{ opacity: { duration: 0.7 } }}
+              className="absolute inset-0 h-full w-full object-contain object-center"
             />
           )}
         </AnimatePresence>
