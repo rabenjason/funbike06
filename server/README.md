@@ -419,3 +419,9 @@ Les tests automatisés `npm test` couvrent aussi l'API lorsque PHP est installé
 À l’ajout comme à la modification d’un produit, les aperçus permettent de choisir une seule photo principale parmi les photos existantes et les nouveaux fichiers. La sélection n’est enregistrée qu’après validation du formulaire. L’ancienne photo principale reste dans la galerie à moins d’être retirée explicitement ; les fichiers retirés peuvent rester sur disque et nécessitent un nettoyage séparé après sauvegarde. Si la photo principale est retirée, en sélectionner une autre avant d’enregistrer, sauf si aucune photo ne reste.
 
 Les tableaux du front commencent vides et sont remplis par l’API ; les fichiers JSON `server/storage/data/` restent indispensables et ne doivent pas être supprimés. Les textes de présentation du site sont toujours dans le code du front.
+
+### Sélections d’accueil dans l’administration
+
+L’onglet Accueil liste tous les produits sélectionnés par section, y compris les brouillons, les archives et ceux qui dépassent les limites d’affichage du site. Utiliser « Tous les produits » pour ajouter un produit, ou « Retirer de la sélection » pour le retirer sans le supprimer du catalogue. Les modifications sont enregistrées individuellement.
+
+L’API `PUT /server/api/homepage-selections.php` exige une session administrateur et reçoit `id`, `categoryId`, `field` et `value` (booléen). Elle modifie uniquement le champ de sélection demandé sous verrou, sans toucher aux autres données du produit. Le site public continue d’afficher uniquement les premiers produits publiés : trois nouveautés, trois motos dans chaque section moto et quatre équipements.
