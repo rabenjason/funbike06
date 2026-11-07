@@ -18,6 +18,8 @@ export default function TypedText({ strings, className = "" }: Props) {
     if (!el.current) return;
     typed.current = new Typed(el.current, {
       strings,
+      // Le texte saisi dans l’administration ne doit jamais être interprété comme du HTML.
+      contentType: "null",
       typeSpeed: 65,
       backSpeed: 38,
       backDelay: 1400,

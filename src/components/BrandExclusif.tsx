@@ -1,5 +1,5 @@
 import { homepageContent, homepageExclusiveBrands } from "../content/homepage";
-import { brands } from "../catalog";
+import { brands, motorcycles, getAvailableEquipmentBrands, spareParts } from "../catalog";
 import { motion, type Variants } from "framer-motion";
 import SmartImage from "./SmartImage";
 
@@ -54,7 +54,12 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
                 variants={item}
                 whileHover={{ y: -3 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => go("motos", brand.name)}
+                onClick={() => {
+                  if (motorcycles.some((product) => product.brandId === brand.key)) go("motos", brand.name);
+                  else if (getAvailableEquipmentBrands().some((item) => item.id === brand.key)) go("equipements", brand.key);
+                  else if (spareParts.some((product) => product.brandId === brand.key || product.compatibleBrandIds?.includes(brand.key))) go("spares", brand.key);
+                  else go("catalogue");
+                }}
                 type="button"
                 className="group flex flex-col items-center justify-between overflow-hidden border border-black/10 bg-white p-2.5 text-center shadow-xs transition hover:border-[#ffd100] hover:shadow-md sm:p-4 dark:border-white/10 dark:bg-[#1b1c19] dark:hover:border-[#ffd100]/60"
               >

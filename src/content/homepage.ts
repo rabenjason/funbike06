@@ -1,97 +1,50 @@
-/** Données éditoriales et de présentation de la page d’accueil. */
-export const homepageContent = {
-    hero: {
-      localisation: "Madagascar / Motos, équipement, liberté",
-      titreLigne1: "Le terrain est",
-      titreLigne2: "votre point de départ.",
-      description:
-        "Sherco, Fantic et TVS. Des motos faites pour aller plus loin, des pièces et de l'équipement pour suivre.",
-      sloganPrefix: "Une moto faite pour",
-      usages: ["la ville", "le travail", "le cross", "l'enduro", "les voyages", "les balades"],
-      boutonCatalogue: "Explorer le catalogue",
-      aLaUne: "À la une",
-      choisirModele: "Choisir le modèle mis en avant",
-      afficherModele: "Afficher",
-    },
-    univers: {
-      surTitre: "Choisir son univers",
-      titre: "Pas de mauvaise direction.",
-    },
-    sherco: {
-      surTitre: "L'univers Sherco / À partir de 50 cc",
-      titreLigne1: "La première piste",
-      titreLigne2: "est la plus belle.",
-      description:
-        "Découvrez l'esprit Sherco avec Funbike. Pour les jeunes pilotes, les familles et les amoureux du tout-terrain.",
-      bouton: "Explorer les motos Sherco",
-      imageAlt: "Moto Sherco 50 cc tout-terrain",
-    },
-    distributeur: {
-      surTitre: "Distributeur exclusif / Madagascar",
-      titre: "Nos marques officielles.",
-      boutonToutVoir: "Tout voir →",
-      boutonToutesMotos: "Voir toutes les motos →",
-      logoPrefix: "Logo",
-    },
-    nouveautes: {
-      surTitre: "Nouveautés / Arrivages",
-      titre: "Frais de l'atelier.",
-      description: "Une sélection de l'équipe Funbike. Disponibilités sur demande.",
-      tarif: "Tarif",
-      boutonCatalogue: "Parcourir le catalogue",
-      decouvrirPrefix: "Découvrir",
-    },
-    motos: {
-      numero: "01 / Motos",
-      titre: "À chaque terrain, sa machine.",
-      description: "Une sélection de modèles disponibles chez Funbike.",
-      bouton: "Toutes les motos",
-    },
-    atelier: {
-      surTitre: "Atelier / Essentiels",
-      titre: "Prêt pour la suite.",
-      description: "Casques, blousons et autres équipements pour accompagner tous vos trajets.",
-      bouton: "Voir tous les équipements",
-    },
-    partenaires: {
-      titre: "Nos partenaires",
-      description: "Des marques qui roulent avec nous",
-      logoPrefix: "Logo",
-    },
-  } as const;
+import defaults from "../../server/api/_lib/homepage-defaults.json";
 
-export const homepageExclusiveBrands = [
-  { brandId: "tvs", tagline: "Robustesse garantie" },
-  { brandId: "fantic", tagline: "Performance italienne" },
-  { brandId: "sherco", tagline: "ADN Compétition" },
-] as const;
+export type HomepageContent = {
+  hero: { localisation: string; titreLigne1: string; titreLigne2: string; description: string; descriptionSansMarques: string; sloganPrefix: string; usages: string[]; boutonCatalogue: string; aLaUne: string; choisirModele: string; afficherModele: string };
+  univers: { surTitre: string; titre: string };
+  sherco: { surTitre: string; titreLigne1: string; titreLigne2: string; description: string; bouton: string; imageAlt: string };
+  distributeur: { surTitre: string; titre: string; boutonToutVoir: string; boutonToutesMotos: string; logoPrefix: string };
+  nouveautes: { surTitre: string; titre: string; description: string; tarif: string; boutonCatalogue: string; decouvrirPrefix: string };
+  motos: { numero: string; titre: string; description: string; bouton: string };
+  atelier: { surTitre: string; titre: string; description: string; bouton: string };
+  partenaires: { titre: string; description: string; logoPrefix: string };
+};
+export type HomepageLink = { title: string; to: "catalogue" | "motos" | "equipements" | "spares" | "revendeurs" | "contact"; brandId: string; icon: "moto" | "helmet" | "parts" | "gear" };
+export type HomepageData = { content: HomepageContent; links: HomepageLink[]; exclusiveBrands: { brandId: string; tagline: string }[] };
 
-/** Cartes de navigation illustrées de l'accueil (pas des catégories catalogue). */
-export const homepageCategories = [
-  {
-    title: "Motos TVS & Urbain",
-    desc: "Mobilité quotidienne, robuste et économique.",
-    src: "https://funbike.mg/wp-content/themes/funbike/images/raider.png",
-    to: "motos",
-  },
-  {
-    title: "Casques & Protections",
-    desc: "Sécurité homologuée, confort longue distance.",
-    src: "https://funbike.mg/wp-content/themes/funbike/images/tld-casque.png",
-    to: "equipements",
-    brand: "tld",
-  },
-  {
-    title: "Pièces détachées",
-    desc: "Pneus, kits chaîne, freinage et consommables.",
-    src: "https://funbike.mg/wp-content/themes/funbike/images/piece.jpg",
-    to: "spares",
-  },
-  {
-    title: "Tenues & Équipements",
-    desc: "Équipements pilote Troy Lee Designs.",
-    src: "https://funbike.mg/wp-content/themes/funbike/images/tenu.jpg",
-    to: "equipements",
-    brand: "tld",
-  },
-] as const;
+// Valeurs d'installation uniquement : les données publiées viennent de l'API.
+const initial = defaults as HomepageData;
+export let homepageContent: HomepageContent = initial.content;
+export let homepageCategories: HomepageLink[] = initial.links;
+export let homepageExclusiveBrands: HomepageData["exclusiveBrands"] = initial.exclusiveBrands;
+
+/** N'appliquer qu'une réponse complète, après validation, avant le rendu public. */
+export function validHomepage(value: unknown): value is HomepageData {
+  if (!value || typeof value !== "object") return false;
+  const data = value as HomepageData;
+  if (!data.content || !Array.isArray(data.links) || !Array.isArray(data.exclusiveBrands)) return false;
+  for (const [section, fields] of Object.entries(defaults.content)) {
+    const actual = (data.content as unknown as Record<string, Record<string, unknown>>)[section];
+    if (!actual || typeof actual !== "object") return false;
+    for (const [key, expected] of Object.entries(fields)) {
+      const field = actual[key];
+      if (Array.isArray(expected) ? !Array.isArray(field) || !field.length || !field.every((item) => typeof item === "string" && item.trim()) : typeof field !== "string" || !field.trim()) return false;
+    }
+  }
+  return data.links.length > 0 && data.links.length <= 8 && data.links.every((link) => link && typeof link.title === "string" && !!link.title.trim() && ["catalogue", "motos", "equipements", "spares", "revendeurs", "contact"].includes(link.to) && typeof link.brandId === "string" && ["moto", "helmet", "parts", "gear"].includes(link.icon)) && data.exclusiveBrands.length <= 6 && data.exclusiveBrands.every((brand) => brand && typeof brand.brandId === "string" && !!brand.brandId && typeof brand.tagline === "string" && !!brand.tagline.trim());
+}
+export function setHomepage(data: HomepageData) {
+  if (!validHomepage(data)) throw new Error("Données de l’accueil invalides.");
+  homepageContent = data.content; homepageCategories = data.links; homepageExclusiveBrands = data.exclusiveBrands;
+}
+
+/** Chargé au démarrage ; Piston actualise le catalogue séparément. */
+export async function loadHomepageData(signal?: AbortSignal) {
+  const res = await fetch("/server/api/homepage-content.php", { credentials: "same-origin", cache: "no-store", signal });
+  if (!res.ok) throw new Error("Impossible de charger le contenu de l’accueil.");
+  const value: unknown = await res.json();
+  if (!value || typeof value !== "object" || !validHomepage((value as { data?: unknown }).data)) throw new Error("Données de l’accueil invalides.");
+  if (signal?.aborted) throw new Error("Chargement annulé.");
+  setHomepage((value as { data: HomepageData }).data);
+}

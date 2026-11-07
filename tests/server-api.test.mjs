@@ -46,6 +46,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('brands.php?includeDrafts=1')).status, 401);
     assert.equal((await call('models.php?includeDrafts=1')).status, 401);
     assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
+    assert.equal((await call('homepage-content.php', { method: 'PUT', body: { data: {}, revision: 'x' } })).status, 401);
     assert.equal((await call('families.php', { method: 'POST', body: { name: 'Test', categoryId: 'motos' } })).status, 401);
     // Envoi public, lecture et gestion privées, avec contrôle des abus.
     const inquiry = { name: 'Client Essai', phone: '034 12 345 67', email: 'client@example.com', whatsapp: '+261 34 12 345 67', subject: 'pieces', message: 'Bonjour,\nje cherche une pièce.', website: '' };
@@ -66,6 +67,44 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+
+    // Contenu de l’accueil : initialisation sans écriture, mises à jour protégées et conflit.
+    const homepageFile = join(serverDir, 'storage/data/homepage.json');
+    assert.equal(existsSync(homepageFile), false);
+    const initialHome = await call('homepage-content.php');
+    assert.equal(initialHome.status, 200);
+    assert.equal(initialHome.body.data.links.length, 4);
+    assert.equal(existsSync(homepageFile), false, 'une lecture ne crée ni ne remplace les données');
+    const homeData = structuredClone(initialHome.body.data);
+    homeData.content.hero.titreLigne1 = 'Titre personnalisé';
+    homeData.content.hero.usages = ['ville', 'voyage'];
+    homeData.links[0] = { title: 'Nos motos', to: 'motos', brandId: 'tvs', icon: 'moto' };
+    homeData.exclusiveBrands = [{ brandId: 'tvs', tagline: 'Notre slogan' }];
+    const productsBefore = readFileSync(join(serverDir, 'storage/data/products/motorcycles.json'), 'utf8');
+    const brandsBefore = readFileSync(join(serverDir, 'storage/data/brands.json'), 'utf8');
+    const invalid = structuredClone(homeData); invalid.links[0].to = 'https://malicious.invalid';
+    assert.equal((await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: invalid } })).status, 400);
+    assert.equal(existsSync(homepageFile), false);
+    const savedHome = await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: homeData } });
+    assert.equal(savedHome.status, 200); assert.ok(existsSync(homepageFile));
+    assert.deepEqual((await call('homepage-content.php')).body.data, savedHome.body.data);
+    assert.notEqual(savedHome.body.revision, initialHome.body.revision);
+    assert.equal((await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: initialHome.body.data } })).status, 409);
+    assert.equal((await call('homepage-content.php')).body.data.content.hero.titreLigne1, 'Titre personnalisé');
+    assert.equal(readFileSync(join(serverDir, 'storage/data/products/motorcycles.json'), 'utf8'), productsBefore);
+    assert.equal(readFileSync(join(serverDir, 'storage/data/brands.json'), 'utf8'), brandsBefore);
+    const evilHome = await fetch(base + 'homepage-content.php', { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://malicious.invalid' }, body: JSON.stringify({ revision: savedHome.body.revision, data: homeData }) });
+    assert.equal(evilHome.status, 403);
+    const olderHome = structuredClone(savedHome.body.data);
+    delete olderHome.content.hero.descriptionSansMarques;
+    writeFileSync(homepageFile, JSON.stringify(olderHome));
+    const migratedHome = await call('homepage-content.php');
+    assert.equal(migratedHome.body.data.content.hero.titreLigne1, 'Titre personnalisé');
+    assert.equal(migratedHome.body.data.content.hero.descriptionSansMarques, initialHome.body.data.content.hero.descriptionSansMarques);
+    assert.equal(JSON.parse(readFileSync(homepageFile, 'utf8')).content.hero.descriptionSansMarques, undefined, 'lecture sans réécriture');
+    writeFileSync(homepageFile, '{invalid');
+    assert.equal((await call('homepage-content.php')).status, 500, 'un fichier corrompu ne doit pas être remplacé par les valeurs par défaut');
+    writeFileSync(homepageFile, JSON.stringify(savedHome.body.data));
 
     // Les messages restent lisibles seulement après authentification ; la pagination est faite côté serveur.
     const messageFile = join(serverDir, 'storage/private/messages.json');
