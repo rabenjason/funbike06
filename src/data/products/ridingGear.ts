@@ -3,7 +3,7 @@ import type { Product } from "../../types/product";
 export const ridingGear: Product[] = [
   {
     "id": "tvs-jacket-tech-core",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Blouson TVS Racing Tech-Core",
     "brandId": "tvs",
     "categoryId": "equipements",
@@ -25,7 +25,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "tvs-jacket-aegis",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Blouson TVS Racing Aegis 3 couches",
     "brandId": "tvs",
     "categoryId": "equipements",
@@ -47,7 +47,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "tvs-gloves-city",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gants TVS Racing City",
     "brandId": "tvs",
     "categoryId": "equipements",
@@ -69,7 +69,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g1",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne SG-12 – Black",
     "brandId": "gaerne",
     "categoryId": "equipements",
@@ -90,7 +90,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g2",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne SG-12 – White/Black",
     "brandId": "gaerne",
     "categoryId": "equipements",
@@ -111,7 +111,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g3",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne SG-22 – Black",
     "brandId": "gaerne",
     "categoryId": "equipements",
@@ -132,7 +132,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g4",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne Cross-Ace – Black",
     "brandId": "gaerne",
     "categoryId": "equipements",
@@ -153,7 +153,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g5",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne Speed Star – Black",
     "brandId": "gaerne",
     "categoryId": "equipements",
@@ -174,7 +174,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g6",
-    "isHomepageHighlight": false,
+    "isNewArrival": false,
     "name": "Gaerne Balance – Gray",
     "brandId": "gaerne",
     "categoryId": "equipements",

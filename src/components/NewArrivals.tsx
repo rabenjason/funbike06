@@ -3,7 +3,7 @@ import { content } from "../constants/content";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faCheck } from "@fortawesome/free-solid-svg-icons";
 import { motion, type Variants } from "framer-motion";
-import { brands, getHomepageHighlights, mainProductImage, productDetailPage, productTypes } from "../data";
+import { brands, getNewArrivals, mainProductImage, productDetailPage, productTypes } from "../data";
 import SmartImage from "./SmartImage";
 
 const list: Variants = {
@@ -24,7 +24,7 @@ function descriptionPreview(description: string): string {
 }
 
 export default function NewArrivals({ go }: { go: (p: string, id?: string) => void }) {
-  const items = getHomepageHighlights();
+  const items = getNewArrivals();
 
   return (
     <section className="bg-white py-10 dark:bg-[#141513] sm:py-12 lg:py-14">

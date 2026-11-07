@@ -30,22 +30,22 @@ function descendants(element) {
 
 test("chaque produit du catalogue possède un indicateur de mise en avant", () => {
   for (const product of data.products) {
-    assert.equal(typeof product.isHomepageHighlight, "boolean", product.id);
+    assert.equal(typeof product.isNewArrival, "boolean", product.id);
   }
 });
 
 test("les produits publiés marqués sont limités aux trois premiers, dans l'ordre du catalogue", () => {
   const base = data.products[0];
-  const product = (id, flag, status = "PUBLISHED") => ({ ...base, id, isHomepageHighlight: flag, status });
+  const product = (id, flag, status = "PUBLISHED") => ({ ...base, id, isNewArrival: flag, status });
   const catalog = [product("a", false), product("b", true, "DRAFT"), product("c", true), product("d", true), product("e", true), product("f", true), product("g", true, "ARCHIVED")];
-  assert.deepEqual(data.getHomepageHighlights(catalog).map(({ id }) => id), ["c", "d", "e"]);
-  assert.deepEqual(data.getHomepageHighlights([product("a", false), product("b", true, "DRAFT")]), []);
-  assert.deepEqual(data.getHomepageHighlights([product("a", true)]).map(({ id }) => id), ["a"]);
+  assert.deepEqual(data.getNewArrivals(catalog).map(({ id }) => id), ["c", "d", "e"]);
+  assert.deepEqual(data.getNewArrivals([product("a", false), product("b", true, "DRAFT")]), []);
+  assert.deepEqual(data.getNewArrivals([product("a", true)]).map(({ id }) => id), ["a"]);
 });
 
 test("les cartes reprennent les données et les trois premières spécifications du produit", () => {
-  const selected = data.getHomepageHighlights();
-  assert.deepEqual(new Set(selected.map(({ id }) => id)), new Set(["sherco-sef-250-factory-2026", "tvs-200-4v", "t1"]));
+  const selected = data.getNewArrivals();
+  assert.deepEqual(new Set(selected.map(({ id }) => id)), new Set(["sherco-sef-250-factory-2026", "tvs-200-4v"]));
   const html = render();
   for (const product of selected) {
     const brand = data.brands.find(({ id }) => id === product.brandId);
@@ -73,13 +73,13 @@ test("les cartes reprennent les données et les trois premières spécifications
 });
 
 test("la sélection et les spécifications changent avec les données du catalogue", () => {
-  const initial = data.getHomepageHighlights()[0];
-  const replacement = data.products.find((product) => !product.isHomepageHighlight && product.status === "PUBLISHED");
+  const initial = data.getNewArrivals()[0];
+  const replacement = data.products.find((product) => !product.isNewArrival && product.status === "PUBLISHED");
   const oldSpecs = replacement.specifications;
-  const oldHighlight = replacement.isHomepageHighlight;
+  const oldHighlight = replacement.isNewArrival;
   try {
-    initial.isHomepageHighlight = false;
-    replacement.isHomepageHighlight = true;
+    initial.isNewArrival = false;
+    replacement.isNewArrival = true;
     replacement.specifications = [{ key: "Test dynamique", value: "Valeur modifiée" }];
     const html = render();
     assert.ok(!html.includes(escapeHtml(initial.name)));
@@ -88,8 +88,8 @@ test("la sélection et les spécifications changent avec les données du catalog
     replacement.specifications = [];
     assert.ok(!render().includes("Test dynamique : Valeur modifiée"));
   } finally {
-    initial.isHomepageHighlight = true;
-    replacement.isHomepageHighlight = oldHighlight;
+    initial.isNewArrival = true;
+    replacement.isNewArrival = oldHighlight;
     replacement.specifications = oldSpecs;
   }
 });
@@ -98,7 +98,7 @@ test("l'image et le bouton ouvrent la fiche du produit correspondant", () => {
   const calls = [];
   const tree = NewArrivals({ go: (page, id) => calls.push({ page, id }) });
   const elements = descendants(tree);
-  for (const product of data.getHomepageHighlights()) {
+  for (const product of data.getNewArrivals()) {
     const card = elements.find((element) => element.key === product.id);
     assert.ok(card, product.id);
     const buttons = descendants(card).filter((element) => element.type === "button");
