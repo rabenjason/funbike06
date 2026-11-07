@@ -78,7 +78,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-200-4v",
     "isHomepageHighlight": true,
-    "isHomepageHero": false,
+    "isHomepageHero": true,
     "name": "TVS Apache 200 4V",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -119,7 +119,7 @@ export const motorcycles: Product[] = [
   {
     "id": "sherco-sef-300-factory-2026",
     "isHomepageHighlight": false,
-    "isHomepageHero": true,
+    "isHomepageHero": false,
     "name": "Sherco SEF 300 Factory 2026",
     "brandId": "sherco",
     "categoryId": "motos",
