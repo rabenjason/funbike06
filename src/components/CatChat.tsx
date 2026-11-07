@@ -1,4 +1,7 @@
-import { getProductFamily } from "../catalog";
+import { getProductFamily, categories, families, models, productTypes, productDetailPage, products } from "../catalog";
+import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE } from "../catalog/contact";
+import { DEALERS } from "../catalog/dealers";
+import { loadServerData } from "../catalog/loadServerData";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -20,7 +23,7 @@ import {
   faXmark,
   type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
-import { motorcycles, brands, mainProductImage } from "../catalog";
+import { brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import SmartImage from "./SmartImage";
 import {
@@ -28,7 +31,6 @@ import {
   greetingText,
   initialQuick,
   respond,
-  shopStatus,
   typingDelay,
   type BotReply,
   type ChatAction,
@@ -125,9 +127,16 @@ type Msg = {
   seen?: boolean;
 };
 
-type Stored = { messages: Msg[]; memory: Memory; quick: string[] };
+type Stored = { messages: Msg[]; memory: Memory; quick: string[]; catalogVersion: string };
 
-const STORE_KEY = "fb_chat_v2";
+const STORE_KEY = "fb_chat_v3";
+// Toute modification des données publiques rend les anciennes réponses potentiellement obsolètes.
+function catalogVersion() {
+  const text = JSON.stringify([brands, products, categories, families, productTypes, models, DEALERS, CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE]);
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(36);
+}
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 const botMsg = (reply: BotReply): Msg => ({
@@ -148,15 +157,15 @@ function loadStored(): Stored | null {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw) as Stored;
-    if (!Array.isArray(data.messages) || !data.messages.length) return null;
-    return { messages: data.messages, memory: { ...EMPTY_MEMORY, ...data.memory }, quick: data.quick ?? [] };
+    if (!Array.isArray(data.messages) || !data.messages.length || data.catalogVersion !== catalogVersion()) return null;
+    return { messages: data.messages, memory: { ...EMPTY_MEMORY, ...data.memory }, quick: data.quick ?? [], catalogVersion: data.catalogVersion };
   } catch {
     return null;
   }
 }
 
 const clock = (time: number) => new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(time);
-const bikeById = (id: string) => motorcycles.find((bike) => bike.id === id);
+const bikeById = (id: string) => products.find((item) => item.id === id && item.status === "PUBLISHED" && brands.some((brand) => brand.id === item.brandId && brand.isPublished !== false));
 
 const ACTION_ICONS: Record<ChatActionIcon, IconDefinition> = {
   catalog: faLayerGroup,
@@ -275,7 +284,7 @@ function ProductStrip({
               />
               <div className="p-2.5">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 dark:text-white/45">
-                  {brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée"} · {getProductFamily(bike)?.name}
+                  {brands.find((item) => item.id === bike.brandId)?.name ?? "Marque non renseignée"} · {getProductFamily(bike)?.name ?? productTypes.find((type) => type.id === bike.productTypeId && type.categoryId === bike.categoryId)?.name ?? ""}
                 </p>
                 <p className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-[#171816] dark:text-[#f2f0ea]">
                   {bike.name}
@@ -298,7 +307,7 @@ function ProductStrip({
           <>
             <button
               type="button"
-              aria-label="Moto précédente"
+              aria-label="Produit précédent"
               onClick={() => scrollToIndex(Math.max(0, index - 1))}
               disabled={index === 0}
               className="absolute -left-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-black/10 bg-white/95 text-[11px] text-[#171816] shadow-md backdrop-blur transition hover:bg-white disabled:pointer-events-none disabled:opacity-0 dark:border-white/10 dark:bg-[#1c1d19]/95 dark:text-white"
@@ -307,7 +316,7 @@ function ProductStrip({
             </button>
             <button
               type="button"
-              aria-label="Moto suivante"
+              aria-label="Produit suivant"
               onClick={() => scrollToIndex(Math.min(bikes.length - 1, index + 1))}
               disabled={index === bikes.length - 1}
               className="absolute -right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-black/10 bg-white/95 text-[11px] text-[#171816] shadow-md backdrop-blur transition hover:bg-white disabled:pointer-events-none disabled:opacity-0 dark:border-white/10 dark:bg-[#1c1d19]/95 dark:text-white"
@@ -348,7 +357,7 @@ function CompareTable({ ids }: { ids: [string, string] }) {
   if (!a || !b) return null;
   const labels = Array.from(new Set([...a.specifications, ...b.specifications].map((spec) => spec.key)));
   const value = (bike: Product, label: string) => bike.specifications.find((spec) => spec.key === label)?.value ?? "—";
-  const short = (bike: Product) => bike.name.replace(/ 2026$/, "");
+  const short = (bike: Product) => bike.name;
   return (
     <div className="no-scrollbar mt-2 overflow-x-auto rounded-xl border border-black/10 text-[12px] dark:border-white/10">
       <div className="min-w-[24rem]">
@@ -403,6 +412,7 @@ export default function CatChat({
   const [unread, setUnread] = useState(stored ? 0 : 1);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isMobile = useIsMobile();
   const bottom = useAnchoredBottom("hero-cta");
@@ -410,6 +420,8 @@ export default function CatChat({
   const memoryRef = useRef(memory);
   const openRef = useRef(open);
   const pending = useRef(0);
+  const refreshController = useRef<AbortController | null>(null);
+  const requestVersion = useRef(0);
   const timers = useRef<number[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -419,14 +431,14 @@ export default function CatChat({
   /* Persist the conversation */
   useEffect(() => {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ messages: messages.slice(-40), memory, quick }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ messages: messages.slice(-40), memory, quick, catalogVersion: catalogVersion() }));
     } catch {
       /* private mode: ignore */
     }
   }, [messages, memory, quick]);
 
   /* Clean timers on unmount */
-  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+  useEffect(() => () => { requestVersion.current++; refreshController.current?.abort(); timers.current.forEach((t) => window.clearTimeout(t)); }, []);
 
   /* Teaser bubble disappears after a while */
   useEffect(() => {
@@ -470,32 +482,45 @@ export default function CatChat({
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }
 
-  function send(text: string) {
+  async function send(text: string) {
     const value = text.trim();
-    if (!value) return;
-
-    setMessages((list) => [...list, { id: uid(), from: "me", text: value, time: Date.now(), seen: false }]);
-    setInput("");
-    setQuick([]);
+    if (!value || refreshController.current || pending.current > 0) return;
+    const controller = new AbortController(); refreshController.current = controller;
+    const version = ++requestVersion.current;
+    const currentCatalog = catalogVersion();
+    const userMessage: Msg = { id: uid(), from: "me", text: value, time: Date.now(), seen: false };
+    setMessages((list) => [...list, userMessage]); setInput(""); setQuick([]); setRefreshing(true); setTyping(true);
     window.requestAnimationFrame(autoSize);
-
-    const { reply, memory: next } = respond(value, memoryRef.current);
-    memoryRef.current = next;
-    setMemory(next);
-
+    let reply: BotReply;
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    try {
+      // Les réponses ne reposent jamais sur un catalogue dont la mise à jour a échoué.
+      await loadServerData(controller.signal);
+      if (version !== requestVersion.current) return;
+      if (catalogVersion() !== currentCatalog) {
+        timers.current.forEach((timer) => window.clearTimeout(timer)); timers.current = []; pending.current = 0;
+        memoryRef.current = { ...EMPTY_MEMORY, lastIds: [] };
+        setMemory(memoryRef.current);
+        setMessages([greetMsg(), botMsg({ text: "Le catalogue a changé : je repars des informations à jour." }), userMessage]);
+      }
+      const result = respond(value, memoryRef.current);
+      memoryRef.current = result.memory; setMemory(result.memory); reply = result.reply;
+    } catch {
+      if (version !== requestVersion.current) return;
+      reply = { text: "Je ne peux pas vérifier les informations pour le moment. Réessayez ou contactez l’équipe Funbike.", actions: [{ label: "Contacter l’équipe", page: "contact", icon: "contact" }] };
+    } finally {
+      window.clearTimeout(timeout);
+      if (version === requestVersion.current) { refreshController.current = null; setRefreshing(false); }
+    }
+    if (version !== requestVersion.current) return;
     const readAfter = 380 + Math.random() * 250;
     pending.current += 1;
-
     timers.current.push(
-      window.setTimeout(() => {
-        setMessages((list) => list.map((m) => (m.from === "me" ? { ...m, seen: true } : m)));
-        setTyping(true);
-      }, readAfter),
+      window.setTimeout(() => setMessages((list) => list.map((m) => (m.from === "me" ? { ...m, seen: true } : m))), readAfter),
       window.setTimeout(() => {
         pending.current -= 1;
         if (pending.current <= 0) setTyping(false);
-        setMessages((list) => [...list, botMsg(reply)]);
-        setQuick(reply.quick ?? []);
+        setMessages((list) => [...list, botMsg(reply)]); setQuick(reply.quick ?? []);
         if (!openRef.current) setUnread((n) => n + 1);
       }, readAfter + typingDelay(reply)),
     );
@@ -519,6 +544,7 @@ export default function CatChat({
   }
 
   function reset() {
+    requestVersion.current++; refreshController.current?.abort(); refreshController.current = null; setRefreshing(false);
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     pending.current = 0;
@@ -530,8 +556,7 @@ export default function CatChat({
     setQuick(initialQuick());
   }
 
-  const status = shopStatus();
-  const statusText = typing ? "écrit…" : status.open ? "En ligne · répond instantanément" : "En ligne · équipe disponible dès 8h";
+  const statusText = typing ? "écrit…" : "Assistant automatique";
 
   const panelMotion = isMobile
     ? {
@@ -646,7 +671,7 @@ export default function CatChat({
 
                         {m.compare && <CompareTable ids={m.compare} />}
                         {m.productIds && (
-                          <ProductStrip ids={m.productIds} reasons={m.reasons} onOpen={(bike) => runAction({ label: bike.name, page: "product", id: bike.id })} />
+                          <ProductStrip ids={m.productIds} reasons={m.reasons} onOpen={(bike) => runAction({ label: bike.name, page: productDetailPage(bike), id: bike.id })} />
                         )}
 
                         {m.actions && m.actions.length > 0 && (
@@ -770,7 +795,7 @@ export default function CatChat({
               </label>
               <motion.button
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || refreshing || typing}
                 whileTap={{ scale: 0.9 }}
                 aria-label="Envoyer le message"
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#171816] text-[15px] text-white transition disabled:opacity-30 dark:bg-[#ffd100] dark:text-[#171816]"
