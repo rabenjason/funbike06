@@ -73,19 +73,19 @@ export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; g
         >
           {bike.name}
         </h3>
-        <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em]" : "")}>{bike.description}</p>
+        <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em] [overflow-wrap:anywhere]" : "")}>{bike.description}</p>
 
-        <div className={"flex items-center justify-between gap-3 " + (uniformLayout ? "mt-auto pt-5" : "mt-5")}>
+        <div className={"flex justify-between gap-3 " + (uniformLayout ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => go("product", bike.id)}
-            className="fluid-btn inline-flex min-h-10 items-center gap-2.5 border border-black/25 px-4 py-2.5 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816]"
+            className={"fluid-btn inline-flex min-h-10 items-center gap-2.5 border border-black/25 px-4 py-2.5 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (uniformLayout ? "shrink-0 whitespace-nowrap" : "")}
           >
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
-          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (uniformLayout ? "max-w-[45%] break-words text-right" : "shrink-0")}>
+          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (uniformLayout ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
             {bike.price ?? "Sur devis"}
           </span>
         </div>
