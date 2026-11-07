@@ -5,6 +5,7 @@ export type ConfirmationOptions = {
   title: string;
   description: string;
   confirmLabel: string;
+  cancelLabel?: string;
   /** Rouge pour une suppression ; sombre pour les autres actions. */
   destructive?: boolean;
 };
@@ -49,7 +50,7 @@ function ConfirmationDialog({ options, onClose }: { options: ConfirmationOptions
         <div className="px-5 py-5 sm:px-6">
           <p id={descriptionId} className="break-words text-sm leading-6 text-black/65">{options.description}</p>
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button ref={cancelRef} type="button" onClick={() => onClose(false)} className="rounded-md bg-black/5 px-4 py-2.5 text-sm font-semibold text-[#171816] hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#171816]">Annuler</button>
+            <button ref={cancelRef} type="button" onClick={() => onClose(false)} className="rounded-md bg-black/5 px-4 py-2.5 text-sm font-semibold text-[#171816] hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#171816]">{options.cancelLabel ?? "Annuler"}</button>
             <button type="button" onClick={() => onClose(true)} className={"rounded-md px-4 py-2.5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 " + (options.destructive ? "bg-red-700 hover:bg-red-800 focus-visible:outline-red-700" : "bg-[#171816] hover:bg-black/80 focus-visible:outline-[#171816]")}>{options.confirmLabel}</button>
           </div>
         </div>
