@@ -4,7 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
-let server, Admin, render, fireEvent, waitFor, cleanup, within, dom, requests, oldFetch;
+let server, Admin, render, fireEvent, waitFor, cleanup, within, dom, requests, oldFetch, logoutHandler, currentUser;
 const product = { id: 'moto-test', name: 'Moto test', categoryId: 'motos', productTypeId: 'urbain', brandId: 'tvs', description: '', status: 'PUBLISHED', isNewArrival: false, images: [], specifications: [] };
 const user = { id: 'super-1', username: 'admin', role: 'superadmin', mustChangePassword: false };
 const editor = { id: 'editor-1', username: 'maria', role: 'admin', mustChangePassword: false };
@@ -19,15 +19,17 @@ before(async () => {
   oldFetch = globalThis.fetch;
 });
 beforeEach(() => {
-  requests = [];
+  requests = []; currentUser = user;
+  logoutHandler = async () => ({ ok: true, json: async () => ({ success: true }) });
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url).replace('/server/api/', '');
     requests.push({ path, method: options.method ?? 'GET' });
+    if (path === 'auth/logout.php' && options.method === 'POST') return logoutHandler();
     if (path === 'brands.php?id=tvs' && options.method === 'DELETE') return { ok: false, json: async () => ({ error: 'Cette marque est encore utilisée.' }) };
     if (options.method === 'DELETE') return { ok: true, json: async () => ({}) };
     if (path === 'auth/users.php?id=editor-1' && options.method === 'PUT') return { ok: true, json: async () => ({ temporaryPassword: 'temporaire-affiche-une-fois' }) };
     const fixed = {
-      'auth/me.php': { user }, 'auth/users.php': { users: [user, editor] },
+      'auth/me.php': { user: currentUser }, 'auth/users.php': { users: [user, editor] },
       'brands.php': { brands: [{ id: 'tvs', name: 'TVS', isEquipmentBrand: true }] },
       'categories.php': { categories: [{ id: 'motos', name: 'Motos' }] },
       'families.php': { families: [{ id: 'urbain', name: 'Urbain', categoryId: 'motos' }] },
@@ -131,4 +133,44 @@ test('comptes : les modales couvrent la réinitialisation et la suppression', as
   assert.match(dialog.textContent, /Supprimer le compte « maria »/);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Supprimer le compte' }));
   await waitFor(() => assert.ok(requests.some((r) => r.path === 'auth/users.php?id=editor-1' && r.method === 'DELETE')));
+});
+
+
+test('déconnexion : Non et Échap annulent, Oui déconnecte une seule fois', async () => {
+  const view = await openAdmin();
+  const trigger = view.getByRole('button', { name: 'Déconnexion' });
+  trigger.focus(); fireEvent.click(trigger);
+  let dialog = view.getByRole('alertdialog');
+  assert.match(dialog.textContent, /Voulez-vous vous déconnecter/);
+  assert.equal(document.activeElement, within(dialog).getByRole('button', { name: 'Non' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Non' }));
+  await waitFor(() => assert.equal(view.queryByRole('alertdialog'), null));
+  assert.ok(document.activeElement === trigger);
+  assert.equal(requests.filter((r) => r.path === 'auth/logout.php').length, 0);
+  fireEvent.click(trigger);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await waitFor(() => assert.equal(view.queryByRole('alertdialog'), null));
+  assert.equal(requests.filter((r) => r.path === 'auth/logout.php').length, 0);
+  let resolveLogout;
+  logoutHandler = () => new Promise((resolve) => { resolveLogout = resolve; });
+  fireEvent.click(trigger);
+  dialog = view.getByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.equal(requests.filter((r) => r.path === 'auth/logout.php').length, 1));
+  assert.ok(view.getByRole('button', { name: 'Déconnexion…' }).disabled);
+  resolveLogout({ ok: true, json: async () => ({ success: true }) });
+  await waitFor(() => assert.ok(view.getByRole('heading', { name: 'Connexion' })));
+  assert.deepEqual(requests.filter((r) => r.path === 'auth/logout.php'), [{ path: 'auth/logout.php', method: 'POST' }]);
+});
+
+test('déconnexion : une erreur laisse la session ouverte, y compris lors du changement de mot de passe obligatoire', async () => {
+  currentUser = { ...user, mustChangePassword: true };
+  logoutHandler = async () => ({ ok: false, json: async () => ({ message: 'Déconnexion impossible' }) });
+  const view = render(React.createElement(Admin));
+  await waitFor(() => assert.ok(view.getByRole('heading', { name: 'Choisissez votre mot de passe' })));
+  fireEvent.click(view.getByRole('button', { name: 'Déconnexion' }));
+  fireEvent.click(within(view.getByRole('alertdialog')).getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.equal(view.getByRole('alert').textContent, 'Déconnexion impossible'));
+  assert.ok(view.getByRole('heading', { name: 'Choisissez votre mot de passe' }));
+  assert.equal(view.getByRole('button', { name: 'Déconnexion' }).disabled, false);
 });

@@ -164,11 +164,21 @@ export default function Admin() {
 
 function AdminContent() {
   const confirm = useConfirmation();
-  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false);
+  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
   useEffect(() => { request("auth/me.php").then((r) => setUser(r.user)).catch(() => setUser(null)).finally(() => setChecking(false)); }, []);
   const refresh = useCallback(async () => { const result = await readCatalog(); setCatalog(result); }, []);
   useEffect(() => { if (user && !user.mustChangePassword) { refresh().catch((err) => setError((err as Error).message)); } }, [user, refresh]);
-  async function logout() { try { await request("auth/logout.php", json("POST")); setUser(null); setCatalog(emptyCatalog); setEditing(null); } catch (err) { setError((err as Error).message); } }
+  async function logout() {
+    if (logoutPending.current) return;
+    logoutPending.current = true;
+    try {
+      if (!await confirm({ title: "Voulez-vous vous déconnecter ?", description: "Vous devrez vous reconnecter pour accéder à l’administration.", confirmLabel: "Oui", cancelLabel: "Non" })) return;
+      setLoggingOut(true); setError("");
+      await request("auth/logout.php", json("POST"));
+      setUser(null); setCatalog(emptyCatalog); setEditing(null);
+    } catch (err) { setError((err as Error).message); }
+    finally { logoutPending.current = false; setLoggingOut(false); }
+  }
   async function remove(product: Product) { if (!await confirm({ title: `Supprimer « ${product.name} » ?`, description: "Ce produit et ses images seront supprimés définitivement. Cette action est irréversible.", confirmLabel: "Supprimer le produit", destructive: true })) return; setError(""); try { await request(`products/${paths[product.categoryId]}.php?id=${encodeURIComponent(product.id)}`, json("DELETE")); await refresh(); } catch (err) { setError((err as Error).message); } }
   async function removeSelected(products: Product[]): Promise<BulkDeleteResult | null> {
     if (!products.length || bulkBusy) return null;
@@ -200,10 +210,9 @@ function AdminContent() {
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#171816] text-white">Vérification de la session…</main>;
   if (!user) return <Login onLogin={setUser} />;
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
-    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>Déconnexion</button></div></div></header>
-    <div className="mx-auto max-w-7xl px-5 py-7">{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
+    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
+    <div className="mx-auto max-w-7xl px-5 py-7">{error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
       <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "home", name: "Accueil" }, { id: "settings", name: "Marques et classement" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy} onClick={() => { setSection(tab.id); setError(""); setEditing(null); }} className={section === tab.id ? primary : secondary}>{tab.name}</button>)}</nav>
-      {error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
       {section === "users" && user.role === "superadmin" && <UserManager user={user} />}
       {section === "settings" && <CatalogSettings catalog={catalog} refresh={refresh} />}
