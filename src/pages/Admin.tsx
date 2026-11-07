@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Product } from "../types/product";
 import { prepareProductPhotos, type EditablePhoto } from "../lib/productPhotos";
-import { ProductList, HomepageManager, type AdminCatalog, type HomepageField } from "./AdminCatalog";
+import { ProductList, HomepageManager, type AdminCatalog, type HomepageField, type BulkDeleteResult } from "./AdminCatalog";
 import { ConfirmationProvider, useConfirmation } from "../components/ConfirmationModal";
 
 type User = { id: string; username: string; role: string; mustChangePassword: boolean };
@@ -164,12 +164,34 @@ export default function Admin() {
 
 function AdminContent() {
   const confirm = useConfirmation();
-  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "home" | "settings" | "users" | "password">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false);
   useEffect(() => { request("auth/me.php").then((r) => setUser(r.user)).catch(() => setUser(null)).finally(() => setChecking(false)); }, []);
   const refresh = useCallback(async () => { const result = await readCatalog(); setCatalog(result); }, []);
   useEffect(() => { if (user && !user.mustChangePassword) { refresh().catch((err) => setError((err as Error).message)); } }, [user, refresh]);
   async function logout() { try { await request("auth/logout.php", json("POST")); setUser(null); setCatalog(emptyCatalog); setEditing(null); } catch (err) { setError((err as Error).message); } }
   async function remove(product: Product) { if (!await confirm({ title: `Supprimer « ${product.name} » ?`, description: "Ce produit et ses images seront supprimés définitivement. Cette action est irréversible.", confirmLabel: "Supprimer le produit", destructive: true })) return; setError(""); try { await request(`products/${paths[product.categoryId]}.php?id=${encodeURIComponent(product.id)}`, json("DELETE")); await refresh(); } catch (err) { setError((err as Error).message); } }
+  async function removeSelected(products: Product[]): Promise<BulkDeleteResult | null> {
+    if (!products.length || bulkBusy) return null;
+    setBulkBusy(true);
+    try {
+      if (!await confirm({ title: `Supprimer ${products.length} produit${products.length > 1 ? "s" : ""} ?`, description: "Les produits sélectionnés, y compris ceux des autres pages ou masqués par les filtres, et leurs images seront supprimés définitivement. Cette action est irréversible.", confirmLabel: "Supprimer la sélection", destructive: true })) return null;
+      const result: BulkDeleteResult = { deleted: [], failures: [] };
+      setError("");
+      // Les écritures sont séquentielles : chaque catégorie utilise le même fichier JSON.
+      for (const product of products) {
+        try {
+          if (!paths[product.categoryId]) throw new Error("Catégorie inconnue.");
+          await request(`products/${paths[product.categoryId]}.php?id=${encodeURIComponent(product.id)}`, json("DELETE"));
+          result.deleted.push(product);
+        } catch (err) { result.failures.push({ product, message: (err as Error).message || "Erreur inconnue." }); }
+      }
+      const removed = new Set(result.deleted.map((product) => JSON.stringify([product.categoryId, product.id])));
+      setCatalog((previous) => ({ ...previous, products: previous.products.filter((product) => !removed.has(JSON.stringify([product.categoryId, product.id]))) }));
+      if (editing && editing !== "new" && removed.has(JSON.stringify([editing.categoryId, editing.id]))) setEditing(null);
+      try { await refresh(); } catch (err) { result.refreshError = (err as Error).message || "Erreur inconnue"; }
+      return result;
+    } finally { setBulkBusy(false); }
+  }
   async function toggleHomepage(product: Product, field: HomepageField, value: boolean) {
     const result = await request("homepage-selections.php", json("PUT", { id: product.id, categoryId: product.categoryId, field, value }));
     if (!result.data || result.data.id !== product.id || result.data.categoryId !== product.categoryId || result.data[field] !== value) throw new Error("Réponse du serveur invalide : rechargez la page pour vérifier la sélection.");
@@ -178,15 +200,15 @@ function AdminContent() {
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#171816] text-white">Vérification de la session…</main>;
   if (!user) return <Login onLogin={setUser} />;
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
-    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button className="rounded-md border border-white/30 px-3 py-2 text-sm" onClick={logout}>Déconnexion</button></div></div></header>
+    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>Déconnexion</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
-      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "home", name: "Accueil" }, { id: "settings", name: "Marques et classement" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" onClick={() => { setSection(tab.id); setError(""); setEditing(null); }} className={section === tab.id ? primary : secondary}>{tab.name}</button>)}</nav>
+      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "home", name: "Accueil" }, { id: "settings", name: "Marques et classement" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy} onClick={() => { setSection(tab.id); setError(""); setEditing(null); }} className={section === tab.id ? primary : secondary}>{tab.name}</button>)}</nav>
       {error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
       {section === "users" && user.role === "superadmin" && <UserManager user={user} />}
       {section === "settings" && <CatalogSettings catalog={catalog} refresh={refresh} />}
       {section === "home" && <HomepageManager catalog={catalog} onToggle={toggleHomepage} />}
-      {section === "products" && <ProductList catalog={catalog} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={remove} editor={editing ? <ProductEditor key={editing === "new" ? "new" : editing.id} catalog={catalog} current={editing === "new" ? undefined : editing} close={() => setEditing(null)} refresh={refresh} /> : undefined} />}
+      {section === "products" && <ProductList catalog={catalog} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={remove} onDeleteSelected={removeSelected} editor={editing ? <ProductEditor key={editing === "new" ? "new" : editing.id} catalog={catalog} current={editing === "new" ? undefined : editing} close={() => setEditing(null)} refresh={refresh} /> : undefined} />}
     </>}</div>
   </main>;
 }
