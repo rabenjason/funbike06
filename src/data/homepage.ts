@@ -10,7 +10,6 @@ export const homepageContent = {
       usages: ["la ville", "le travail", "le cross", "l'enduro", "les voyages", "les balades"],
       boutonCatalogue: "Explorer le catalogue",
       aLaUne: "À la une",
-      annee: "2026",
       choisirModele: "Choisir le modèle mis en avant",
       afficherModele: "Afficher",
     },
@@ -66,16 +65,6 @@ export const homepageExclusiveBrands = [
   { brandId: "fantic", tagline: "Performance italienne" },
   { brandId: "sherco", tagline: "ADN Compétition" },
 ] as const;
-
-export const homepage = {
-  ...homepageContent,
-  heroFeaturedProductIds: ["sherco-sef-250-factory-2026", "sherco-sef-300-factory-2026", "xx-125-2026"],
-  heroProductLabels: {
-    "sherco-sef-250-factory-2026": "SEF 250 Factory",
-    "sherco-sef-300-factory-2026": "SEF 300 Factory",
-    "xx-125-2026": "XX 125 Off-Road",
-  },
-};
 
 /** Cartes de navigation illustrées de l'accueil (pas des catégories catalogue). */
 export const homepageCategories = [

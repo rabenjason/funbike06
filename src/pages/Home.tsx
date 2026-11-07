@@ -1,4 +1,4 @@
-import { homepage, homepageContent, homepageCategories } from "../data/homepage";
+import { homepageContent, homepageCategories } from "../data/homepage";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { motorcycles, brands, spareParts, helmets, ridingGear, mainProductImage } from "../data";
+import { getHomepageHeroProducts, brands, spareParts, helmets, ridingGear, mainProductImage } from "../data";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -20,38 +20,42 @@ import BrandExclusif from "../components/BrandExclusif";
 import NewArrivals from "../components/NewArrivals";
 import TypedText from "../components/TypedText";
 
-const HERO_PRODUCTS = homepage.heroFeaturedProductIds.map((id) => motorcycles.find((product) => product.id === id)).filter((product): product is Product => Boolean(product));
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
-const shortName = (product: Product) => homepage.heroProductLabels[product.id as keyof typeof homepage.heroProductLabels] ?? product.name;
 
 const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
 
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
+  const heroProducts = getHomepageHeroProducts();
   const [activeHero, setActiveHero] = useState(0);
-  const current = HERO_PRODUCTS[activeHero];
+  const activeIndex = heroProducts.length ? activeHero % heroProducts.length : 0;
+  const current = heroProducts[activeIndex];
+  const heroImage = current ? mainProductImage(current) : undefined;
 
   useEffect(() => {
+    if (heroProducts.length < 2) return;
     const timer = window.setInterval(() => {
-      setActiveHero((index) => (index + 1) % HERO_PRODUCTS.length);
+      setActiveHero((index) => (index + 1) % heroProducts.length);
     }, 6500);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [heroProducts.length]);
 
   return (
     <div className="overflow-hidden bg-white text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
       {/* Full-bleed hero image with a smooth contrast veil for the headline */}
       <section className="relative isolate min-h-[max(560px,calc(100svh-64px))] overflow-hidden bg-[#22231f] sm:min-h-[720px] lg:min-h-[min(820px,calc(100svh-68px))]">
         <AnimatePresence initial={false} mode="sync">
-          <motion.img
-            key={current.id}
-            src={mainProductImage(current)?.url ?? ""}
-            alt={mainProductImage(current)?.altText ?? current.name}
-            initial={{ opacity: 0, scale: 1.035 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
-            className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
-          />
+          {current && heroImage && (
+            <motion.img
+              key={current.id}
+              src={heroImage.url}
+              alt={heroImage.altText || current.name}
+              initial={{ opacity: 0, scale: 1.035 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
+              className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
+            />
+          )}
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/20 lg:via-black/70" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/20" />
@@ -96,52 +100,56 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             >
               {homepageContent.hero.boutonCatalogue} <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
             </button>
-            <button
-              onClick={() => go("product", current.id)}
-              className="hero-secondary-cta glass-panel fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 border-white/40 bg-white/10 px-5 py-3 text-center font-bold uppercase text-white transition active:scale-[0.98] hover:border-[#ffd100] hover:text-[#ffd100] sm:min-h-11 sm:w-auto"
-            >
-              <span className="truncate">{shortName(current)}</span>
-              <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
-            </button>
+            {current && (
+              <button
+                onClick={() => go("product", current.id)}
+                className="hero-secondary-cta glass-panel fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 border-white/40 bg-white/10 px-5 py-3 text-center font-bold uppercase text-white transition active:scale-[0.98] hover:border-[#ffd100] hover:text-[#ffd100] sm:min-h-11 sm:w-auto"
+              >
+                <span className="truncate">{current.name}</span>
+                <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+              </button>
+            )}
           </motion.div>
 
-          <div className="order-2 mt-auto flex items-center justify-between gap-3 border-t border-white/30 pr-16 pt-3 sm:order-3 sm:items-end sm:gap-4 sm:pr-0 sm:pt-5">
-            <div className="min-w-0 text-white">
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={current.id + "caption"}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd100]">{homepageContent.hero.aLaUne} / {brandName(current)}</p>
-                  <p className="mt-0.5 truncate font-display text-sm font-semibold sm:mt-1 sm:text-base">
-                    {shortName(current)} · {homepageContent.hero.annee}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-              <span className="font-display text-[11px] font-semibold text-white/70 sm:mr-1 sm:text-xs">
-                0{activeHero + 1}
-              </span>
-              <div className="flex items-center" aria-label={homepageContent.hero.choisirModele}>
-                {HERO_PRODUCTS.map((item, index) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveHero(index)}
-                    aria-label={`${homepageContent.hero.afficherModele} ${shortName(item)}`}
-                    aria-pressed={activeHero === index}
-                    className="group grid h-11 w-8 place-items-center px-1.5 sm:h-9"
+          {current && (
+            <div className="order-2 mt-auto flex items-center justify-between gap-3 border-t border-white/30 pr-16 pt-3 sm:order-3 sm:items-end sm:gap-4 sm:pr-0 sm:pt-5">
+              <div className="min-w-0 text-white">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={current.id + "caption"}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.25 }}
                   >
-                    <span className="block h-[3px] w-full bg-white/45 transition-all group-aria-pressed:bg-[#ffd100]" />
-                  </button>
-                ))}
+                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#ffd100]">{homepageContent.hero.aLaUne} / {brandName(current)}</p>
+                    <p className="mt-0.5 truncate font-display text-sm font-semibold sm:mt-1 sm:text-base">
+                      {current.name}
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
               </div>
-              <span className="font-display text-[11px] font-semibold text-white/50 sm:text-xs">03</span>
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+                <span className="font-display text-[11px] font-semibold text-white/70 sm:mr-1 sm:text-xs">
+                  0{activeIndex + 1}
+                </span>
+                <div className="flex items-center" aria-label={homepageContent.hero.choisirModele}>
+                  {heroProducts.map((item, index) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveHero(index)}
+                      aria-label={`${homepageContent.hero.afficherModele} ${item.name}`}
+                      aria-pressed={activeIndex === index}
+                      className="group grid h-11 w-8 place-items-center px-1.5 sm:h-9"
+                    >
+                      <span className="block h-[3px] w-full bg-white/45 transition-all group-aria-pressed:bg-[#ffd100]" />
+                    </button>
+                  ))}
+                </div>
+                <span className="font-display text-[11px] font-semibold text-white/50 sm:text-xs">{String(heroProducts.length).padStart(2, "0")}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -186,7 +194,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         number={homepageContent.motos.numero}
       >
         <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8">
-          {HERO_PRODUCTS.map((product) => <BikeCard key={product.id} bike={product} go={go} />)}
+          {heroProducts.map((product) => <BikeCard key={product.id} bike={product} go={go} />)}
         </div>
         <button
           onClick={() => go("motos")}

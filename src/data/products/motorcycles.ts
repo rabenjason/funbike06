@@ -4,6 +4,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-125-hlx-5g",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "TVS 125 HLX 5G",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -40,6 +41,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-hlx-plus",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "TVS HLX Plus",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -76,6 +78,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-200-4v",
     "isHomepageHighlight": true,
+    "isHomepageHero": false,
     "name": "TVS Apache 200 4V",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -116,6 +119,7 @@ export const motorcycles: Product[] = [
   {
     "id": "sherco-sef-300-factory-2026",
     "isHomepageHighlight": false,
+    "isHomepageHero": true,
     "name": "Sherco SEF 300 Factory 2026",
     "brandId": "sherco",
     "categoryId": "motos",
@@ -164,6 +168,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-red",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "TVS Raider Rouge",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -196,6 +201,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tuktuk",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "TVS King Tuktuk",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -232,6 +238,7 @@ export const motorcycles: Product[] = [
   {
     "id": "sherco-sef-250-factory-2026",
     "isHomepageHighlight": true,
+    "isHomepageHero": true,
     "name": "Sherco SEF 250 Factory 2026",
     "brandId": "sherco",
     "categoryId": "motos",
@@ -312,6 +319,7 @@ export const motorcycles: Product[] = [
   {
     "id": "tvs-bleu",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "TVS Sport Series",
     "brandId": "tvs",
     "categoryId": "motos",
@@ -366,6 +374,7 @@ export const motorcycles: Product[] = [
   {
     "id": "concept-urbain",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "Édition Spéciale Funbike",
     "brandId": "funbike",
     "categoryId": "motos",
@@ -394,6 +403,7 @@ export const motorcycles: Product[] = [
   {
     "id": "xx-125-2026",
     "isHomepageHighlight": false,
+    "isHomepageHero": true,
     "name": "XX 125 2026",
     "brandId": "fantic",
     "categoryId": "motos",
@@ -438,6 +448,7 @@ export const motorcycles: Product[] = [
   {
     "id": "offroad-trail",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "Trail Adventure",
     "brandId": "fantic",
     "categoryId": "motos",
@@ -470,6 +481,7 @@ export const motorcycles: Product[] = [
   {
     "id": "offroad-450",
     "isHomepageHighlight": false,
+    "isHomepageHero": false,
     "name": "Enduro 450 Factory",
     "brandId": "sherco",
     "categoryId": "motos",
@@ -503,4 +515,4 @@ export const motorcycles: Product[] = [
     "price": "Sur devis",
     "family": "Off-road"
   }
-];
+] satisfies (Product & { isHomepageHero: boolean })[];

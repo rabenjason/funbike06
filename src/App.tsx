@@ -10,11 +10,8 @@ import Product from "./pages/Product";
 import AccessoryDetail from "./pages/AccessoryDetail";
 import Contact from "./pages/Contact";
 import Dealers from "./pages/Dealers";
-import { motorcycles, findProductById } from "./data";
+import { motorcycles, findProductById, getHomepageHeroProducts, mainProductImage } from "./data";
 import { persistTheme, readDarkPreference } from "./lib/theme";
-
-const FIRST_HERO =
-  "https://funbike.mg/wp-content/uploads/2026/02/01-250-SEF-FACTORY-2026-3679x2456-1-1920x1080-1.jpg";
 
 function sameRoute(a: Route, b: Route) {
   return a.page === b.page && (a.id ?? "") === (b.id ?? "");
@@ -80,10 +77,16 @@ export default function App() {
       const wait = Math.max(0, 650 - (performance.now() - start));
       window.setTimeout(() => setBooting(false), wait);
     };
-    const img = new Image();
-    img.onload = finish;
-    img.onerror = finish;
-    img.src = FIRST_HERO;
+    const firstProduct = getHomepageHeroProducts()[0];
+    const firstImage = firstProduct && mainProductImage(firstProduct);
+    if (firstImage) {
+      const img = new Image();
+      img.onload = finish;
+      img.onerror = finish;
+      img.src = firstImage.url;
+    } else {
+      finish();
+    }
     const cap = window.setTimeout(finish, 1600);
     return () => {
       done = true;

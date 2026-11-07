@@ -31,6 +31,10 @@ export const productGallery = (product: Product) =>
 export const getHomepageHighlights = (catalog: Product[] = products): Product[] =>
   catalog.filter((product) => product.isHomepageHighlight === true && product.status === "PUBLISHED").slice(0, 3);
 
+/** Les trois premières motos publiées sélectionnées, dans l'ordre du catalogue. */
+export const getHomepageHeroProducts = (catalog: Product[] = motorcycles): Product[] =>
+  catalog.filter((product) => product.categoryId === "motos" && product.isHomepageHero === true && product.status === "PUBLISHED").slice(0, 3);
+
 /** Les motos et les autres produits ont des pages de détail distinctes. */
 export const productDetailPage = (product: Product): "product" | "accessory" =>
   product.categoryId === "motos" ? "product" : "accessory";
