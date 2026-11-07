@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { getHomepageHeroProducts, brands, spareParts, helmets, ridingGear, mainProductImage } from "../data";
+import { getHomepageHeroProducts, getMotosAccueil, brands, spareParts, helmets, ridingGear, mainProductImage } from "../data";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -26,6 +26,7 @@ const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
 
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
   const heroProducts = getHomepageHeroProducts();
+  const motosAccueil = getMotosAccueil();
   const [activeHero, setActiveHero] = useState(0);
   const activeIndex = heroProducts.length ? activeHero % heroProducts.length : 0;
   const current = heroProducts[activeIndex];
@@ -194,7 +195,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         number={homepageContent.motos.numero}
       >
         <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 lg:gap-x-8">
-          {heroProducts.map((product) => <BikeCard key={product.id} bike={product} go={go} />)}
+          {motosAccueil.map((product) => <BikeCard key={product.id} bike={product} go={go} />)}
         </div>
         <button
           onClick={() => go("motos")}

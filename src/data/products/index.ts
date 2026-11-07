@@ -28,12 +28,16 @@ export const productGallery = (product: Product) =>
   [...product.images].sort((a, b) => a.position - b.position).map((image) => image.url);
 
 /** Les trois premiers produits publiés marqués, dans l'ordre du catalogue. */
-export const getHomepageHighlights = (catalog: Product[] = products): Product[] =>
-  catalog.filter((product) => product.isHomepageHighlight === true && product.status === "PUBLISHED").slice(0, 3);
+export const getNewArrivals = (catalog: Product[] = products): Product[] =>
+  catalog.filter((product) => product.isNewArrival === true && product.status === "PUBLISHED").slice(0, 3);
 
 /** Les trois premières motos publiées sélectionnées, dans l'ordre du catalogue. */
 export const getHomepageHeroProducts = (catalog: Product[] = motorcycles): Product[] =>
   catalog.filter((product) => product.categoryId === "motos" && product.isHomepageHero === true && product.status === "PUBLISHED").slice(0, 3);
+
+/** Les trois premières motos publiées sélectionnées pour la section motos. */
+export const getMotosAccueil = (catalog: Product[] = motorcycles): Product[] =>
+  catalog.filter((product) => product.categoryId === "motos" && product.isMotoAccueil === true && product.status === "PUBLISHED").slice(0, 3);
 
 /** Les motos et les autres produits ont des pages de détail distinctes. */
 export const productDetailPage = (product: Product): "product" | "accessory" =>
