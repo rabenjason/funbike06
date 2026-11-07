@@ -59,7 +59,7 @@ if ($path === '/admin' || isset($_GET['admin'])) {
 }
 if ($path === '/robots.txt') {
     header('Content-Type: text/plain; charset=UTF-8');
-    echo "User-agent: *\nDisallow: /server/\nSitemap: " . $origin . "/sitemap.xml\n"; exit;
+    echo "User-agent: *\nDisallow: /server/api/\nDisallow: /server/storage/\nDisallow: /server/scripts/\nDisallow: /server/seo.php\nSitemap: " . $origin . "/sitemap.xml\n"; exit;
 }
 $all = seoProducts();
 if ($path === '/sitemap.xml') {
@@ -129,6 +129,6 @@ if ($html === false || strpos($html, '<div id="root"></div>') === false) { http_
 $html = preg_replace_callback('/<title>.*?<\/title>/s', function () use ($title) { return '<title>' . seoEsc($title) . '</title>'; }, $html, 1);
 $html = preg_replace('/\s*<meta\s+name="description"[^>]*>/i', '', $html, 1);
 $html = str_replace('</head>', $meta . '</head>', $html);
-$html = str_replace('<div id="root"></div>', '<div id="root">' . $body . '</div>', $html);
+$html = str_replace('<div id="root"></div>', '<div id="seo-fallback">' . $body . '</div><div id="root"></div>', $html);
 header('Content-Type: text/html; charset=UTF-8');
 echo $html;

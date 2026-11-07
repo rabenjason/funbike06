@@ -31,11 +31,23 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
     let ready = false;
     for (let i = 0; i < 100; i++) { try { if ((await fetch(origin + '/robots.txt')).ok) { ready = true; break; } } catch {} await new Promise((r) => setTimeout(r, 100)); }
     assert.ok(ready, 'le serveur PHP doit démarrer');
+    const robotsResponse = await fetch(origin + '/robots.txt');
+    assert.match(robotsResponse.headers.get('content-type'), /text\/plain/);
+    const robots = await robotsResponse.text();
+    assert.match(robots, /^User-agent: \*$/m);
+    for (const path of ['/server/api/', '/server/storage/', '/server/scripts/', '/server/seo.php']) {
+      assert.ok(robots.includes(`Disallow: ${path}\n`), path);
+    }
+    assert.doesNotMatch(robots, /^Disallow:\s*\/server\/\s*$/m, 'les images publiques ne doivent pas être bloquées');
+    assert.doesNotMatch(robots, /^Disallow:\s*\/server\/(uploads|public)(?:\/|$)/m);
+    assert.ok(robots.includes(`Sitemap: ${origin}/sitemap.xml`));
     const sitemap = await (await fetch(origin + '/sitemap.xml')).text();
     assert.match(sitemap, /<loc>http:\/\/127\.0\.0\.1:\d+\/motos\/nouveau-test<\/loc>/);
     assert.doesNotMatch(sitemap, /brouillon-secret|marque-masquee|\/admin|\/server/);
     const page = await fetch(origin + '/motos/nouveau-test'); const html = await page.text();
     assert.equal(page.status, 200); assert.match(html, /<h1>Moto danger &amp; Test<\/h1>/);
+    assert.match(html, /<div id="seo-fallback"><main>/);
+    assert.match(html, /<div id="root"><\/div>/);
     assert.match(html, /<meta property="og:title"/); assert.match(html, /<meta property="og:image"/);
     assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/motos\/nouveau-test">/);
     assert.match(html, /application\/ld\+json/); assert.doesNotMatch(html, /<script>danger<\/script>|<img src=x onerror/);
