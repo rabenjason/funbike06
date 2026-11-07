@@ -18,48 +18,86 @@ after(async () => {
   await server?.close();
 });
 
-test("les sélections pointent vers des produits et leurs données de catalogue", () => {
-  for (const highlight of data.homepageHighlights) {
-    const product = data.findProductById(highlight.productId);
-    assert.ok(product, `Produit absent : ${highlight.productId}`);
-    assert.ok(data.brands.some(({ id }) => id === product.brandId), product.id);
-    assert.ok(data.productTypes.some(({ id }) => id === product.productTypeId), product.id);
+const escapeHtml = (text) => renderToStaticMarkup(React.createElement("span", null, text)).slice(6, -7);
+const render = () => renderToStaticMarkup(React.createElement(NewArrivals, { go() {} }));
+
+// Parcourt les éléments JSX avant leur rendu pour tester les deux boutons de chaque carte.
+function descendants(element) {
+  if (Array.isArray(element)) return element.flatMap(descendants);
+  if (!React.isValidElement(element)) return [];
+  return [element, ...descendants(element.props.children)];
+}
+
+test("les produits publiés marqués sont limités aux trois premiers, dans l'ordre du catalogue", () => {
+  const base = data.products[0];
+  const product = (id, flag, status = "PUBLISHED") => ({ ...base, id, isHomepageHighlight: flag, status });
+  const catalog = [product("a", false), product("b", true, "DRAFT"), product("c", true), product("d", true), product("e", true), product("f", true), product("g", true, "ARCHIVED")];
+  assert.deepEqual(data.getHomepageHighlights(catalog).map(({ id }) => id), ["c", "d", "e"]);
+  assert.deepEqual(data.getHomepageHighlights([product("a", false), product("b", true, "DRAFT")]), []);
+  assert.deepEqual(data.getHomepageHighlights([product("a", true)]).map(({ id }) => id), ["a"]);
+});
+
+test("les cartes reprennent les données et les trois premières spécifications du produit", () => {
+  const selected = data.getHomepageHighlights();
+  assert.deepEqual(new Set(selected.map(({ id }) => id)), new Set(["sherco-sef-250-factory-2026", "tvs-200-4v", "t1"]));
+  const html = render();
+  for (const product of selected) {
+    const brand = data.brands.find(({ id }) => id === product.brandId);
+    const type = data.productTypes.find(({ id }) => id === product.productTypeId);
+    assert.ok(brand && type, product.id);
     if (product.modelId) {
       const model = data.models.find(({ id }) => id === product.modelId);
       assert.ok(model, product.id);
-      assert.equal(model.brandId, product.brandId, product.id);
+      assert.equal(model.brandId, product.brandId);
     }
-    assert.ok(data.mainProductImage(product)?.isMain, product.id);
-  }
-});
-
-test("les cartes affichent les données du produit, son type et les puces éditoriales", () => {
-  const html = renderToStaticMarkup(React.createElement(NewArrivals, { go() {} }));
-  for (const highlight of data.homepageHighlights) {
-    const product = data.findProductById(highlight.productId);
-    const brand = data.brands.find(({ id }) => id === product.brandId);
-    const type = data.productTypes.find(({ id }) => id === product.productTypeId);
-    assert.ok(html.includes(`${brand.name} / ${type.name}`));
-    assert.ok(html.includes(product.name));
+    assert.ok(html.includes(escapeHtml(`${brand.name} / ${type.name}`)));
+    assert.ok(html.includes(escapeHtml(product.name)));
+    assert.ok(data.mainProductImage(product)?.isMain);
+    assert.ok(html.includes(escapeHtml(data.mainProductImage(product).url)));
+    assert.ok(html.includes(escapeHtml(product.price ?? "Sur devis")));
     if (product.description) {
       const characters = Array.from(product.description);
       const preview = characters.length <= 112 ? product.description : `${characters.slice(0, 109).join("").trimEnd()}...`;
-      assert.ok(html.includes(renderToStaticMarkup(React.createElement("span", null, preview)).slice(6, -7)));
+      assert.ok(html.includes(escapeHtml(preview)));
     }
-    assert.ok(html.includes(product.price ?? "Sur devis"));
-    assert.ok(html.includes(data.mainProductImage(product).url.replaceAll("&", "&amp;")));
-    for (const bullet of highlight.bullets) assert.ok(html.includes(bullet));
+    for (const { key, value } of product.specifications.slice(0, 3)) {
+      assert.ok(html.includes(escapeHtml(`${key} : ${value}`)), `${product.id} : ${key}`);
+    }
   }
 });
 
-test("les informations des puces figurent aussi dans les spécifications", () => {
-  const expectations = {
-    "sherco-sef-250-factory-2026": [/KYB/i, /Galfer/i, /Deux cartographies/i],
-    "tvs-200-4v": [/ABS/i, /Sport \/ Urbain \/ Pluie/i, /Tableau de bord.*Digital/i],
-    t1: [/Coque.*Légère/i, /Ventilation.*Travaillée/i, /Graphismes.*Inédits/i],
-  };
-  for (const [id, patterns] of Object.entries(expectations)) {
-    const specs = data.findProductById(id).specifications.map(({ key, value }) => `${key} : ${value}`).join("\n");
-    for (const pattern of patterns) assert.match(specs, pattern, id);
+test("la sélection et les spécifications changent avec les données du catalogue", () => {
+  const initial = data.getHomepageHighlights()[0];
+  const replacement = data.products.find((product) => !product.isHomepageHighlight && product.status === "PUBLISHED");
+  const oldSpecs = replacement.specifications;
+  try {
+    initial.isHomepageHighlight = false;
+    replacement.isHomepageHighlight = true;
+    replacement.specifications = [{ key: "Test dynamique", value: "Valeur modifiée" }];
+    const html = render();
+    assert.ok(!html.includes(escapeHtml(initial.name)));
+    assert.ok(html.includes(escapeHtml(replacement.name)));
+    assert.ok(html.includes("Test dynamique : Valeur modifiée"));
+    replacement.specifications = [];
+    assert.ok(!render().includes("Test dynamique : Valeur modifiée"));
+  } finally {
+    initial.isHomepageHighlight = true;
+    delete replacement.isHomepageHighlight;
+    replacement.specifications = oldSpecs;
+  }
+});
+
+test("l'image et le bouton ouvrent la fiche du produit correspondant", () => {
+  const calls = [];
+  const tree = NewArrivals({ go: (page, id) => calls.push({ page, id }) });
+  const elements = descendants(tree);
+  for (const product of data.getHomepageHighlights()) {
+    const card = elements.find((element) => element.key === product.id);
+    assert.ok(card, product.id);
+    const buttons = descendants(card).filter((element) => element.type === "button");
+    assert.equal(buttons.length, 2, product.id);
+    for (const button of buttons) button.props.onClick();
+    const expected = { page: product.categoryId === "motos" ? "product" : "accessory", id: product.id };
+    assert.deepEqual(calls.splice(0), [expected, expected]);
   }
 });
