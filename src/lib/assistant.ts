@@ -18,6 +18,10 @@ export type Memory = {
   usageBrandId?: string;
   usageNumbers?: string[];
   pendingIntent?: "price" | "stock";
+  pendingCategoryQuery?: string;
+  lastUsage?: string;
+  lastUsageBrandId?: string;
+  lastDisplacement?: string;
 };
 export const EMPTY_MEMORY: Memory = { lastIds: [], misses: 0 };
 
@@ -35,8 +39,8 @@ const typeName = (p: Product) => productTypes.find((t) => t.id === p.productType
 const modelName = (p: Product) => models.find((m) => m.id === p.modelId && m.brandId === p.brandId)?.name ?? "";
 const categoryName = (p: Product) => categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId;
 const productText = (p: Product) => [p.name, brandOf(p)?.name, modelName(p), typeName(p), getProductFamily(p)?.name, categoryName(p), p.description, p.subDescription, ...(p.tags ?? []), ...(p.specifications ?? []).flatMap((s) => [s.key, s.value])].filter(Boolean).join(" ");
-const STOP = new Set("bonjour salut hello bjr salama merci pour avec sans dans avez vous votre vos est sont quelles quels quel quelle une des les la le du de au aux et ou je veux voudrais cherche recherche pouvez moi me svp sil vous plait montre montrer voir afficher fiche informations information details detail parle parler produit produits modele modeles prix tarif cout coute combien coute cher coute devis promotion promo reduction disponible disponibilite stock neuf neuve nouveau nouvelle nouveaux nouvelles nouveaute nouveautes arrivage arrivages arrivee arrivees dernier derniers derniere dernieres propose proposes presente une un ce cette ces celui celle ses son sa mon ma mes notre leur leurs sont ils on il y a t il peut tu donner proposez disponible quelle lequel laquelle plus suite suivante suivants prochain suivante page ete avez vous nous affiche moi connais quoi catalogue gamme selection montre je souhaite connaitre savoir voudrais je cherche meilleur conseille recommande conseil recommandation comparer compare comparatif difference entre vs versus poids cylindre cylindree puissance consommation vitesse boite couleur couleur taille pointure moteur caracteristiques caracteristique specification specifications technique techniques possible avoir sil te plait aide aider parle demande mention est ce que ca avez vous premier premiere premiers premieres deuxieme second seconde troisieme quatrieme deux deuxieme 2e 3e 4e compatible compatibles compatibilite comparaison".split(/\s+/));
-const queryTerms = (t: string) => words(t).filter((w) => !STOP.has(w) && w.length >= 2).map(stem);
+const STOP = new Set("bonjour salut hello bjr salama merci pour avec sans dans avez vous votre vos est sont quelles quels quel quelle une des les la le du de au aux et ou je veux voudrais cherche recherche pouvez moi me svp sil vous plait montre montrer voir afficher fiche informations information details detail parle parler produit produits modele modeles prix tarif cout coute combien coute cher coute devis promotion promo reduction disponible disponibilite stock neuf neuve nouveau nouvelle nouveaux nouvelles nouveaute nouveautes arrivage arrivages arrivee arrivees dernier derniers derniere dernieres propose proposes presente une un ce cette ces celui celle ses son sa mon ma mes notre leur leurs sont ils on il y a t il peut tu donner proposez disponible quelle lequel laquelle plus suite suivante suivants prochain suivante page ete avez vous nous affiche moi connais quoi catalogue gamme selection montre je souhaite connaitre savoir voudrais je cherche meilleur conseille recommande conseil recommandation comparer compare comparatif difference entre vs versus poids cylindre cylindree puissance consommation vitesse boite couleur couleur taille pointure moteur caracteristiques caracteristique specification specifications technique techniques possible avoir sil te plait aide aider parle demande mention est ce que ca avez vous cc cm3 faire pratique pratiquer rouler roulerai roules roulez utilise utiliser acheter achat besoin cherche recherche marque marques usage aller en chaque tous jours aimerais premiere mon premier premiere premiers premieres deuxieme second seconde troisieme quatrieme deux deuxieme 2e 3e 4e compatible compatibles compatibilite comparaison".split(/\s+/));
+const queryTerms = (t: string) => words(t).filter((w) => !STOP.has(w) && w.length >= 2).map((w) => stem(w === "motocross" ? "cross" : w));
 const tokenMatch = (source: string, term: string) => words(source).map(stem).some((w) => w === term);
 const categoryFilter = (t: string): string[] | null => {
   if (any(t, ["piece", "pieces", "pneu", "pneus", "plaquette", "plaquettes", "filtre", "filtres", "chaine", "chaines", "freinage"])) return ["pieces-detachees"];
@@ -78,29 +82,63 @@ export function searchProducts(question: string): Product[] {
 }
 export function searchBikes(t: string) { return searchProducts(t).filter((p) => p.categoryId === "motos"); }
 
-// Les familles, types et champs Usage/terrain sont les seules preuves utilisées
-// pour suggérer un usage : aucune affirmation sur le niveau ou le stock.
-function suggestUsage(usage: string): { product: Product; reason: string }[] {
-  const groups: { query: string[]; evidence: string[] }[] = [
-    { query: ["ville", "urbain", "quotidien", "urbaine"], evidence: ["ville", "urbain", "urbaine"] },
-    { query: ["cross", "motocross"], evidence: ["cross", "motocross"] },
-    { query: ["enduro"], evidence: ["enduro"] },
-    { query: ["tout terrain", "off road", "piste"], evidence: ["tout terrain", "off road", "offroad", "piste"] },
-    { query: ["travail", "livraison", "utilitaire"], evidence: ["travail", "livraison", "utilitaire"] },
-    { query: ["voyage", "aventure", "trail"], evidence: ["voyage", "aventure", "trail"] },
-    { query: ["transport", "tuktuk", "3 roues"], evidence: ["transport", "3 roues", "trois roues", "tuktuk"] },
-  ];
-  const group = groups.find((g) => phrase(usage, g.query));
-  if (!group) return [];
+// Les libellés du catalogue restent la preuve : ces synonymes interprètent
+// la demande, sans transformer une famille vague en aptitude inventée.
+const USAGES = [
+  { id: "ville", label: "ville", query: ["ville", "urbain", "urbaine", "quotidien", "quotidienne", "trajets quotidiens", "aller au travail", "aller au boulot", "trajets quotidiens", "deplacement quotidien", "deplacements quotidiens"], evidence: ["ville", "urbain", "urbaine"] },
+  { id: "cross", label: "cross", query: ["cross", "motocross", "moto cross", "mx"], evidence: ["cross", "motocross", "moto cross"] },
+  { id: "enduro", label: "enduro", query: ["enduro"], evidence: ["enduro"] },
+  { id: "terrain", label: "tout-terrain", query: ["tout terrain", "off road", "offroad", "hors route", "hors piste", "brousse", "piste"], evidence: ["tout terrain", "off road", "offroad", "hors route", "hors piste", "brousse", "piste"] },
+  { id: "travail", label: "travail ou livraison", query: ["travail", "livraison", "livraisons", "livrer", "utilitaire"], evidence: ["travail", "livraison", "utilitaire"] },
+  { id: "voyage", label: "voyage ou aventure", query: ["voyage", "voyager", "aventure", "trail"], evidence: ["voyage", "aventure", "trail"] },
+  { id: "route", label: "route", query: ["route", "routes", "long trajet", "longs trajets", "longue distance", "longues distances"], evidence: ["route", "routes", "routiere", "routier"] },
+  { id: "transport", label: "transport en trois roues", query: ["tuktuk", "tuk tuk", "3 roues", "trois roues"], evidence: ["3 roues", "trois roues", "tuktuk"] },
+] as const;
+type Usage = typeof USAGES[number];
+const usageById = (id?: string): Usage | undefined => USAGES.find((item) => item.id === id);
+function mentionedUsages(t: string): Usage[] {
+  // Aller au travail décrit un trajet quotidien, pas forcément une livraison.
+  const usageText = t.replace(/\b(?:aller|trajet|trajets) (?:au|pour le) (?:travail|boulot)\b/g, "trajets quotidiens");
+  const matched = USAGES.filter((group) => phrase(usageText, [...group.query]));
+  // « cross tout-terrain » et « enduro tout-terrain » précisent le même besoin.
+  const specific = matched.some((g) => g.id === "cross" || g.id === "enduro");
+  return matched.filter((g) => !(specific && g.id === "terrain") && !(g.id === "route" && phrase(usageText, ["hors route"])));
+}
+function displacement(t: string): string | undefined {
+  const match = t.match(/\b(\d{2,3})\s*(?:cc|cm3|cm 3)\b/) ?? t.match(/\b(\d{2,3})\b/);
+  return match?.[1];
+}
+function hasDisplacement(p: Product, amount: string) {
+  return (p.specifications ?? []).some((s) => norm(s.key).includes("cylindree") && tokenMatch(s.value, amount));
+}
+function unhandledCriteria(t: string, brandId?: string): string[] {
+  const usageWords = new Set(USAGES.flatMap((group) => group.query.flatMap(words)).map(stem));
+  const brand = brands.find((item) => item.id === brandId);
+  const brandWords = new Set(brand ? words(brand.name).map(stem) : []);
+  const accepted = new Set(["moto", "motos", "motocyclette", "debutant", "debutante", "debuter", "debute", "commence", "cc", "cm3", "route", "routes", "all", "quotidien", "trajet", "trajets", "une", "premiere"]);
+  return queryTerms(t).filter((term) => !usageWords.has(term) && !brandWords.has(term) && !accepted.has(term) && !/^\d{2,3}$/.test(term));
+}
+function suggestUsage(group: Usage, options: { brandId?: string; cc?: string }): { product: Product; reason: string }[] {
   return visible().flatMap((p) => {
-    if (p.categoryId !== "motos") return [];
+    if (p.categoryId !== "motos" || (options.brandId && p.brandId !== options.brandId) || (options.cc && !hasDisplacement(p, options.cc))) return [];
+    // Ne pas proposer un trois-roues à un client qui demande une moto.
+    if (group.id !== "transport" && phrase(typeName(p), ["3 roues", "trois roues", "tuktuk"])) return [];
     const evidence = [
       ...(typeName(p) ? [`Type : ${typeName(p)}`] : []),
       ...(getProductFamily(p)?.name ? [`Famille : ${getProductFamily(p)!.name}`] : []),
       ...(p.tags ?? []).map((tag) => `Tag : ${tag}`),
       ...(p.specifications ?? []).filter((s) => /usage|utilisation|terrain/i.test(norm(s.key))).map((s) => `${s.key} : ${s.value}`),
     ];
-    const reason = evidence.find((field) => group.evidence.some((term) => contains(field, term)));
+    const negative = ["pas", "sans", "non", "interdit", "exclu", "incompatible"];
+    let reason = evidence.find((field) => !phrase(field, negative) && group.evidence.some((term) => contains(field, term)));
+    // La description est citée telle quelle uniquement si elle mentionne explicitement
+    // l’usage et contient une formulation positive, sans négation dans la phrase.
+    if (!reason) {
+      const sentence = [p.description, p.subDescription ?? ""].flatMap((description) => description.split(/[.!?;\n]+/)).map((part) => part.trim()).find((part) =>
+        part.length <= 220 && !phrase(part, negative) && phrase(part, ["pour", "usage", "polyvalence", "adapte", "adaptee", "adaptes", "adaptees", "destine", "destinee", "ideal", "ideale", "taille", "taillee"]) && group.evidence.some((term) => contains(part, term)),
+      );
+      if (sentence) reason = `Description : « ${sentence} »`;
+    }
     return reason ? [{ product: p, reason }] : [];
   });
 }
@@ -135,12 +173,18 @@ function reference(t: string, mem: Memory): Product | undefined {
   return (hasOrdinal || mem.lastIds.length === 1) && mem.lastIds[index] ? byId(mem.lastIds[index]) : undefined;
 }
 function wantsReference(t: string) {
-  return any(t, ["premier", "premiere", "deuxieme", "second", "troisieme", "quatrieme", "celle", "celui", "cette moto", "ce modele", "ce produit", "sa", "son", "ses", "elle", "prix", "poids", "fiche", "voir la fiche", "premiere"]);
+  return any(t, ["premier", "premiere", "deuxieme", "second", "troisieme", "quatrieme", "celle", "celui", "cette moto", "ce modele", "ce produit", "sa", "son", "ses", "elle", "prix", "poids", "fiche", "voir la fiche", "premiere", "combien de cc", "cylindree"]);
 }
 
 export function respond(raw: string, previous: Memory): { reply: BotReply; memory: Memory } {
   const mem: Memory = { ...previous, lastIds: [...(previous.lastIds ?? [])] };
-  const t = norm(raw);
+  let t = norm(raw);
+  if (mem.pendingCategoryQuery) {
+    const categoryChoice = categoryFilter(t);
+    const saved = mem.pendingCategoryQuery;
+    mem.pendingCategoryQuery = undefined;
+    if (categoryChoice) t = norm(`${raw} ${saved}`);
+  }
   const done = (reply: BotReply) => { mem.misses = 0; return { reply, memory: mem }; };
   if (!t) return done({ text: "Que recherchez-vous ?", quick: initialQuick() });
   if (phrase(t, ["bonjour", "salut", "salama", "bonsoir"]) && words(t).length <= 3) return done({ text: "Bonjour ! Comment puis-je vous aider ?", quick: initialQuick() });
@@ -167,6 +211,11 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
     return done({ text: brandNames.length ? `Marques présentes dans le catalogue :\n${brandNames.map((name) => `• ${name}`).join("\n")}` : "Je ne trouve aucune marque correspondante dans le catalogue.", actions: [CONTACT] });
   }
   const found = searchProducts(t);
+  const currentCategory = categoryFilter(t);
+  if (currentCategory && !currentCategory.includes("motos")) {
+    mem.lastUsage = undefined; mem.lastUsageBrandId = undefined; mem.lastDisplacement = undefined;
+    mem.waitingForUsage = false; mem.usageBrandId = undefined; mem.usageNumbers = undefined;
+  }
   const terms = queryTerms(t);
   const isReference = wantsReference(t) && terms.length === 0;
   const ref = isReference ? reference(t, mem) : undefined;
@@ -190,9 +239,13 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
     const listed = brand ? pieces.filter((p) => p.compatibleBrandIds?.includes(brand.id)) : [];
     return done(listed.length ? { ...showResults(mem, listed, `Pièces indiquées compatibles avec la marque ${brand!.name}`), text: `La marque **${brand!.name}** est indiquée pour ${listed.length} pièce${listed.length > 1 ? "s" : ""}. Le modèle, l’année et les dimensions restent à confirmer auprès de l’équipe.\n${listed.length > 4 ? "Utilisez « Voir la suite » pour les autres." : ""}`, actions: [CONTACT] } : { text: "Je ne peux pas confirmer cette compatibilité avec les informations du catalogue. Indiquez le modèle et l’année à l’équipe.", actions: [CONTACT] });
   }
-  const isPrice = phrase(t, ["prix", "tarif", "combien", "coute", "cout", "devis"]) || (mem.pendingIntent === "price" && matches.length === 1);
-  const isStock = phrase(t, ["stock", "disponibilite", "disponible", "disponibles", "en stock"]) || (mem.pendingIntent === "stock" && matches.length === 1);
-  const spec = specGroups.find((group) => phrase(t, group.question)) && !(categoryFilter(t)?.includes("pieces-detachees") && !phrase(t, ["caracteristique", "specification", "quel", "quelle", "combien"])) ? specGroups.find((group) => phrase(t, group.question)) : undefined;
+  if (mentionedUsages(t).length && phrase(t, ["pas", "sans", "sauf"])) {
+    return done({ text: "Je préfère vérifier votre besoin plutôt que d’ignorer une exclusion. Qu’utiliserez-vous principalement, et quel type souhaitez-vous éviter ? Vous pouvez aussi contacter l’équipe.", actions: [CONTACT] });
+  }
+  const matchedSpec = specGroups.find((group) => phrase(t, group.question));
+  const spec = matchedSpec && !(categoryFilter(t)?.includes("pieces-detachees") && !phrase(t, ["caracteristique", "specification", "quel", "quelle", "combien"])) ? matchedSpec : undefined;
+  const isPrice = phrase(t, ["prix", "tarif", "coute", "cout", "devis"]) || (phrase(t, ["combien"]) && !spec) || (mem.pendingIntent === "price" && matches.length === 1 && !spec);
+  const isStock = phrase(t, ["stock", "disponibilite", "disponible", "disponibles", "en stock"]) || (mem.pendingIntent === "stock" && matches.length === 1 && !spec);
   if (isPrice || isStock || spec) {
     if (matches.length > 1) { mem.pendingIntent = isPrice ? "price" : isStock ? "stock" : undefined; return done(showResults(mem, matches, "Plusieurs produits correspondent : choisissez un nom ou demandez « le premier »")); }
     if (matches.length === 1) {
@@ -205,26 +258,73 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
     return done({ text: "Je ne peux pas identifier le produit avec certitude. Indiquez son nom exact ou contactez l’équipe.", actions: [CONTACT] });
   }
 
-  const wantsAdvice = phrase(t, ["conseil", "conseiller", "conseille", "recommande", "recommander", "quelle moto", "quelles motos", "quel modele de moto", "choisir", "debutant", "debuter"]);
+  const wantsAdvice = phrase(t, ["conseil", "conseiller", "conseille", "recommande", "recommander", "quelle moto", "quelles motos", "quel modele de moto", "choisir", "debutant", "debutante", "debuter", "je debute", "premiere moto"]);
   const filter = categoryFilter(t);
-  const isMotoAdvice = wantsAdvice && (!filter || (filter.length === 1 && filter[0] === "motos"));
-  const usageFollowUp = mem.waitingForUsage && !filter && words(t).length <= 3 && !knownBrand(t);
-  if (!isMotoAdvice && !usageFollowUp) { mem.waitingForUsage = false; mem.usageBrandId = undefined; mem.usageNumbers = undefined; }
-  if (isMotoAdvice || usageFollowUp) {
+  const mentioned = mentionedUsages(t);
+  const motoCategory = !!filter && filter.length === 1 && filter[0] === "motos";
+  if (phrase(t, ["autre usage"])) {
+    mem.waitingForUsage = true; mem.usageBrandId = undefined; mem.usageNumbers = undefined;
+    mem.lastUsage = undefined; mem.lastUsageBrandId = undefined; mem.lastDisplacement = undefined;
+    return done({ text: "Pour quel usage cherchez-vous une moto ?", quick: ["Ville", "Travail", "Route", "Cross", "Enduro"] });
+  }
+  const changingUsage = !!mem.lastUsage && !filter && mentioned.length > 0 && words(t).length <= 3 && !knownBrand(t);
+  const usageFollowUp = (!!mem.waitingForUsage || changingUsage) && !filter && mentioned.length > 0;
+  const shortRefinement = !!mem.lastUsage && !filter && mentioned.length === 0 && (
+    (!!displacement(t) && words(t).length <= 4) || (!!knownBrand(t) && words(t).length <= 4) || phrase(t, ["je debute", "debutant", "debutante", "je commence"])
+  );
+
+  // Un seul mot comme « cross » peut désigner une moto, un casque ou une pièce.
+  if (!filter && mentioned.length && !wantsAdvice && !mem.waitingForUsage && !mem.lastUsage && !found.some((p) => contains(t, p.name))) {
+    mem.pendingCategoryQuery = t;
+    return done({ text: `Pour ${mentioned.map((g) => g.label).join(" / ")}, cherchez-vous une moto, un équipement ou une pièce ?`, quick: ["Moto", "Équipement", "Pièces"] });
+  }
+  const shoppingForMoto = motoCategory && !mentioned.length && phrase(t, ["je cherche", "je veux", "je voudrais", "j aimerais", "j ai besoin", "je souhaite", "besoin", "acheter", "achat", "quelle moto", "quel moto"]);
+  const isMotoAdvice = (wantsAdvice && (!filter || motoCategory)) || (motoCategory && mentioned.length > 0) || shoppingForMoto || usageFollowUp || shortRefinement;
+  if (!isMotoAdvice) { mem.waitingForUsage = false; mem.usageBrandId = undefined; mem.usageNumbers = undefined; }
+  if (isMotoAdvice) {
     if (phrase(t, ["budget", "moins de", "maximum", "prix maximum"])) {
       mem.waitingForUsage = false;
       return done({ text: "Je ne peux pas vérifier qu’une moto correspond à votre budget. Précisez votre budget à l’équipe pour obtenir un devis à jour.", actions: [CONTACT] });
     }
-    const brandId = knownBrand(t)?.id ?? (usageFollowUp ? mem.usageBrandId : undefined);
-    const numbers = usageFollowUp ? (mem.usageNumbers ?? []) : words(t).filter((word) => /^\d+$/.test(word));
-    const suggestions = suggestUsage(t).filter(({ product }) => (!brandId || product.brandId === brandId) && numbers.every((number) => tokenMatch(productText(product), number)));
-    if (!suggestions.length) { mem.waitingForUsage = true; mem.usageBrandId = brandId; mem.usageNumbers = numbers; return done({ text: "Je n’ai pas assez de données pour proposer une moto correspondant à ces critères. Pour vous orienter, indiquez l’usage principal : ville, travail, voyage, cross ou enduro. Je ne peux pas déduire le niveau ou le stock s’ils ne sont pas renseignés.", quick: ["Ville", "Travail", "Voyage", "Cross", "Enduro"], actions: [CONTACT] }); }
+    if (phrase(t, ["pas de", "pas une", "pas un", "sauf", "sans"])) {
+      return done({ text: "Pour ne pas mal interpréter votre exclusion, indiquez ce que vous recherchez ou contactez l’équipe.", actions: [CONTACT] });
+    }
+    const usage = mentioned[0] ?? (shortRefinement ? usageById(mem.lastUsage) : undefined);
+    const brandId = knownBrand(t)?.id ?? (mem.waitingForUsage && usageFollowUp ? mem.usageBrandId : (shortRefinement || changingUsage) ? mem.lastUsageBrandId : undefined);
+    const cc = displacement(t) ?? (mem.waitingForUsage && usageFollowUp ? mem.usageNumbers?.[0] : (shortRefinement || changingUsage) ? mem.lastDisplacement : undefined);
+    const unhandled = unhandledCriteria(t, brandId);
+    if (unhandled.length) {
+      const exactModel = found.length === 1 && unhandled.every((term) => tokenMatch(`${found[0].name} ${modelName(found[0])}`, term));
+      if (exactModel) return done(showResults(mem, found, "Voici le modèle correspondant"));
+      return done({ text: "Pour ne pas ignorer vos critères, précisez le modèle, la marque ou le besoin à l’équipe : je ne peux pas interpréter toute la demande avec certitude.", actions: [CONTACT] });
+    }
+    if (mentioned.length > 1) {
+      mem.waitingForUsage = true; mem.usageBrandId = brandId; mem.usageNumbers = cc ? [cc] : [];
+      return done({ text: "Quel sera votre usage principal ? Cela m’aidera à chercher les fiches les plus pertinentes.", quick: mentioned.map((g) => g.label) });
+    }
+    if (!usage) {
+      mem.waitingForUsage = true; mem.usageBrandId = brandId; mem.usageNumbers = cc ? [cc] : [];
+      return done({ text: "Pour vous orienter, quel sera votre usage principal : ville, travail, route, cross ou enduro ? Je ne peux pas déduire le niveau ou le stock s’ils ne sont pas renseignés.", quick: ["Ville", "Travail", "Route", "Cross", "Enduro"], actions: [CONTACT] });
+    }
     mem.waitingForUsage = false; mem.usageBrandId = undefined; mem.usageNumbers = undefined;
-    const reply = showResults(mem, suggestions.map((item) => item.product), "Voici des pistes selon la catégorie ou l’usage indiqué dans la fiche", Object.fromEntries(suggestions.map((item) => [item.product.id, item.reason])));
-    reply.text += " Le choix et l’adaptation à votre expérience sont à confirmer avec l’équipe.";
+    mem.lastUsage = usage.id; mem.lastUsageBrandId = brandId; mem.lastDisplacement = cc;
+    const suggestions = suggestUsage(usage, { brandId, cc });
+    if (!suggestions.length) return done({ text: `Je ne trouve pas de fiche publiée qui indique un usage ${usage.label}${cc ? ` et une cylindrée de ${cc} cc` : ""}${brandId ? ` pour ${brands.find((b) => b.id === brandId)?.name ?? "cette marque"}` : ""}. L’équipe pourra vérifier d’autres possibilités.`, quick: ["Autre usage", "Contacter l’équipe"], actions: [CONTACT] });
+    if (shortRefinement && phrase(t, ["je debute", "debutant", "debutante", "je commence"])) {
+      return done({ text: `Merci pour la précision. Pour ${usage.label}, je peux montrer des fiches, mais je ne peux pas confirmer qu’une moto convient à un débutant. Voulez-vous préciser une cylindrée ou parler à un conseiller ?`, quick: ["Prix du premier", "Contacter l’équipe"], actions: [CONTACT] });
+    }
+    const reply = showResults(mem, suggestions.map((item) => item.product), `Voici des pistes pour ${usage.label}, selon les fiches`, Object.fromEntries(suggestions.map((item) => [item.product.id, item.reason])));
+    reply.text += " Je ne peux pas confirmer le stock ni l’adaptation à votre expérience : l’équipe peut vous conseiller.";
+    const amounts = [...new Set(suggestions.flatMap(({ product }) => (product.specifications ?? []).filter((spec) => norm(spec.key).includes("cylindree")).flatMap((spec) => {
+      const match = norm(spec.value).match(/\b(\d{2,3})\s*(?:cc|cm3|cm 3)\b/); return match ? [match[1]] : [];
+    })))];
+    reply.quick = [...(reply.quick?.includes("Voir la suite") ? ["Voir la suite"] : []), "Prix du premier", ...(cc || !amounts[0] ? [] : [`${amounts[0]} cc`]), ...(phrase(t, ["debute", "debutant", "debutante"]) ? [] : ["Je débute"]), "Contacter l’équipe"];
     return done(reply);
   }
-  if (matches.length) return done(showResults(mem, matches, "Voici les produits trouvés"));
+  if (matches.length) {
+    mem.lastUsage = undefined; mem.lastUsageBrandId = undefined; mem.lastDisplacement = undefined;
+    return done(showResults(mem, matches, "Voici les produits trouvés"));
+  }
   if (phrase(t, ["financement", "credit", "garantie", "essai", "atelier"])) return done({ text: "L’équipe pourra vous renseigner sur cette demande.", actions: [CONTACT] });
   if (phrase(t, ["catalogue", "gamme"]) && terms.length === 0) return done({ text: `Le catalogue contient ${visible().length} produit${visible().length === 1 ? "" : "s"} publié${visible().length === 1 ? "" : "s"}. Que cherchez-vous ?`, quick: ["Motos", "Casques", "Équipements", "Pièces détachées", "Les nouveautés"] });
   mem.misses++;

@@ -68,11 +68,11 @@ test('recommandations fondées sur les champs d’usage, clarification et compar
   assert.equal(ask('ville', clarification.memory).reply.productIds.length, 2);
   assert.ok(!ask('quel casque pour moto cross', clarification.memory).reply.productIds?.includes('Falcon'));
   assert.deepEqual(ask('quelles motos pour la ville').reply.productIds, ['Falcon', 'Raven']);
-  assert.match(ask('quelle moto ville 999').reply.text, /usage principal/);
-  assert.match(ask('Quelle moto pour la neige ?').reply.text, /usage principal/);
+  assert.match(ask('quelle moto ville 999').reply.text, /ne trouve pas de fiche/);
+  assert.match(ask('Quelle moto pour la neige ?').reply.text, /ne peux pas interpréter/);
   assert.match(ask('quelle moto pour la ville avec un budget de 100').reply.text, /budget/);
   const constrained = ask('quelle moto Zebra 999 pour débutant');
-  assert.match(ask('ville', constrained.memory).reply.text, /pas assez de données/);
+  assert.match(ask('ville', constrained.memory).reply.text, /ne trouve pas de fiche/);
   const compare = ask('compare Falcon et Raven').reply;
   assert.deepEqual(compare.compare, ['Falcon', 'Raven']);
   assert.match(ask('compare Falcon et Faux').reply.text, /noms précis/);
@@ -105,4 +105,74 @@ test('le chargement annulé ne remplace pas le catalogue', async () => {
     return { ok: true, json: async () => ({ [key]: [] }) };
   };
   try { await assert.rejects(loadServerData(controller.signal)); assert.equal(catalog.brands.length, original); } finally { globalThis.fetch = oldFetch; }
+});
+
+test('cross et motocross : précision de catégorie et respect des fiches', () => {
+  catalog.productTypes.push({ id: 'cross-type', name: 'Cross', categoryId: 'motos' });
+  const cross = product('CrossMoto', 'motos', { name: 'Zebra Cross One', productTypeId: 'cross-type', specifications: [{ key: 'Cylindrée', value: '125 cc' }] });
+  const gear = product('CrossGear', 'equipements', { name: 'Gants cross' });
+  const part = product('CrossPart', 'pieces-detachees', { name: 'Chaîne cross' });
+  const draft = product('DraftCross', 'motos', { productTypeId: 'cross-type', status: 'DRAFT' });
+  const excluded = product('excluded', 'motos', { productTypeId: 'unclassified', specifications: [{ key: 'Usage', value: 'Pas pour le cross' }] });
+  catalog.products.push(cross, gear, part, draft, excluded);
+  try {
+    for (const q of ['cross', 'motocross', 'je cherche une cross']) {
+      const choice = ask(q); assert.match(choice.reply.text, /moto, un équipement ou une pièce/); assert.deepEqual(choice.reply.quick, ['Moto', 'Équipement', 'Pièces']);
+      const bike = ask('Moto', choice.memory).reply;
+      assert.deepEqual(bike.productIds, [cross.id]); assert.match(bike.reasons[cross.id], /Cross/);
+      assert.deepEqual(ask('Équipement', choice.memory).reply.productIds, [gear.id]);
+      assert.deepEqual(ask('Pièces', choice.memory).reply.productIds, [part.id]);
+    }
+    assert.deepEqual(ask('je veux une moto motocross').reply.productIds, [cross.id]);
+    assert.deepEqual(ask('gants motocross').reply.productIds, [gear.id]);
+    assert.match(ask('je veux une moto pas pour le cross').reply.text, /exclusion/);
+    assert.match(ask('moto cross Yamaha').reply.text, /ne pas ignorer vos critères/);
+    assert.match(ask('moto ville et cross Yamaha').reply.text, /ne pas ignorer vos critères/);
+    assert.match(ask('quelle moto pour ville et cross').reply.text, /usage principal/);
+    const brand = ask('cross Zebra 125'); assert.deepEqual(ask('Moto', brand.memory).reply.productIds, [cross.id]);
+    cross.status = 'ARCHIVED';
+    assert.equal(ask('moto cross').reply.productIds, undefined);
+    cross.status = 'PUBLISHED';
+    cross.specifications[0].value = '150 cc';
+    assert.equal(ask('moto cross 125 cc').reply.productIds, undefined);
+    catalog.brands[0].isPublished = false;
+    assert.equal(ask('moto cross').reply.productIds, undefined);
+  } finally { catalog.brands[0].isPublished = true; catalog.products.splice(0); catalog.productTypes.pop(); }
+});
+
+test('conversation progressive : usage, cylindrée documentée, changement de besoin et niveau non supposé', () => {
+  catalog.productTypes.push({ id: 'transport', name: '3 roues', categoryId: 'motos' });
+  const city125 = product('ville125', 'motos', { name: 'City 125', specifications: [{ key: 'Cylindrée', value: '125 cc' }] });
+  const city150 = product('ville150', 'motos', { name: 'City 150', specifications: [{ key: 'Cylindrée', value: '150 cc' }] });
+  const unknownCC = product('ville125sansfiche', 'motos', { name: 'Ville 125', specifications: [] });
+  const transport = product('troisroues', 'motos', { productTypeId: 'transport', specifications: [{ key: 'Usage', value: 'Transport urbain' }] });
+  const glove = product('gant', 'equipements', { name: 'Gant Thermo' });
+  catalog.products.push(city125, city150, unknownCC, transport, glove);
+  try {
+    const start = ask('je cherche une moto'); assert.match(start.reply.text, /usage principal/);
+    const city = ask('ville', start.memory); assert.deepEqual(city.reply.productIds, [city125.id, city150.id, unknownCC.id]);
+    assert.ok(city.reply.quick.includes('125 cc'));
+    const refined = ask('125 cc', city.memory); assert.deepEqual(refined.reply.productIds, [city125.id]);
+    assert.match(refined.reply.text, /ne peux pas confirmer/);
+    const novice = ask('je débute', refined.memory); assert.match(novice.reply.text, /convient à un débutant/); assert.match(ask('prix du premier', novice.memory).reply.text, /pas renseigné/);
+    assert.match(ask('combien de cc pour le premier', refined.memory).reply.text, /125 cc/);
+    assert.deepEqual(ask('moto pour aller au travail').reply.productIds, [city125.id, city150.id, unknownCC.id]);
+    const other = ask('autre usage', refined.memory); assert.match(other.reply.text, /quel usage/); assert.match(ask('cross', other.memory).reply.text, /ne trouve pas de fiche/);
+    const switchCategory = ask('gants Thermo', refined.memory); assert.ok(switchCategory.reply.productIds.includes(glove.id));
+    assert.equal(switchCategory.memory.lastUsage, undefined);
+    assert.match(ask('moto ville avec budget 5 millions').reply.text, /budget/);
+    assert.match(ask('moto ville saison pluie').reply.text, /ne pas ignorer vos critères/);
+  } finally { catalog.products.splice(0); catalog.productTypes.pop(); }
+});
+
+test('une description explicite peut étayer une piste sans transformer une négation en recommandation', () => {
+  const documented = product('route', 'motos', { productTypeId: 'autre', description: 'Polyvalence route et piste, pour partir loin.' });
+  const negative = product('route-non', 'motos', { productTypeId: 'autre', description: 'Cette moto n’est pas adaptée pour la route.' });
+  const vague = product('vague', 'motos', { productTypeId: 'autre', description: 'Une moto pour toutes les aventures.' });
+  catalog.products.push(documented, negative, vague);
+  try {
+    const reply = ask('une moto pour la route').reply;
+    assert.deepEqual(reply.productIds, [documented.id]);
+    assert.match(reply.reasons[documented.id], /Description.*Polyvalence route et piste/);
+  } finally { catalog.products.splice(0); }
 });
