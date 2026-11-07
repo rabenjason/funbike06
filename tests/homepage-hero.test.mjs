@@ -45,6 +45,7 @@ test("le bandeau utilise le nom, la marque et l'image du produit sélectionné",
   assert.ok(hero.includes(escapeHtml(bike.name)));
   assert.ok(hero.includes(escapeHtml(brand.name)));
   assert.ok(hero.includes(escapeHtml(data.mainProductImage(bike).url)));
+  assert.match(hero, /<img[^>]*class="[^"]*object-contain[^"]*"/);
   assert.equal((hero.match(/aria-pressed=/g) ?? []).length, 3);
 });
 
