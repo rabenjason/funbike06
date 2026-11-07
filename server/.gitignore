@@ -16,3 +16,6 @@
 
 # Contenu de l’accueil modifié par les administrateurs.
 /storage/data/homepage.json
+
+# Correspondances locales des anciennes adresses SEO.
+/storage/data/seo-redirects.json

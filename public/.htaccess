@@ -1,0 +1,9 @@
+# À installer à la racine web, à côté de index.html et server/.
+# Les règles de sécurité dans server/ doivent également être actives.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^server(?:/|$) - [L]
+RewriteRule ^index\.html$ / [R=301,L,NE]
+RewriteRule ^$ server/seo.php [L,QSA]
+RewriteRule ^(?:sitemap\.xml|robots\.txt|admin/?|catalogue/?|motos(?:/[^/]+)?/?|casques/[^/]+/?|equipements(?:/[^/]+)?/?|pieces-detachees(?:/[^/]+)?/?|revendeurs/?|contact/?|catalogue-motos/[^/]+/?)$ server/seo.php [L,QSA,NC]
+</IfModule>

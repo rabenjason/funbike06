@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { Product } from "../types/product";
 import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../catalog";
 import SmartImage from "./SmartImage";
+import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
@@ -23,9 +24,9 @@ export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; g
       className="fb-card group flex min-w-0 flex-col overflow-hidden text-left"
     >
       <div className="fb-stage-white relative aspect-[4/3] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => go("product", bike.id)}
+        <a
+          href={productPath(bike)}
+          onClick={(event) => navigateLink(event, go, "product", bike.id)}
           aria-label={`Découvrir ${bike.name}`}
           className="absolute inset-0 block"
         >
@@ -35,7 +36,7 @@ export function BikeCard({ bike, go, uniformLayout = false }: { bike: Product; g
             className="absolute inset-0"
             imgClassName="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04] sm:p-5"
           />
-        </button>
+        </a>
 
         {gallery.length > 1 && (
           <div className="absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-1.5">
@@ -108,10 +109,10 @@ export function PartCard({
   onEnquire,
 }: {
   part: Product;
-  go?: (p: string, id?: string) => void;
+  go?: (p: string, id?: string, categoryId?: string) => void;
   onEnquire?: (part: Product) => void;
 }) {
-  const openDetail = () => go?.("accessory", part.id);
+  const openDetail = () => go?.("accessory", part.id, part.categoryId);
   const image = mainProductImage(part);
 
   return (
@@ -123,14 +124,14 @@ export function PartCard({
       transition={{ duration: 0.32, ease: "easeOut" }}
       className="fb-card group min-w-0 overflow-hidden p-1.5 sm:p-2"
     >
-      <button type="button" onClick={openDetail} aria-label={`Voir les détails de ${part.name}`} className="block w-full cursor-pointer text-left">
+      <a href={productPath(part)} onClick={(event) => { if (go) navigateLink(event, go, "accessory", part.id, part.categoryId); }} aria-label={`Voir les détails de ${part.name}`} className="block w-full cursor-pointer text-left">
         <SmartImage
           src={image?.url ?? ""}
           alt={image?.altText ?? part.name}
           className="fb-card-media-white aspect-square"
           imgClassName="object-contain p-2 transition-transform duration-500 group-hover:scale-105 sm:p-3"
         />
-      </button>
+      </a>
       <div className="px-1 pb-1 pt-2.5">
         <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#98741b] dark:text-[#ffd100]">{partEyebrow(part)}</p>
         <button type="button" onClick={openDetail} className="mt-1 block w-full cursor-pointer text-left">

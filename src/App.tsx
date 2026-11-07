@@ -12,9 +12,11 @@ import Contact from "./pages/Contact";
 import Dealers from "./pages/Dealers";
 import { motorcycles, findProductById, getHomepageHeroProducts, mainProductImage } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
+import { parseRoute, routePath } from "./lib/routes";
+import { updateSeo } from "./lib/seo";
 
 function sameRoute(a: Route, b: Route) {
-  return a.page === b.page && (a.id ?? "") === (b.id ?? "");
+  return a.page === b.page && (a.id ?? "") === (b.id ?? "") && (a.categoryId ?? "") === (b.categoryId ?? "");
 }
 
 function routeLabel(route: Route): string {
@@ -48,13 +50,14 @@ function routeLabel(route: Route): string {
 
 export default function App() {
   const [dark, setDark] = useState(readDarkPreference);
-  const [history, setHistory] = useState<Route[]>([{ page: "home" }]);
+  const [history, setHistory] = useState<Route[]>(() => [parseRoute(window.location.pathname, window.location.search)]);
   const [booting, setBooting] = useState(true);
   const [cookieOpen, setCookieOpen] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
 
   const route = history[history.length - 1];
   const canGoBack = history.length > 1;
+  useEffect(() => { updateSeo(route); }, [route]);
   const previousRoute = canGoBack ? history[history.length - 2] : null;
   const backLabel = useMemo(
     () => (previousRoute ? routeLabel(previousRoute) : "Accueil"),
@@ -101,20 +104,25 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [booting]);
 
-  const go = useCallback((page: string, id?: string) => {
-    const next: Route = { page, id };
-    setHistory((prev) => {
-      const last = prev[prev.length - 1];
-      if (last && sameRoute(last, next)) return prev;
-      // Garde un historique raisonnable (50 dernières pages)
-      const grown = [...prev, next];
-      return grown.length > 50 ? grown.slice(grown.length - 50) : grown;
-    });
-    setProgressKey((k) => k + 1);
-    // Retour en haut instantané : le défilement fluide se fait
-    // interrompre par le changement de page et laisse l'utilisateur en bas.
-    window.scrollTo(0, 0);
-    requestAnimationFrame(() => window.scrollTo(0, 0));
+  const go = useCallback((page: string, id?: string, categoryId?: string) => {
+    const next = { page, id, categoryId };
+    if (sameRoute(next, route)) return;
+    window.history.pushState(null, "", routePath(next));
+    setHistory((prev) => [...prev, next].slice(-50));
+    setProgressKey((key) => key + 1);
+  }, [route]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const next = parseRoute(window.location.pathname, window.location.search);
+      setHistory((prev) => {
+        if (prev.length > 1 && sameRoute(prev[prev.length - 2], next)) return prev.slice(0, -1);
+        return [next];
+      });
+      setProgressKey((key) => key + 1);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   // Sécurité : après chaque changement de page, forcer le haut
@@ -125,31 +133,11 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [route.page, route.id]);
 
-  /** Retour réel : revient là où on était juste avant, jamais vers une page imposée. */
-  const back = useCallback(
-    (fallback: Route = { page: "home" }) => {
-      let didGoBack = false;
-      setHistory((prev) => {
-        if (prev.length > 1) {
-          didGoBack = true;
-          return prev.slice(0, -1);
-        }
-        return prev;
-      });
-      // Si aucun historique, on va vers le fallback demandé
-      if (!didGoBack) {
-        setHistory((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && sameRoute(last, fallback)) return prev;
-          return [...prev, fallback];
-        });
-      }
-      setProgressKey((k) => k + 1);
-      window.scrollTo(0, 0);
-      requestAnimationFrame(() => window.scrollTo(0, 0));
-    },
-    [],
-  );
+  /** Retour navigateur ; une entrée directe revient à une page pertinente. */
+  const back = useCallback((fallback: Route = { page: "home" }) => {
+    if (canGoBack) window.history.back();
+    else go(fallback.page, fallback.id);
+  }, [canGoBack, go]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -161,12 +149,13 @@ export default function App() {
         <main>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={`${route.page}-${route.id ?? ""}`}
+              key={`${route.page}-${route.id ?? ""}-${route.categoryId ?? ""}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
+              {route.page === "not-found" && <div className="p-8">Page introuvable. <button className="underline" onClick={() => go("home")}>Accueil</button></div>}
               {route.page === "home" && <Home go={go} />}
               {route.page === "catalogue" && <Catalogue go={go} />}
               {route.page === "motos" && <Catalogue go={go} motosOnly initialQuery={route.id} />}
@@ -176,7 +165,7 @@ export default function App() {
                 <Product id={route.id} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />
               )}
               {route.page === "accessory" && (
-                <AccessoryDetail id={route.id} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />
+                <AccessoryDetail id={route.id} categoryId={route.categoryId} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />
               )}
               {route.page === "revendeurs" && <Dealers go={go} initialCity={route.id} />}
               {route.page === "contact" && <Contact inquiryId={route.id} />}

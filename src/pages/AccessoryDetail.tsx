@@ -8,7 +8,7 @@ import {
   faMagnifyingGlassPlus,
   faPhone,
 } from "@fortawesome/free-solid-svg-icons";
-import { products, findProductById, brands, categories, productTypes, productGallery } from "../catalog";
+import { products, brands, categories, productTypes, productGallery } from "../catalog";
 import type { Product, ProductSpecification } from "../types/product";
 import { Section, type Route } from "../components/Layout";
 import { PartCard } from "../components/Cards";
@@ -17,6 +17,7 @@ import ImageZoomViewer from "../components/ImageZoomViewer";
 
 type Props = {
   id?: string;
+  categoryId?: string;
   go: (p: string, i?: string) => void;
   back: (fallback?: Route) => void;
   canGoBack: boolean;
@@ -50,7 +51,7 @@ function autoSpecs(product: Product): ProductSpecification[] {
 }
 
 export default function AccessoryDetail(props: Props) {
-  const part = findProductById(props.id);
+  const part = products.find((item) => item.id === props.id && (!props.categoryId || item.categoryId === props.categoryId));
   if (!part) return <div className="p-8 text-sm">Produit indisponible. <button className="underline" onClick={() => props.back()}>Retour</button></div>;
   return <AccessoryDetailContent {...props} part={part} />;
 }
