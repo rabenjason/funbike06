@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { brands, findProductById } from "../catalog";
-import { CONTACT_EMAIL, CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
+import { CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
 
 // Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
@@ -11,6 +11,9 @@ const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, 
 export default function Contact({ inquiryId }: { inquiryId?: string }) {
   const hasBrand = (id: string) => brands.some((brand) => brand.id === id && brand.isPublished !== false);
   const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const pending = useRef(false);
   const accessory = findProductById(inquiryId);
   const socialLinks = CONTACT_SOCIAL_LINKS.filter((link) => {
     try { return !!link.label && ["http:", "https:"].includes(new URL(link.url).protocol); } catch { return false; }
@@ -22,6 +25,24 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
     : accessory?.categoryId === "pieces-detachees"
       ? "pieces"
       : "";
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending.current) return;
+    pending.current = true; setBusy(true); setError(""); setSent(false);
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const body = Object.fromEntries(["name", "phone", "email", "whatsapp", "subject", "message", "website"].map((key) => [key, String(values.get(key) ?? "")]));
+    try {
+      const response = await fetch("/server/api/messages.php", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      let result: { error?: string; message?: string } = {};
+      try { result = await response.json(); } catch { /* Une réponse invalide ne confirme pas l'enregistrement. */ }
+      if (!response.ok) throw new Error(result.error || "Impossible d’envoyer votre demande. Réessayez.");
+      if (typeof result.message !== "string" || !result.message) throw new Error("La réception n’a pas pu être confirmée. Vérifiez auprès de Funbike avant de réessayer.");
+      form.reset(); setSent(true);
+    } catch (err) { setError(err instanceof TypeError ? "La réception n’a pas pu être confirmée. Vérifiez auprès de Funbike avant de réessayer pour éviter un doublon." : (err as Error).message || "Impossible d’envoyer votre demande. Réessayez."); }
+    finally { pending.current = false; setBusy(false); }
+  }
 
   return (
     <div className="bg-white dark:bg-[#141513]">
@@ -66,24 +87,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.08 }}
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = event.currentTarget;
-            const values = new FormData(form);
-            const subject = (form.elements.namedItem("subject") as HTMLSelectElement).selectedOptions[0]?.textContent ?? "Demande Funbike";
-            const body = [
-              "Bonjour Funbike,",
-              "",
-              String(values.get("message") ?? ""),
-              "",
-              `Nom : ${String(values.get("name") ?? "")}`,
-              `Téléphone : ${String(values.get("phone") ?? "")}`,
-              `Email : ${String(values.get("email") ?? "")}`,
-              String(values.get("whatsapp") ?? "") ? `WhatsApp : ${String(values.get("whatsapp"))}` : "WhatsApp : non renseigné",
-            ].join("\n");
-            window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            setSent(true);
-          }}
+          onSubmit={submit}
           className="glass-panel border-t border-black/20 p-5 dark:border-white/20 sm:p-8"
         >
           <div className="mb-6 flex items-end justify-between gap-4">
@@ -98,13 +102,13 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
             {["Nom complet", "Téléphone"].map((label) => (
               <label key={label} className="mb-5 block">
                 <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-black/50 dark:text-white/50">{label}</span>
-                <input required name={label === "Téléphone" ? "phone" : "name"} className="mt-1.5 w-full border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition placeholder:text-black/30 focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:placeholder:text-white/30 dark:focus:border-[#ffd100]" />
+                <input required maxLength={label === "Téléphone" ? 60 : 80} type={label === "Téléphone" ? "tel" : "text"} name={label === "Téléphone" ? "phone" : "name"} className="mt-1.5 w-full border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition placeholder:text-black/30 focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:placeholder:text-white/30 dark:focus:border-[#ffd100]" />
               </label>
             ))}
           </div>
           <label className="mb-5 block">
             <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-black/50 dark:text-white/50">Email</span>
-            <input type="email" required name="email" className="mt-1.5 w-full border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:focus:border-[#ffd100]" />
+            <input type="email" required maxLength={254} name="email" className="mt-1.5 w-full border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:focus:border-[#ffd100]" />
           </label>
 
           <label className="mb-1.5 block">
@@ -115,6 +119,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
               type="tel"
               inputMode="tel"
               name="whatsapp"
+              maxLength={60}
               placeholder="+261 3X XX XXX XX"
               className="mt-1.5 w-full border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition placeholder:text-black/30 focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:placeholder:text-white/30 dark:focus:border-[#ffd100]"
             />
@@ -148,6 +153,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
             <textarea
               required
               name="message"
+              maxLength={2000}
               rows={4}
               defaultValue={accessory
                 ? `Bonjour, je souhaiterais connaître le prix, la disponibilité et la compatibilité de : ${accessory.name}.`
@@ -156,25 +162,28 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
             />
           </label>
 
+          <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden"><label>Site web<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+          {error && <p role="alert" className="mt-4 text-sm text-red-700 dark:text-red-300">{error}</p>}
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <button className="inline-flex items-center gap-3 bg-[#ffd100] px-5 py-3 text-[10px] font-bold uppercase tracking-[0.13em] text-[#171816] transition hover:bg-[#ffe36b]">
-              Envoyer la demande <FontAwesomeIcon icon={faArrowRight} />
+            <button disabled={busy} className="inline-flex items-center gap-3 bg-[#ffd100] px-5 py-3 text-[10px] font-bold uppercase tracking-[0.13em] text-[#171816] transition hover:bg-[#ffe36b]">
+              {busy ? "Envoi en cours…" : "Envoyer la demande"} <FontAwesomeIcon icon={faArrowRight} />
             </button>
             <AnimatePresence>
               {sent && (
                 <motion.p
+                  role="status"
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
                   className="text-xs font-medium text-emerald-700 dark:text-emerald-400"
                 >
-                  Votre messagerie va s'ouvrir. Vérifiez puis envoyez l'e-mail pour nous contacter.
+                  Votre demande a bien été reçue. Merci, notre équipe vous répondra.
                 </motion.p>
               )}
             </AnimatePresence>
           </div>
           <p className="mt-3 text-[10px] leading-5 text-black/40 dark:text-white/40">
-            Aucun message n'est envoyé par le site : l'envoi se finalise depuis votre messagerie.
+            Vos coordonnées sont utilisées pour répondre à votre demande.
           </p>
         </motion.form>
       </div>

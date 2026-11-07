@@ -47,10 +47,61 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('models.php?includeDrafts=1')).status, 401);
     assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
     assert.equal((await call('families.php', { method: 'POST', body: { name: 'Test', categoryId: 'motos' } })).status, 401);
+    // Envoi public, lecture et gestion privées, avec contrôle des abus.
+    const inquiry = { name: 'Client Essai', phone: '034 12 345 67', email: 'client@example.com', whatsapp: '+261 34 12 345 67', subject: 'pieces', message: 'Bonjour,\nje cherche une pièce.', website: '' };
+    assert.equal((await fetch(`http://127.0.0.1:${port}/server/storage/private/messages.json`)).status, 404);
+    assert.equal((await call('messages.php')).status, 401);
+    assert.equal((await call('messages.php?id=00000000000000000000000000000000', { method: 'PUT', body: { status: 'READ' } })).status, 401);
+    assert.equal((await call('messages.php?id=00000000000000000000000000000000', { method: 'DELETE' })).status, 401);
+    const evilMessage = await fetch(base + 'messages.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify(inquiry) });
+    assert.equal(evilMessage.status, 403);
+    assert.equal((await call('messages.php', { method: 'POST', body: { ...inquiry, email: 'invalide' } })).status, 400);
+    assert.equal((await call('messages.php', { method: 'POST', body: { ...inquiry, website: 'spam' } })).status, 400);
+    assert.equal((await call('messages.php', { method: 'POST', body: { ...inquiry, message: 'x'.repeat(9000) } })).status, 400);
+    assert.equal((await call('messages.php', { method: 'POST', body: inquiry })).status, 201);
+    for (let n = 0; n < 9; n++) assert.equal((await call('messages.php', { method: 'POST', body: { ...inquiry, name: `Client ${n}` } })).status, 201);
+    assert.equal((await call('messages.php', { method: 'POST', body: inquiry })).status, 429);
     let login = await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: initialPassword } });
     assert.equal(login.status, 200); assert.equal(login.body.mustChangePassword, true);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
+
+    // Les messages restent lisibles seulement après authentification ; la pagination est faite côté serveur.
+    const messageFile = join(serverDir, 'storage/private/messages.json');
+    let storedMessages = JSON.parse(readFileSync(messageFile, 'utf8'));
+    assert.equal(storedMessages.messages.length, 10);
+    assert.equal(storedMessages.messages[0].message, inquiry.message);
+    assert.equal(storedMessages.messages[0].whatsapp, inquiry.whatsapp);
+    assert.equal(storedMessages.messages[0].status, 'NEW');
+    for (let i = 1; i <= 15; i++) storedMessages.messages.push({ ...storedMessages.messages[0], id: randomBytes(16).toString('hex'), name: `Ancien ${i}`, createdAt: `2024-01-${String(i).padStart(2, '0')}T10:00:00Z` });
+    writeFileSync(messageFile, JSON.stringify(storedMessages));
+    const recent = await call('messages.php?page=1&order=desc', { authenticated: true });
+    assert.equal(recent.status, 200); assert.equal(recent.body.total, 25); assert.equal(recent.body.pages, 3); assert.equal(recent.body.messages.length, 10);
+    assert.equal(recent.body.messages[0].name, 'Client 8');
+    const older = await call('messages.php?page=1&order=asc', { authenticated: true });
+    assert.equal(older.body.messages[0].name, 'Ancien 1');
+    assert.equal((await call('messages.php?page=2&order=asc', { authenticated: true })).body.messages.length, 10);
+    assert.equal((await call('messages.php?page=3&order=asc', { authenticated: true })).body.messages.length, 5);
+    assert.equal((await call('messages.php?page=99&order=asc', { authenticated: true })).body.page, 3);
+    assert.equal((await call('messages.php?page=0', { authenticated: true })).status, 400);
+    const messageId = recent.body.messages[0].id;
+    assert.equal((await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'WRONG' } })).status, 400);
+    const readMessage = await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'READ', message: 'intrusion' } });
+    assert.equal(readMessage.status, 200); assert.equal(readMessage.body.message.status, 'READ'); assert.equal(readMessage.body.message.message, inquiry.message);
+    assert.equal((await call(`messages.php?id=${messageId}`, { method: 'PUT', authenticated: true, body: { status: 'PROCESSED' } })).body.message.status, 'PROCESSED');
+    assert.equal((await call(`messages.php?id=${messageId}`, { method: 'DELETE', authenticated: true })).status, 200);
+    assert.equal((await call(`messages.php?id=${messageId}`, { method: 'DELETE', authenticated: true })).status, 404);
+    assert.equal((await call('messages.php', { authenticated: true })).body.total, 24);
+    storedMessages = JSON.parse(readFileSync(messageFile, 'utf8'));
+    assert.equal(storedMessages.messages.length, 24);
+    assert.ok(!storedMessages.messages.some((m) => m.id === messageId));
+    // Un fichier endommagé ne doit jamais être remplacé par une boîte vide.
+    const messagesBackup = readFileSync(messageFile, 'utf8');
+    writeFileSync(messageFile, '{"messages":');
+    assert.equal((await call('messages.php', { authenticated: true })).status, 500);
+    assert.equal((await call('messages.php', { method: 'POST', body: inquiry })).status, 500);
+    assert.equal(readFileSync(messageFile, 'utf8'), '{"messages":');
+    writeFileSync(messageFile, messagesBackup);
 
     // Publication des marques : toutes les modifications ci-dessous ne concernent que la copie temporaire.
     const dataDir = join(serverDir, 'storage/data');
