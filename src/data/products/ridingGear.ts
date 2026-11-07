@@ -3,6 +3,7 @@ import type { Product } from "../../types/product";
 export const ridingGear: Product[] = [
   {
     "id": "tvs-jacket-tech-core",
+    "isEquipementAccueil": true,
     "isNewArrival": false,
     "name": "Blouson TVS Racing Tech-Core",
     "brandId": "tvs",
@@ -25,6 +26,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "tvs-jacket-aegis",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Blouson TVS Racing Aegis 3 couches",
     "brandId": "tvs",
@@ -47,6 +49,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "tvs-gloves-city",
+    "isEquipementAccueil": true,
     "isNewArrival": false,
     "name": "Gants TVS Racing City",
     "brandId": "tvs",
@@ -69,6 +72,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g1",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne SG-12 – Black",
     "brandId": "gaerne",
@@ -90,6 +94,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g2",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne SG-12 – White/Black",
     "brandId": "gaerne",
@@ -111,6 +116,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g3",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne SG-22 – Black",
     "brandId": "gaerne",
@@ -132,6 +138,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g4",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne Cross-Ace – Black",
     "brandId": "gaerne",
@@ -153,6 +160,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g5",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne Speed Star – Black",
     "brandId": "gaerne",
@@ -174,6 +182,7 @@ export const ridingGear: Product[] = [
   },
   {
     "id": "g6",
+    "isEquipementAccueil": false,
     "isNewArrival": false,
     "name": "Gaerne Balance – Gray",
     "brandId": "gaerne",

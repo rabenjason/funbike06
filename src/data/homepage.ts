@@ -50,7 +50,7 @@ export const homepageContent = {
     atelier: {
       surTitre: "Atelier / Essentiels",
       titre: "Prêt pour la suite.",
-      description: "Pièces, casques et blousons : TVS équipe aussi le pilote, pas seulement sa moto.",
+      description: "Casques, blousons et autres équipements pour accompagner tous vos trajets.",
       bouton: "Voir tous les équipements",
     },
     partenaires: {

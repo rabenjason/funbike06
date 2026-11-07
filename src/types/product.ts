@@ -46,6 +46,8 @@ export interface Product {
   isHomepageHero?: boolean;
   /** Sélectionner une moto pour la section motos de l’accueil. */
   isMotoAccueil?: boolean;
+  /** Sélectionner un casque ou équipement pour la section équipements de l’accueil. */
+  isEquipementAccueil?: boolean;
   price?: string;
   tags?: string[];
   badge?: string;

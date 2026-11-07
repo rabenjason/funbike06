@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { getHomepageHeroProducts, getMotosAccueil, brands, spareParts, helmets, ridingGear, mainProductImage } from "../data";
+import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, brands, mainProductImage } from "../data";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -27,6 +27,7 @@ const CATEGORY_ICONS = [faMotorcycle, faHelmetSafety, faGears, faShirt];
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
   const heroProducts = getHomepageHeroProducts();
   const motosAccueil = getMotosAccueil();
+  const equipementsAccueil = getEquipementsAccueil();
   const [activeHero, setActiveHero] = useState(0);
   const activeIndex = heroProducts.length ? activeHero % heroProducts.length : 0;
   const current = heroProducts[activeIndex];
@@ -223,7 +224,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
             <AccessoryBrandQuickLinks onSelect={(brand) => go("equipements", brand)} />
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-5">
-            {[...spareParts.filter((product) => product.compatibleBrandIds?.includes("tvs")).slice(0, 2), [...helmets, ...ridingGear].filter((product) => product.brandId === "tvs")[0], [...helmets, ...ridingGear].filter((product) => product.brandId === "tvs")[2]].map((part) => (
+            {equipementsAccueil.map((part) => (
               <PartCard
                 key={part.id}
                 part={part}
