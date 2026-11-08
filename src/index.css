@@ -168,12 +168,12 @@ textarea.chat-composer:focus-visible {
   background: #ffd100;
 }
 
-/* Revendeurs — city selector.
-   Phones: 2×2 segmented buttons (48px touch targets, every city visible).
-   ≥640px: underlined tabs on a single row. */
+/* Revendeurs — deux villes visibles dans une rangée défilante sur mobile ;
+   à partir de 640px, les onglets soulignés conservent leur disposition. */
 .dealer-city {
   position: relative;
   display: flex;
+  flex: 0 0 calc((100% - 0.5rem) / 2);
   min-width: 0;
   min-height: 3rem;
   align-items: center;
