@@ -41,6 +41,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
   const [mapReady, setMapReady] = useState(false);
   const [mapEnabled, setMapEnabled] = useState(false);
   const locatorRef = useRef<HTMLDivElement>(null);
+  const cityTrackRef = useRef<HTMLDivElement>(null);
   const dealerTrackRef = useRef<HTMLUListElement>(null);
   const [sliderAtStart, setSliderAtStart] = useState(true);
   const [sliderAtEnd, setSliderAtEnd] = useState(false);
@@ -59,6 +60,29 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
       setMapEnabled(false);
     }
     if (scroll) requestAnimationFrame(() => locatorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  // Une ville sélectionnée depuis une fiche ou un lien reste visible dans la rangée mobile.
+  useEffect(() => {
+    const track = cityTrackRef.current;
+    const selected = track?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (!track || !selected) return;
+    const bounds = track.getBoundingClientRect();
+    const tabBounds = selected.getBoundingClientRect();
+    if (tabBounds.left < bounds.left) track.scrollLeft += tabBounds.left - bounds.left;
+    else if (tabBounds.right > bounds.right) track.scrollLeft += tabBounds.right - bounds.right;
+  }, [activeKey]);
+
+  function moveCityFocus(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    if (event.key === "ArrowRight") next = (index + 1) % DEALERS.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + DEALERS.length) % DEALERS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = DEALERS.length - 1;
+    else return;
+    event.preventDefault();
+    select(DEALERS[next].key);
+    cityTrackRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
   function changeZoom(delta: 1 | -1) {
@@ -97,22 +121,25 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
             Choisissez votre ville.
           </h1>
 
-          {/* Phones: 2×2 segmented grid (every city visible, no hidden scroll).
-              ≥640px: underlined tabs on one row. Styles live in index.css (.dealer-city). */}
+          {/* Sur mobile, deux villes visibles et les suivantes accessibles au glissement.
+              À partir de 640px, conserver les onglets de l'affichage existant. */}
           <div
+            ref={cityTrackRef}
             role="tablist"
             aria-label="Choisir une ville"
-            className="mb-4 grid grid-cols-2 gap-2 border-black/10 sm:flex sm:gap-0 sm:border-y dark:border-white/10"
+            className="flex snap-x snap-mandatory gap-2 overflow-x-auto border-black/10 [scrollbar-width:none] sm:snap-none sm:gap-0 sm:overflow-visible sm:border-y dark:border-white/10"
           >
-            {DEALERS.map((d) => (
+            {DEALERS.map((d, index) => (
               <button
                 key={d.key}
                 type="button"
                 role="tab"
                 aria-selected={activeKey === d.key}
                 aria-controls="dealer-panel"
+                tabIndex={activeKey === d.key ? 0 : -1}
+                onKeyDown={(event) => moveCityFocus(event, index)}
                 onClick={() => select(d.key)}
-                className="dealer-city"
+                className="dealer-city snap-start"
               >
                 <span className="truncate">{d.city}</span>
                 {activeKey === d.key && (
@@ -125,6 +152,12 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
               </button>
             ))}
           </div>
+          {DEALERS.length > 2 ? (
+            <p className="mb-3 mt-1.5 text-right text-[11px] text-black/55 sm:hidden dark:text-white/60">
+              Glissez pour voir les autres villes <span aria-hidden="true">→</span>
+            </p>
+          ) : <div className="mb-4 sm:hidden" />}
+          <div className="hidden sm:mb-4 sm:block" />
 
           {/* Map + selected dealer: stacked on phones, side by side from 1024px */}
           <div
