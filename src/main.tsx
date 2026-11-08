@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useLayoutEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/light-theme.css";
@@ -28,11 +28,7 @@ function Bootstrap() {
         } else {
           await initializePublicData();
           const { default: App } = await import("./App");
-          if (active) {
-            // Le contenu HTML reste visible si l'API échoue ou est bloquée pour un robot.
-            document.getElementById("seo-fallback")?.remove();
-            setContent(<App />);
-          }
+          if (active) setContent(<App />);
         }
       } catch {
         if (active) setError("Impossible de charger les données du serveur. Vérifiez la connexion puis réessayez.");
@@ -41,7 +37,15 @@ function Bootstrap() {
     setError(""); start();
     return () => { active = false; };
   }, [attempt]);
-  if (error) return <main className="grid min-h-screen place-items-center bg-[#141513] p-6 text-center text-white"><div><p>{error}</p><button className="mt-5 bg-[#ffd100] px-5 py-3 font-bold text-black" onClick={() => setAttempt((n) => n + 1)}>Réessayer</button></div></main>;
+  useLayoutEffect(() => {
+    if (!content && !error) return;
+    if (content && location.pathname !== "/admin" && location.pathname !== "/admin/" && !new URLSearchParams(location.search).has("admin")) {
+      // Garder le contenu SEO en cas d'erreur ; le retirer seulement après le rendu du site.
+      document.getElementById("seo-fallback")?.remove();
+    }
+    document.documentElement.classList.remove("fb-booting");
+  }, [content, error]);
+  if (error) return <div role="alert" className="bg-[#141513] p-6 text-center text-white"><p>{error}</p><button className="mt-5 bg-[#ffd100] px-5 py-3 font-bold text-black" onClick={() => setAttempt((n) => n + 1)}>Réessayer</button></div>;
   return content ?? <main className="grid min-h-screen place-items-center bg-[#141513] text-white">Chargement…</main>;
 }
 
