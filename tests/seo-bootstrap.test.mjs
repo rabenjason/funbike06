@@ -9,7 +9,7 @@ const originalFetch = globalThis.fetch;
 after(async () => { globalThis.fetch = originalFetch; dom?.window.close(); await server?.close(); });
 
 test('le HTML public reste visible si les API sont bloquées, puis disparaît après chargement', async () => {
-  dom = new JSDOM('<!doctype html><html><head><title>TVS HLX Plus</title></head><body><div id="seo-fallback"><main><h1>TVS HLX Plus</h1><p>Contenu SEO public</p></main></div><div id="root"></div></body></html>', { url: 'http://localhost/motos/tvs-hlx-plus', pretendToBeVisual: true });
+  dom = new JSDOM('<!doctype html><html class="fb-booting"><head><title>TVS HLX Plus</title></head><body><div id="seo-fallback"><main><h1>TVS HLX Plus</h1><p>Contenu SEO public</p></main></div><div id="root"></div></body></html>', { url: 'http://localhost/motos/tvs-hlx-plus', pretendToBeVisual: true });
   globalThis.window = dom.window; globalThis.document = dom.window.document; globalThis.location = dom.window.location;
   globalThis.HTMLElement = dom.window.HTMLElement; globalThis.Element = dom.window.Element;
   globalThis.Image = dom.window.Image; globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
@@ -37,9 +37,11 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   await act(async () => { await server.ssrLoadModule('/src/main.tsx'); });
   await waitFor(() => assert.match(document.getElementById('root').textContent, /Impossible de charger/));
   assert.match(document.getElementById('seo-fallback').textContent, /Contenu SEO public/);
+  assert.equal(document.documentElement.classList.contains('fb-booting'), false, 'le chargement ne masque pas l’erreur et le contenu de secours');
   blocked = false;
   fireEvent.click(document.querySelector('#root button'));
   // L'import à froid de l'application par Vite peut dépasser le délai par défaut.
   await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
+  assert.equal(document.documentElement.classList.contains('fb-booting'), false);
   await waitFor(() => assert.match(document.title, /TVS HLX Plus/));
 });

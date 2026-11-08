@@ -3,6 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      /* Écran initial affiché uniquement si JavaScript démarre. Le HTML SEO reste dans la page. */
+      #funbike-boot { display: none; }
+      html.fb-booting #funbike-boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #141513; color: #f2f0ea; font: 600 12px/1.5 Arial, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+      #funbike-boot img { display: block; width: auto; height: 52px; max-width: 180px; object-fit: contain; }
+      #funbike-boot .boot-track { width: 160px; height: 3px; overflow: hidden; background: rgba(255,255,255,.15); }
+      #funbike-boot .boot-bar { width: 100%; height: 100%; background: #ffd100; transform-origin: left; animation: fb-boot-progress 1.5s ease-in-out infinite; }
+      @keyframes fb-boot-progress { 0% { transform: scaleX(.12); } 50% { transform: scaleX(.8); } 100% { transform: scaleX(.12); } }
+      @media (prefers-reduced-motion: reduce) { #funbike-boot .boot-bar { animation: none; transform: scaleX(.6); } }
+      /* Le contenu de secours reste lisible sans JavaScript ou si l'API échoue. */
+      #seo-fallback { padding: 32px 20px; background: #141513; color: #f2f0ea; font: 16px/1.6 Arial, sans-serif; }
+      #seo-fallback main { max-width: 1200px; margin: auto; }
+      #seo-fallback nav { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 32px; }
+      #seo-fallback a { color: #ffd100; text-decoration: underline; }
+      #seo-fallback h1 { margin: 0 0 12px; font-size: clamp(26px, 4vw, 40px); line-height: 1.15; }
+      #seo-fallback p { margin: 0 0 20px; }
+      #seo-fallback ul { padding-left: 24px; }
+      #seo-fallback img { max-width: min(100%, 480px); height: auto; }
+    </style>
+    <script>
+      document.documentElement.classList.add('fb-booting');
+      // Si le script principal ne démarre pas, ne jamais bloquer le contenu de secours.
+      window.setTimeout(function () { document.documentElement.classList.remove('fb-booting'); }, 15000);
+    </script>
     <title>Funbike — Motos, Pièces & Équipements | Sherco · Fantic · TVS</title>
     <meta name="description" content="Funbike : motos Sherco, Fantic et TVS, pièces d'origine et équipements pilote Troy Lee Designs." />
     <meta name="theme-color" content="#141513" />
@@ -12,6 +36,11 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <div id="funbike-boot" role="status" aria-label="Chargement du site">
+      <img src="/server/public/assets/company/logo-funbike.png" alt="" vite-ignore />
+      <div class="boot-track" aria-hidden="true"><div class="boot-bar"></div></div>
+      <span>Chargement du site</span>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
