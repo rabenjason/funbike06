@@ -6,6 +6,18 @@ import { readDarkPreference } from "./lib/theme";
 
 if (readDarkPreference()) document.documentElement.classList.add("dark");
 
+declare global { interface Window { __funbikeBootTimer?: number } }
+function hideBootScreen() {
+  window.clearTimeout(window.__funbikeBootTimer);
+  window.__funbikeBootTimer = undefined;
+  document.documentElement.classList.remove("fb-booting");
+}
+function showBootScreen() {
+  window.clearTimeout(window.__funbikeBootTimer);
+  document.documentElement.classList.add("fb-booting");
+  window.__funbikeBootTimer = window.setTimeout(hideBootScreen, 15000);
+}
+
 // StrictMode peut démarrer deux effets : partager le chargement évite qu'un
 // résultat tardif remplace les tableaux après l'import des index de l'application.
 let publicData: Promise<void> | undefined;
@@ -43,10 +55,10 @@ function Bootstrap() {
       // Garder le contenu SEO en cas d'erreur ; le retirer seulement après le rendu du site.
       document.getElementById("seo-fallback")?.remove();
     }
-    document.documentElement.classList.remove("fb-booting");
+    hideBootScreen();
   }, [content, error]);
-  if (error) return <div role="alert" className="bg-[#141513] p-6 text-center text-white"><p>{error}</p><button className="mt-5 bg-[#ffd100] px-5 py-3 font-bold text-black" onClick={() => setAttempt((n) => n + 1)}>Réessayer</button></div>;
-  return content ?? <main className="grid min-h-screen place-items-center bg-[#141513] text-white">Chargement…</main>;
+  if (error) return <div role="alert" className="bg-[#141513] p-6 text-center text-white"><p>{error}</p><button className="mt-5 bg-[#ffd100] px-5 py-3 font-bold text-black" onClick={() => { showBootScreen(); setAttempt((n) => n + 1); }}>Réessayer</button></div>;
+  return content ?? <main className="grid min-h-screen place-items-center bg-[#141513] p-6 text-center text-white">Le chargement prend plus de temps que prévu. Vérifiez votre connexion ou actualisez la page.</main>;
 }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><Bootstrap /></StrictMode>);

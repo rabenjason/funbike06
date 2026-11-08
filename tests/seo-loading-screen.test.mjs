@@ -29,6 +29,9 @@ test('avec JavaScript, le chargement couvre immédiatement la page et libère le
     assert.equal(dom.window.getComputedStyle(overlay).display, 'flex');
     assert.equal(dom.window.getComputedStyle(overlay).position, 'fixed');
     assert.equal(overlay.getAttribute('role'), 'status');
+    assert.match(overlay.textContent, /Mise en route/);
+    assert.doesNotMatch(overlay.textContent, /Chargement du site/);
+    assert.ok(doc.documentElement.classList.contains('dark'), 'le thème sombre est celui par défaut');
     assert.equal(fallback.querySelector('h1').textContent, 'Moto test', 'le HTML SEO est conservé');
     assert.notEqual(dom.window.getComputedStyle(fallback).display, 'none');
     const safety = timers.find((timer) => timer.delay === 15000);
@@ -36,5 +39,16 @@ test('avec JavaScript, le chargement couvre immédiatement la page et libère le
     safety.callback();
     assert.equal(dom.window.getComputedStyle(overlay).display, 'none');
     assert.equal(fallback.querySelector('p').textContent, 'Description publique');
+  } finally { dom.window.close(); }
+});
+
+test('le même écran respecte le thème clair enregistré', () => {
+  const dom = new JSDOM(html, { url: 'https://funbike.mg/', runScripts: 'dangerously', beforeParse(window) { window.localStorage.setItem('fb-theme-v2', 'light'); } });
+  try {
+    const doc = dom.window.document;
+    assert.ok(doc.documentElement.classList.contains('fb-booting'));
+    assert.equal(doc.documentElement.classList.contains('dark'), false);
+    assert.equal(dom.window.getComputedStyle(doc.getElementById('funbike-boot')).backgroundColor, 'rgb(255, 255, 255)');
+    assert.match(doc.getElementById('funbike-boot').textContent, /Mise en route/);
   } finally { dom.window.close(); }
 });

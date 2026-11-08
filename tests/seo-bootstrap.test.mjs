@@ -40,8 +40,10 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   assert.equal(document.documentElement.classList.contains('fb-booting'), false, 'le chargement ne masque pas l’erreur et le contenu de secours');
   blocked = false;
   fireEvent.click(document.querySelector('#root button'));
+  assert.ok(document.documentElement.classList.contains('fb-booting'), 'le même écran reprend pendant le nouvel essai');
   // L'import à froid de l'application par Vite peut dépasser le délai par défaut.
   await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
   assert.equal(document.documentElement.classList.contains('fb-booting'), false);
+  assert.equal(document.querySelector('#root [aria-label="Chargement du site"]'), null, 'aucun second écran de chargement React');
   await waitFor(() => assert.match(document.title, /TVS HLX Plus/));
 });
