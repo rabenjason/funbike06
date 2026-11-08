@@ -3,14 +3,14 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
-import { RouteProgress, SplashLoader } from "./components/Loaders";
+import { RouteProgress } from "./components/Loaders";
 import Home from "./pages/Home";
 import { Catalogue, Equipements, Spares } from "./pages/Catalog";
 import Product from "./pages/Product";
 import AccessoryDetail from "./pages/AccessoryDetail";
 import Contact from "./pages/Contact";
 import Dealers from "./pages/Dealers";
-import { motorcycles, findProductById, getHomepageHeroProducts, mainProductImage } from "./catalog";
+import { motorcycles, findProductById } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
 import { parseRoute, routePath } from "./lib/routes";
 import { updateSeo } from "./lib/seo";
@@ -51,7 +51,6 @@ function routeLabel(route: Route): string {
 export default function App() {
   const [dark, setDark] = useState(readDarkPreference);
   const [history, setHistory] = useState<Route[]>(() => [parseRoute(window.location.pathname, window.location.search)]);
-  const [booting, setBooting] = useState(true);
   const [cookieOpen, setCookieOpen] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
 
@@ -70,39 +69,12 @@ export default function App() {
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", dark ? "#141513" : "#ffffff");
   }, [dark]);
 
-  // Fast splash: wait for the first hero photo (min 650 ms, max 1.6 s)
+  // Afficher les choix de cookies après le démarrage, seulement sans choix enregistré.
   useEffect(() => {
-    let done = false;
-    const start = performance.now();
-    const finish = () => {
-      if (done) return;
-      done = true;
-      const wait = Math.max(0, 650 - (performance.now() - start));
-      window.setTimeout(() => setBooting(false), wait);
-    };
-    const firstProduct = getHomepageHeroProducts()[0];
-    const firstImage = firstProduct && mainProductImage(firstProduct);
-    if (firstImage) {
-      const img = new Image();
-      img.onload = finish;
-      img.onerror = finish;
-      img.src = firstImage.url;
-    } else {
-      finish();
-    }
-    const cap = window.setTimeout(finish, 1600);
-    return () => {
-      done = true;
-      window.clearTimeout(cap);
-    };
-  }, []);
-
-  // Cookie banner appears once the splash is gone, only if no choice was saved
-  useEffect(() => {
-    if (booting || readConsent()) return;
-    const timer = window.setTimeout(() => setCookieOpen(true), 500);
+    if (readConsent()) return;
+    const timer = window.setTimeout(() => setCookieOpen(true), 1150);
     return () => window.clearTimeout(timer);
-  }, [booting]);
+  }, []);
 
   const go = useCallback((page: string, id?: string, categoryId?: string) => {
     const next = { page, id, categoryId };
@@ -141,7 +113,6 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <SplashLoader show={booting} />
       {progressKey > 0 && <RouteProgress key={progressKey} />}
 
       <div className="min-h-screen bg-white text-[#171816] transition-colors duration-300 dark:bg-[#141513] dark:text-[#f2f0ea]">

@@ -6,9 +6,12 @@
     <style>
       /* Écran initial affiché uniquement si JavaScript démarre. Le HTML SEO reste dans la page. */
       #funbike-boot { display: none; }
-      html.fb-booting #funbike-boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #141513; color: #f2f0ea; font: 600 12px/1.5 Arial, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
-      #funbike-boot img { display: block; width: auto; height: 52px; max-width: 180px; object-fit: contain; }
-      #funbike-boot .boot-track { width: 160px; height: 3px; overflow: hidden; background: rgba(255,255,255,.15); }
+      html.fb-booting #funbike-boot { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; background: #fff; color: rgba(0,0,0,.4); font: 700 9px/1.5 Arial, sans-serif; letter-spacing: .24em; text-transform: uppercase; }
+      html.dark.fb-booting #funbike-boot { background: #141513; color: rgba(255,255,255,.4); }
+      #funbike-boot img { display: block; width: auto; height: 48px; max-width: 180px; object-fit: contain; }
+      @media (min-width: 640px) { #funbike-boot img { height: 56px; } }
+      #funbike-boot .boot-track { width: 160px; height: 3px; overflow: hidden; background: rgba(0,0,0,.1); }
+      html.dark #funbike-boot .boot-track { background: rgba(255,255,255,.1); }
       #funbike-boot .boot-bar { width: 100%; height: 100%; background: #ffd100; transform-origin: left; animation: fb-boot-progress 1.5s ease-in-out infinite; }
       @keyframes fb-boot-progress { 0% { transform: scaleX(.12); } 50% { transform: scaleX(.8); } 100% { transform: scaleX(.12); } }
       @media (prefers-reduced-motion: reduce) { #funbike-boot .boot-bar { animation: none; transform: scaleX(.6); } }
@@ -24,8 +27,11 @@
     </style>
     <script>
       document.documentElement.classList.add('fb-booting');
+      try {
+        if (localStorage.getItem('fb-theme-v2') !== 'light') document.documentElement.classList.add('dark');
+      } catch (_) { document.documentElement.classList.add('dark'); }
       // Si le script principal ne démarre pas, ne jamais bloquer le contenu de secours.
-      window.setTimeout(function () { document.documentElement.classList.remove('fb-booting'); }, 15000);
+      window.__funbikeBootTimer = window.setTimeout(function () { document.documentElement.classList.remove('fb-booting'); }, 15000);
     </script>
     <title>Funbike — Motos, Pièces & Équipements | Sherco · Fantic · TVS</title>
     <meta name="description" content="Funbike : motos Sherco, Fantic et TVS, pièces d'origine et équipements pilote Troy Lee Designs." />
@@ -37,9 +43,9 @@
   </head>
   <body>
     <div id="funbike-boot" role="status" aria-label="Chargement du site">
-      <img src="/server/public/assets/company/logo-funbike.png" alt="" vite-ignore />
+      <img class="logo-clean" src="/server/public/assets/company/logo-funbike.png" alt="" vite-ignore />
       <div class="boot-track" aria-hidden="true"><div class="boot-bar"></div></div>
-      <span>Chargement du site</span>
+      <span>Mise en route</span>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

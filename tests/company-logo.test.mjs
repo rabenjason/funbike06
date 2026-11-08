@@ -5,13 +5,12 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
-let server, LOGO, Header, Footer, SplashLoader;
+let server, LOGO, Header, Footer;
 const logoUrl = '/server/public/assets/company/logo-funbike.png';
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   ({ LOGO } = await server.ssrLoadModule('/src/catalog/brands.ts'));
   ({ Header, Footer } = await server.ssrLoadModule('/src/components/Layout.tsx'));
-  ({ SplashLoader } = await server.ssrLoadModule('/src/components/Loaders.tsx'));
 });
 after(async () => await server?.close());
 
@@ -21,9 +20,9 @@ test('logo Funbike local pour l’en-tête, le pied de page, le chargement et le
   assert.equal(LOGO, logoUrl);
   const header = renderToStaticMarkup(React.createElement(Header, { route: { page: 'home' }, go() {}, dark: false, toggle() {} }));
   const footer = renderToStaticMarkup(React.createElement(Footer, { go() {}, onCookies() {} }));
-  const loader = renderToStaticMarkup(React.createElement(SplashLoader, { show: true }));
-  for (const markup of [header, footer, loader]) assert.ok(markup.includes(`src="${logoUrl}"`));
+  for (const markup of [header, footer]) assert.ok(markup.includes(`src="${logoUrl}"`));
   const html = await readFile('index.html', 'utf8');
   assert.match(html, new RegExp(`<link rel="icon"[^>]+href="${logoUrl}"`));
+  assert.match(html, new RegExp(`<div id="funbike-boot"[\\s\\S]*?<img[^>]+src="${logoUrl}"`));
   assert.ok(!html.includes('wp-content/themes/funbike/images/logo-funbike.png'));
 });
