@@ -28,7 +28,7 @@ after(async () => { dom.window.close(); await server?.close(); });
 
 test('site : menu, cartes, prix et retour à Sur devis après désactivation', async () => {
   const product = catalog.motorcycles[0];
-  const campaign = { id: 'c', name: 'Promo Noël', description: 'Notre offre', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
+  const campaign = { id: 'c', name: 'Promo Noël', description: 'Texte non souhaité', bannerUrl: '/server/uploads/promotions/banniere-test.jpg', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
   let active = true;
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: active ? [campaign] : [], serverTime: new Date().toISOString() }) });
   const view = render(React.createElement(Provider, null,
@@ -38,9 +38,16 @@ test('site : menu, cartes, prix et retour à Sur devis après désactivation', a
   await waitFor(() => assert.ok(view.getByText('Promo Noël')));
   assert.ok(view.getByRole('link', { name: 'Promotions' }));
   assert.ok(view.getByRole('link', { name: 'Pièces' }));
+  assert.equal(view.queryByText('Texte non souhaité'), null);
+  assert.equal(view.container.querySelector('img[src="/server/uploads/promotions/banniere-test.jpg"]'), null);
+  assert.doesNotMatch(view.container.textContent, /Funbike \/ sélection/i);
   const card = view.container.querySelector('article');
   assert.ok(card); assert.match(card.textContent, /800\s?000 Ar/); assert.match(card.textContent, /1\s?000\s?000 Ar/); assert.match(card.textContent, /20 %/);
-  assert.equal(card.querySelector('del')?.textContent.replace(/\s/g, ''), '1000000Ar');
+  assert.match(card.querySelector('del')?.textContent.replace(/\s/g, ''), /1000000Ar/);
+  const badge = within(card).getByLabelText('Réduction de 20 %');
+  assert.ok(badge.classList.contains('absolute') && badge.classList.contains('right-3') && badge.classList.contains('top-3'));
+  assert.equal((card.textContent.match(/20 %/g) || []).length, 1);
+  assert.ok(card.querySelector('strong').classList.contains('text-base'));
   active = false;
   fireEvent(document, new window.Event('visibilitychange'));
   await waitFor(() => assert.ok(view.getByText('Aucune promotion active pour le moment.')));
@@ -73,4 +80,31 @@ test('dashboard : campagne, recherche, calcul et référence au produit', async 
   await waitFor(() => assert.ok(saved));
   assert.deepEqual(saved.products, [{ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 }]);
   assert.ok(within(view.container).getByText('Promo test'));
+});
+
+test('équipements en promotion : étiquette sur la photo et prix lisibles, sans modifier la navigation', async () => {
+  const p = catalog.ridingGear[0];
+  const { PartCard } = await server.ssrLoadModule('/src/components/Cards.tsx');
+  const campaign = { id: 'parts', name: 'Offres équipements', description: 'Description masquée', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date().toISOString() }) });
+  const calls = [];
+  const view = render(React.createElement(Provider, null, React.createElement(PartCard, { part: p, go: (...args) => calls.push(args) })));
+  await waitFor(() => assert.ok(view.getByLabelText('Réduction de 20 %')));
+  const badge = view.getByLabelText('Réduction de 20 %');
+  assert.ok(badge.classList.contains('top-3') && badge.closest('a'));
+  assert.match(view.container.textContent, /800\s?000 Ar/);
+  assert.equal((view.container.textContent.match(/20 %/g) || []).length, 1);
+  fireEvent.click(view.getByRole('button', { name: p.name }));
+  assert.deepEqual(calls[0], ['accessory', p.id, p.categoryId]);
+});
+
+test('prix de la fiche conserve le pourcentage et affiche Sur devis sans offre', async () => {
+  const product = catalog.motorcycles[0];
+  const { PromotionPrice } = await server.ssrLoadModule('/src/components/PromotionsContext.tsx');
+  const campaign = { id: 'one', name: 'Promo', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 300, discountPercent: 2 }] };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(PromotionPrice, { product })));
+  await waitFor(() => assert.match(view.container.textContent, /294 Ar/));
+  assert.match(view.container.textContent, /300 Ar/);
+  assert.match(view.container.textContent, /2 %/);
 });
