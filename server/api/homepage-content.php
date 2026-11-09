@@ -82,7 +82,7 @@ foreach ($defaults['content'] as $section => $fields) {
 $revision = homepageRevision($current);
 if ($method === 'GET') {
     $banner = funbikeShercoBannerRead();
-    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null, 'shercoBannerImage' => funbikeShercoBannerSelected($banner)]);
+    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null && !($banner['legacy'] ?? false), 'shercoBannerImage' => funbikeShercoBannerSelected($banner)]);
 }
 if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 65536) funbikeJsonResponse(413, ['error' => 'Contenu trop volumineux.']);
 $raw = file_get_contents('php://input', false, null, 0, 65537);

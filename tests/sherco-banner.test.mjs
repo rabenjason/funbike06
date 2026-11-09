@@ -9,7 +9,7 @@ let dom, server, Banner, AdminBanner, ConfirmationProvider, content, render, cle
 const defaults = JSON.parse(readFileSync('src/content/homepage-defaults.json', 'utf8'));
 const id1 = 'a'.repeat(32), id2 = 'b'.repeat(32);
 const image = (id) => ({ id, url: `/server/uploads/homepage/sherco-${id}.png` });
-let data, legacy, calls, fail, dirty;
+let data, retired, legacy, calls, fail, dirty;
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
   globalThis.window = dom.window; globalThis.document = dom.window.document; globalThis.HTMLElement = dom.window.HTMLElement;
@@ -30,15 +30,15 @@ afterEach(() => { cleanup(); globalThis.fetch = originalFetch; });
 after(async () => { dom.window.close(); await server?.close(); });
 const response = (body, ok = true) => ({ ok, json: async () => structuredClone(body) });
 function setup() {
-  data = { images: [], selected: null }; legacy = true; calls = []; fail = false; dirty = false;
+  data = { images: [], selected: null }; retired = []; legacy = true; calls = []; fail = false; dirty = false;
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url, options });
     if (fail) return response({ error: 'Erreur serveur' }, false);
-    if (!options.method) return response({ data, legacy });
-    if (options.method === 'POST') { const next = image(data.images.length ? id2 : id1); data.images.push(next); if (!data.selected) data.selected = next.id; }
-    if (options.method === 'PUT') data.selected = JSON.parse(options.body).id;
-    if (options.method === 'DELETE') { const id = JSON.parse(options.body).id; data.images = data.images.filter((item) => item.id !== id); if (data.selected === id) data.selected = null; }
-    legacy = false; return response({ data });
+    if (!options.method) return response({ data, retired, legacy });
+    if (options.method === 'POST') { const next = image(data.images.length ? id2 : id1); data.images.push(next); if (!data.selected) data.selected = next.id; legacy = false; }
+    if (options.method === 'PUT') { const { id, action } = JSON.parse(options.body); if (action === 'restore') { data.images.push(retired.find((item) => item.id === id)); retired = retired.filter((item) => item.id !== id); } else { data.selected = id; legacy = false; } }
+    if (options.method === 'DELETE') { const { id, action } = JSON.parse(options.body); if (action === 'purge') retired = retired.filter((item) => item.id !== id); else { retired.push(data.images.find((item) => item.id === id)); data.images = data.images.filter((item) => item.id !== id); if (data.selected === id) data.selected = null; } }
+    return response({ data, retired, legacy });
   };
 }
 test('administration : aperçu, ajout, sélection et retrait seulement après confirmation', async () => {
@@ -76,6 +76,22 @@ test('administration : aperçu, ajout, sélection et retrait seulement après co
   fireEvent.click(view.getByRole('button', { name: 'Retirer l’image' }));
   await waitFor(() => assert.equal(data.images.length, 1)); assert.equal(data.selected, null);
   assert.ok(view.getByText(/Aucune photo n’est sélectionnée/));
+  fireEvent.click(view.getByText('Photos retirées ou retrouvées (1)'));
+  assert.ok(view.getByAltText('Photo retirée 1'));
+  fireEvent.click(view.getByRole('button', { name: 'Restaurer la photo retirée 1' }));
+  await waitFor(() => assert.equal(data.images.length, 2));
+  assert.equal(data.selected, null, 'restaurer ne change pas la bannière publique');
+  fireEvent.click(view.getAllByRole('button', { name: 'Retirer' })[1]);
+  fireEvent.click(view.getByRole('button', { name: 'Retirer l’image' }));
+  await waitFor(() => assert.equal(retired.length, 1));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement la photo retirée 1' }));
+  assert.match(view.getByRole('alertdialog').textContent, /sauvegarde/);
+  fireEvent.click(view.getByRole('button', { name: 'Annuler' }));
+  assert.equal(retired.length, 1, 'annuler ne supprime rien');
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement la photo retirée 1' }));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement' }));
+  await waitFor(() => assert.equal(retired.length, 0));
+  assert.equal(data.images.length, 1, 'la photo active est préservée');
 });
 
 test('une erreur d’envoi conserve la photo précédente et l’aperçu', async () => {
@@ -86,6 +102,17 @@ test('une erreur d’envoi conserve la photo précédente et l’aperçu', async
   fail = true; fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /Erreur serveur/));
   assert.equal(data.selected, id1); assert.equal(dirty, true); assert.ok(view.getByAltText('Aperçu de la nouvelle photo'));
+});
+
+test('suppression définitive en erreur : la liste et les autres photos restent intactes', async () => {
+  setup(); data = { images: [image(id1)], selected: id1 }; retired = [image(id2)]; legacy = false;
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminBanner, { onDirtyChange() {}, onSavingChange() {} })));
+  await waitFor(() => assert.ok(view.getByText('Photos retirées ou retrouvées (1)')));
+  fireEvent.click(view.getByText('Photos retirées ou retrouvées (1)'));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement la photo retirée 1' }));
+  fail = true; fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Erreur serveur/));
+  assert.equal(retired.length, 1); assert.equal(data.selected, id1); assert.ok(view.getByAltText('Photo retirée 1'));
 });
 
 test('site public : transition initiale, image locale sélectionnée et absence de photo', async () => {

@@ -18,6 +18,7 @@ function funbikeShercoBannerRead()
         $ids[$image['id']] = true;
     }
     if ($data['selected'] !== null && !isset($ids[$data['selected']])) funbikeJsonResponse(500, ['error' => 'Image sélectionnée introuvable. Restaurez une sauvegarde.']);
+    if (isset($data['legacy']) && (!is_bool($data['legacy']) || ($data['legacy'] && $data['selected'] !== null))) funbikeJsonResponse(500, ['error' => 'Configuration de bannière invalide. Restaurez une sauvegarde.']);
     return $data;
 }
 
