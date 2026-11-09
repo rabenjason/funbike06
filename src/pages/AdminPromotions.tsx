@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { AdminCatalog } from "./AdminCatalog";
 import type { Product } from "../types/product";
-import { calculatePromotionPrice, formatAriary, type Promotion } from "../lib/promotions";
+import { calculatePromotionPrice, formatAriary, isPromotionCategory, type PromotionCategory, type Promotion } from "../lib/promotions";
 import { request, json } from "../lib/adminApi";
 import { useConfirmation } from "../components/ConfirmationModal";
 
@@ -19,10 +19,33 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [productBusy, setProductBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [preferred, setPreferred] = useState<PromotionCategory>("motos");
+  const [savedPreferred, setSavedPreferred] = useState<PromotionCategory>("motos");
+  const [displayRevision, setDisplayRevision] = useState("");
+  const [displayError, setDisplayError] = useState("");
+  const [displayNotice, setDisplayNotice] = useState("");
+  const displayDirty = !!displayRevision && preferred !== savedPreferred;
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function load() { setError(""); try { const result = await request("promotions.php?admin=1"); if (!Array.isArray(result.campaigns)) throw new Error("Réponse invalide."); setCampaigns(result.campaigns); setLoaded(true); } catch (err) { setError((err as Error).message); } }
-  useEffect(() => { void load(); }, []);
-  useEffect(() => { onDirtyChange(draft !== null); return () => onDirtyChange(false); }, [draft !== null, onDirtyChange]);
+  async function loadDisplay() {
+    setDisplayError("");
+    try {
+      const result = await request("promotions-display.php");
+      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.revision !== "string") throw new Error("Réponse de réglage invalide.");
+      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setDisplayRevision(result.revision);
+    } catch (err) { setDisplayError((err as Error).message); }
+  }
+  async function saveDisplay() {
+    if (!displayRevision || busy) return;
+    setBusy(true); setDisplayError(""); setDisplayNotice("");
+    try {
+      const result = await request("promotions-display.php", json("PUT", { preferredCategory: preferred, revision: displayRevision }));
+      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.revision !== "string") throw new Error("Réponse invalide. Rechargez pour vérifier l’enregistrement.");
+      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setDisplayRevision(result.revision); setDisplayNotice("Catégorie enregistrée.");
+    } catch (err) { setDisplayError((err as Error).message); } finally { setBusy(false); }
+  }
+  useEffect(() => { void load(); void loadDisplay(); }, []);
+  useEffect(() => { onDirtyChange(draft !== null || displayDirty); return () => onDirtyChange(false); }, [draft !== null, displayDirty, onDirtyChange]);
   useEffect(() => { onSavingChange(busy || productBusy); return () => onSavingChange(false); }, [busy, productBusy, onSavingChange]);
   const set = <K extends keyof Promotion>(key: K, value: Promotion[K]) => setDraft((current) => current ? { ...current, [key]: value } : current);
   function add(product: Product) {
@@ -50,10 +73,17 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   }
   const matches = search.trim() ? catalog.products.filter((p) => normalize(`${p.name} ${catalog.brands.find((b) => b.id === p.brandId)?.name ?? ""}`).includes(normalize(search.trim()))).slice(0, 40) : [];
   return <section className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">Promotions</h1>{loaded && !draft && <button className={primary} onClick={() => { setDraft(empty()); setError(""); }}>Créer une promotion</button>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">Promotions</h1>{loaded && !draft && <button className={primary} disabled={displayDirty || busy} onClick={() => { setDraft(empty()); setError(""); }}>Créer une promotion</button>}</div>
     {error && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {!loaded && <button className={button} onClick={() => void load()}>Charger les promotions / Réessayer</button>}
-    {loaded && !draft && <div className="space-y-2">{campaigns.length === 0 && <p className="text-sm">Aucune campagne enregistrée.</p>}{campaigns.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-4"><div><h2 className="font-bold">{c.name}</h2><p className="text-sm text-black/60">{c.startDate} — {c.endDate} · {c.enabled ? 'Activée' : 'Désactivée'} · {c.published ? 'Publiée' : 'Brouillon'} · {c.products.length} produit(s)</p></div><div className="flex gap-2"><button className={button} onClick={() => { setDraft(structuredClone(c)); setError(""); }}>Modifier</button><button disabled={busy} className={button} onClick={() => void remove(c)}>Supprimer</button></div></div>)}</div>}
+    {loaded && !draft && <div className="rounded-lg bg-white p-4">
+      <h2 className="font-bold">Affichage de la page Promotions</h2>
+      <p className="mt-1 text-sm text-black/60">Choisissez la catégorie affichée en premier pour toutes les campagnes. Si elle est vide, une catégorie disponible sera affichée.</p>
+      {displayRevision && <div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm font-semibold">Catégorie affichée en premier<select disabled={busy} className={input} value={preferred} onChange={(e) => { const value = e.target.value; if (isPromotionCategory(value)) setPreferred(value); setDisplayNotice(""); }}><option value="motos">Motos</option><option value="equipements">Équipements et casques</option><option value="pieces">Pièces détachées</option></select></label><button type="button" className={primary} disabled={!displayDirty || busy} onClick={() => void saveDisplay()}>Enregistrer l’affichage</button>{displayDirty && <button type="button" className={button} disabled={busy} onClick={() => { setPreferred(savedPreferred); setDisplayError(""); }}>Annuler</button>}</div>}
+      {displayError && <p role="alert" className="mt-2 text-sm text-red-700">{displayError}{!displayRevision && <> <button type="button" className="underline" onClick={() => void loadDisplay()}>Réessayer</button></>}</p>}
+      {displayNotice && <p role="status" className="mt-2 text-sm text-emerald-700">{displayNotice}</p>}
+    </div>}
+    {loaded && !draft && <div className="space-y-2">{campaigns.length === 0 && <p className="text-sm">Aucune campagne enregistrée.</p>}{campaigns.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-4"><div><h2 className="font-bold">{c.name}</h2><p className="text-sm text-black/60">{c.startDate} — {c.endDate} · {c.enabled ? 'Activée' : 'Désactivée'} · {c.published ? 'Publiée' : 'Brouillon'} · {c.products.length} produit(s)</p></div><div className="flex gap-2"><button disabled={displayDirty || busy} className={button} onClick={() => { setDraft(structuredClone(c)); setError(""); }}>Modifier</button><button disabled={displayDirty || busy} className={button} onClick={() => void remove(c)}>Supprimer</button></div></div>)}</div>}
     {draft && <>
       <div className="space-y-4 rounded-lg bg-white p-5"><h2 className="text-lg font-bold">{draft.id ? 'Modifier la campagne' : 'Nouvelle campagne'}</h2>
         <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Nom<input required maxLength={150} className={input} value={draft.name} onChange={(e) => set('name', e.target.value)} /></label><label className="text-sm font-semibold">Bannière facultative<input type="file" accept="image/jpeg,image/png,image/webp" className={input} onChange={(e) => { void upload(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label>

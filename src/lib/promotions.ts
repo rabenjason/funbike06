@@ -1,3 +1,6 @@
+export type PromotionCategory = "motos" | "equipements" | "pieces";
+export const isPromotionCategory = (value: unknown): value is PromotionCategory => value === "motos" || value === "equipements" || value === "pieces";
+
 export interface PromotionProduct {
   productId: string;
   categoryId: string;

@@ -1,6 +1,7 @@
 <?php
 // Campagnes séparées du catalogue : seules des références aux fiches sont stockées.
 require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/promotions-display.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 funbikeProtectWriteMethods($method);
@@ -35,7 +36,7 @@ if ($method === 'GET') {
         $campaign['products'] = array_values(array_filter($campaign['products'], function ($p) use ($published) { return is_array($p) && isset($published[($p['categoryId'] ?? '') . ':' . ($p['productId'] ?? '')]); }));
         if ($campaign['products']) $visible[] = $campaign;
     }
-    funbikeJsonResponse(200, ['campaigns' => $visible, 'serverTime' => gmdate('c')]);
+    funbikeJsonResponse(200, ['campaigns' => $visible, 'serverTime' => gmdate('c'), 'preferredCategory' => (funbikePromotionDisplayRead()['preferredCategory'] ?? 'motos')]);
 }
 if ($method === 'POST' && isset($_FILES['banner'])) {
     $image = $_FILES['banner'];
