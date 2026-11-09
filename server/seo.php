@@ -73,6 +73,10 @@ if ($path === '/sitemap.xml') {
 // Les choix explicites de l'installation restent prioritaires, y compris une
 // valeur null permettant de désactiver une correspondance fournie par défaut.
 $knownRedirects = [
+    '/catalogue-motos' => '/motos',
+    '/catalogue-motos/page/2' => '/motos',
+    '/catalogue-equipements' => '/equipements',
+    '/catalogue-motos/xx125-2026' => '/motos/xx-125-2026',
     '/catalogue-motos/tvs-hlx-plus' => '/motos/tvs-hlx-plus',
     '/catalogue-motos/tvs-apache-rtr-200-4v' => '/motos/tvs-apache-rtr-200-4v',
 ];
