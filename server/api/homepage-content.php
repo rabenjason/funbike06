@@ -66,6 +66,13 @@ function homepageValidate($input, $defaults) {
         $seen[$id] = true;
         $clean['exclusiveBrands'][] = ['brandId' => $id, 'tagline' => homepageText($brand['tagline'] ?? null, 400, 'slogan de marque')];
     }
+    // Le nouveau lien est distinct des textes existants. Les anciennes données
+    // reçoivent le comportement historique sans écriture à la lecture.
+    $bannerLink = $input['bannerLink'] ?? null;
+    if (!is_array($bannerLink) || !in_array($bannerLink['to'] ?? null, ['catalogue', 'motos', 'equipements', 'spares', 'revendeurs', 'contact', 'promotions'], true)) funbikeJsonResponse(400, ['error' => 'Destination de bannière invalide.']);
+    $brandId = homepageBrandId($bannerLink['brandId'] ?? null);
+    if ($brandId !== '' && !in_array($bannerLink['to'], ['motos', 'equipements', 'spares'], true)) funbikeJsonResponse(400, ['error' => 'Ce lien de bannière ne peut pas filtrer par marque.']);
+    $clean['bannerLink'] = ['to' => $bannerLink['to'], 'brandId' => $brandId];
     return $clean;
 }
 $defaults = homepageRead($defaultFile);
@@ -79,6 +86,8 @@ foreach ($defaults['content'] as $section => $fields) {
         if (!array_key_exists($key, $current['content'][$section])) $current['content'][$section][$key] = $value;
     }
 }
+if (!array_key_exists('bannerLink', $current)) $current['bannerLink'] = $defaults['bannerLink'];
+if (!is_array($current['bannerLink'])) funbikeJsonResponse(500, ['error' => 'Lien de bannière invalide. Restaurez une sauvegarde.']);
 $revision = homepageRevision($current);
 if ($method === 'GET') {
     $banner = funbikeShercoBannerRead();

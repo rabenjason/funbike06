@@ -199,6 +199,8 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(existsSync(homepageFile), false, 'une lecture ne crée ni ne remplace les données');
     const homeData = structuredClone(initialHome.body.data);
     homeData.content.hero.titreLigne1 = 'Titre personnalisé';
+    homeData.content.sherco.titreLigne1 = 'Notre sélection TVS';
+    homeData.bannerLink = { to: 'motos', brandId: 'tvs' };
     homeData.content.hero.usages = ['ville', 'voyage'];
     homeData.links[0] = { title: 'Nos motos', to: 'motos', brandId: 'tvs', icon: 'moto' };
     homeData.exclusiveBrands = [{ brandId: 'tvs', tagline: 'Notre slogan' }];
@@ -207,9 +209,17 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const invalid = structuredClone(homeData); invalid.links[0].to = 'https://malicious.invalid';
     assert.equal((await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: invalid } })).status, 400);
     assert.equal(existsSync(homepageFile), false);
+    for (const link of [{ to: 'https://invalid.example', brandId: '' }, { to: 'contact', brandId: 'tvs' }, { to: 'motos', brandId: '../unsafe' }]) {
+      const invalidBanner = structuredClone(homeData); invalidBanner.bannerLink = link;
+      assert.equal((await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: invalidBanner } })).status, 400);
+      assert.equal(existsSync(homepageFile), false);
+    }
     const savedHome = await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: homeData } });
     assert.equal(savedHome.status, 200); assert.ok(existsSync(homepageFile));
-    assert.deepEqual((await call('homepage-content.php')).body.data, savedHome.body.data);
+    const afterHomeSave = await call('homepage-content.php');
+    assert.deepEqual(afterHomeSave.body.data, savedHome.body.data);
+    assert.equal(afterHomeSave.body.shercoBannerImage, initialHome.body.shercoBannerImage, 'enregistrer les textes ne modifie pas la photo');
+    assert.equal(afterHomeSave.body.shercoBannerConfigured, initialHome.body.shercoBannerConfigured);
     assert.notEqual(savedHome.body.revision, initialHome.body.revision);
     assert.equal((await call('homepage-content.php', { method: 'PUT', authenticated: true, body: { revision: initialHome.body.revision, data: initialHome.body.data } })).status, 409);
     assert.equal((await call('homepage-content.php')).body.data.content.hero.titreLigne1, 'Titre personnalisé');
@@ -219,9 +229,14 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(evilHome.status, 403);
     const olderHome = structuredClone(savedHome.body.data);
     delete olderHome.content.hero.descriptionSansMarques;
+    delete olderHome.bannerLink;
     writeFileSync(homepageFile, JSON.stringify(olderHome));
     const migratedHome = await call('homepage-content.php');
     assert.equal(migratedHome.body.data.content.hero.titreLigne1, 'Titre personnalisé');
+    assert.equal(migratedHome.body.data.content.sherco.titreLigne1, 'Notre sélection TVS');
+    assert.deepEqual(migratedHome.body.data.bannerLink, { to: 'motos', brandId: '' });
+    assert.equal(JSON.parse(readFileSync(homepageFile, 'utf8')).bannerLink, undefined);
+    assert.deepEqual(savedHome.body.data.bannerLink, { to: 'motos', brandId: 'tvs' });
     assert.equal(migratedHome.body.data.content.hero.descriptionSansMarques, initialHome.body.data.content.hero.descriptionSansMarques);
     assert.equal(JSON.parse(readFileSync(homepageFile, 'utf8')).content.hero.descriptionSansMarques, undefined, 'lecture sans réécriture');
     writeFileSync(homepageFile, '{invalid');

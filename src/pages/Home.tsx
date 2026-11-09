@@ -192,7 +192,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         </div>
       </section>
 
-      {brands.some((brand) => brand.id === "sherco" && brand.isPublished !== false) && <ShercoBanner go={go} />}
+      <ShercoBanner go={go} />
 
       <BrandExclusif go={go} />
 
