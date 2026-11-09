@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent, type PointerEvent, type WheelEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -28,6 +28,8 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 export default function ImageZoomViewer({ open, images, active, alt, onActiveChange, onClose }: Props) {
   const [zoom, setZoom] = useState(1);
   const [origin, setOrigin] = useState({ x: 50, y: 50 });
+  const swipe = useRef<{ id: number; x: number; y: number } | null>(null);
+  const suppressSwipeClick = useRef(false);
 
   function resetZoom() {
     setZoom(1);
@@ -75,6 +77,8 @@ export default function ImageZoomViewer({ open, images, active, alt, onActiveCha
   }, [open, active, images.length]);
 
   useEffect(() => {
+    swipe.current = null;
+    suppressSwipeClick.current = false;
     if (open) resetZoom();
   }, [open]);
 
@@ -145,10 +149,30 @@ export default function ImageZoomViewer({ open, images, active, alt, onActiveCha
 
           {/* Zoom stage */}
           <main
-            onPointerDown={zoom > 1 ? locate : undefined}
-            onPointerMove={(event) => {
-              if (zoom > 1 && (event.pointerType === "mouse" || event.buttons === 1)) locate(event);
+            onPointerDown={(event) => {
+              if (event.isPrimary) suppressSwipeClick.current = false;
+              if (event.pointerType === "touch" && !event.isPrimary) { swipe.current = null; return; }
+              if (zoom > 1) { if (event.target === event.currentTarget) locate(event); return; }
+              if (event.pointerType === "touch" && event.isPrimary && images.length > 1 && event.target === event.currentTarget) {
+                swipe.current = { id: event.pointerId, x: event.clientX, y: event.clientY };
+              }
             }}
+            onPointerMove={(event) => {
+              if (zoom > 1 && event.target === event.currentTarget && (event.pointerType === "mouse" || event.buttons === 1)) locate(event);
+            }}
+            onPointerUp={(event) => {
+              const start = swipe.current;
+              if (!start || start.id !== event.pointerId) return;
+              swipe.current = null;
+              const dx = event.clientX - start.x;
+              const dy = event.clientY - start.y;
+              if (zoom === 1 && Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+                // Le clic tactile généré après le glissement ne doit pas zoomer.
+                suppressSwipeClick.current = true;
+                changeImage(active + (dx < 0 ? 1 : -1));
+              }
+            }}
+            onPointerCancel={() => { swipe.current = null; }}
             onWheel={(event) => {
               event.preventDefault();
               locate(event);
@@ -159,10 +183,12 @@ export default function ImageZoomViewer({ open, images, active, alt, onActiveCha
               setZoom((value) => (value === 1 ? 2.5 : 1));
             }}
             onClick={(event) => {
+              if (suppressSwipeClick.current && event.detail !== 0) { suppressSwipeClick.current = false; return; }
               if (event.target !== event.currentTarget) return;
               locate(event);
               setZoom((value) => (value === 1 ? 2 : 1));
             }}
+            style={zoom === 1 ? { touchAction: "pan-y pinch-zoom" } : undefined}
             className={
               "relative min-h-0 flex-1 overflow-hidden bg-white " +
               (zoom === 1 ? "cursor-zoom-in" : "cursor-crosshair touch-none")
