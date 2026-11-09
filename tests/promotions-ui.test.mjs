@@ -4,7 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 import { seedCatalog } from './helpers/catalog.mjs';
-let dom, server, render, cleanup, fireEvent, waitFor, within, catalog, Header, Provider, Promotions, AdminPromotions, ConfirmationProvider, BikeCard;
+let dom, server, render, cleanup, fireEvent, waitFor, within, act, catalog, Header, Provider, Promotions, AdminPromotions, ConfirmationProvider, BikeCard;
 let originalFetch;
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
@@ -12,7 +12,7 @@ before(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
   window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-  ({ render, cleanup, fireEvent, waitFor, within } = await import('@testing-library/react'));
+  ({ render, cleanup, fireEvent, waitFor, within, act } = await import('@testing-library/react'));
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
   await seedCatalog(server); catalog = await server.ssrLoadModule('/src/catalog/index.ts');
   ({ Header } = await server.ssrLoadModule('/src/components/Layout.tsx'));
@@ -151,4 +151,41 @@ test('les catégories sans promotion ne sont pas affichées', async () => {
   assert.equal(view.queryByRole('region', { name: 'Équipements et casques' }), null);
   assert.equal(view.queryByRole('region', { name: 'Pièces détachées' }), null);
   assert.match(view.getByRole('region', { name: 'Motos' }).textContent, /1 produit/);
+});
+
+
+test('compte à rebours : heure serveur, campagnes distinctes, évolution et fin à minuit Madagascar', async () => {
+  const items = [catalog.motorcycles[0], catalog.motorcycles[1]];
+  const campaigns = items.map((product, i) => ({ id: `c${i}`, name: `Campagne ${i}`, description: '', startDate: '2026-12-01', endDate: i === 0 ? '2026-12-12' : '2026-12-13', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 100, discountPercent: 20 }] }));
+  const realNow = Date.now, realInterval = window.setInterval, realClearInterval = window.clearInterval;
+  let serverNow = Date.parse('2026-12-12T20:59:58Z');
+  let clientNow = serverNow + 48 * 60 * 60 * 1000; // horloge du visiteur erronée
+  const timers = new Map(); let nextTimer = -1;
+  Date.now = () => clientNow;
+  window.setInterval = (fn, delay, ...args) => {
+    if (delay !== 1000 && delay !== 30000) return realInterval.call(window, fn, delay, ...args);
+    const id = nextTimer--; timers.set(id, { fn, delay }); return id;
+  };
+  window.clearInterval = (id) => { if (timers.has(id)) timers.delete(id); else realClearInterval.call(window, id); };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns, serverTime: new Date(serverNow).toISOString() }) });
+  try {
+    const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+    await waitFor(() => assert.ok(view.getByRole('heading', { name: 'Campagne 0' })));
+    const first = view.getByRole('region', { name: 'Campagne 0' });
+    const second = view.getByRole('region', { name: 'Campagne 1' });
+    assert.equal(within(first).getByRole('timer').textContent, '00:00:02');
+    assert.equal(within(second).queryByRole('timer'), null, 'plus de 24 heures restantes');
+    clientNow += 1000; serverNow += 1000;
+    act(() => { for (const timer of timers.values()) if (timer.delay === 1000) timer.fn(); });
+    assert.equal(within(first).getByRole('timer').textContent, '00:00:01');
+    clientNow += 1000; serverNow += 1000;
+    act(() => { for (const timer of timers.values()) if (timer.delay === 1000) timer.fn(); });
+    assert.equal(within(first).queryByRole('timer'), null, 'pas de compteur négatif');
+    assert.equal(within(second).getByRole('timer').textContent, '24:00:00');
+    await act(async () => { for (const timer of timers.values()) if (timer.delay === 30000) timer.fn(); await Promise.resolve(); });
+    await waitFor(() => assert.equal(view.queryByRole('region', { name: 'Campagne 0' }), null));
+    assert.ok(view.getByRole('region', { name: 'Campagne 1' }));
+    view.unmount();
+    assert.equal(timers.size, 0, 'nettoyage des minuteries');
+  } finally { Date.now = realNow; window.setInterval = realInterval; window.clearInterval = realClearInterval; }
 });

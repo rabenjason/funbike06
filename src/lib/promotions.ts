@@ -33,6 +33,18 @@ export function isPromotionActive(p: Promotion, now: Date = new Date()): boolean
   const today = madagascarDate(now);
   return today >= p.startDate && today <= p.endDate;
 }
+/** Temps restant pendant les dernières 24 h du dernier jour inclus, à Madagascar (UTC+3). */
+export function promotionCountdown(endDate: string, now: number): string | null {
+  if (!isValidPromotionDate(endDate) || !Number.isFinite(now)) return null;
+  // Minuit suivant à Antananarivo correspond à 21 h UTC le jour de fin.
+  const end = Date.parse(`${endDate}T21:00:00.000Z`);
+  const remaining = end - now;
+  if (!Number.isFinite(end) || remaining <= 0 || remaining > 24 * 60 * 60 * 1000) return null;
+  const seconds = Math.ceil(remaining / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return [hours, minutes, seconds % 60].map((part) => String(part).padStart(2, '0')).join(':');
+}
 /** Prix entier en ariary ; réduction arrondie à l'ariary le plus proche. */
 export function calculatePromotionPrice(originalPrice: number, discountPercent: number): { reduction: number; finalPrice: number } {
   const bp = Math.round(discountPercent * 100);

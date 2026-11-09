@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { promotionCountdown } from "../lib/promotions";
 import { products } from "../catalog/products";
 import type { Product } from "../types/product";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -20,8 +22,29 @@ function categoryGroups(selected: Product[]) {
   return [...sections, { key: "autres", label: "Autres produits", products: other }].filter((group) => group.products.length > 0);
 }
 
+/** The ticking clock is isolated here so the product cards do not rerender each second. */
+function Countdown({ endDate, clockOffset }: { endDate: string; clockOffset: number }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    const visible = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
+  }, []);
+  const remaining = promotionCountdown(endDate, now + clockOffset);
+  if (!remaining) return null;
+  const [hours, minutes, seconds] = remaining.split(':');
+  return <div className="shrink-0 rounded-md border border-[#d3a900]/35 bg-[#ffd100]/10 px-3 py-2 text-[#171816] dark:border-[#ffd100]/30 dark:text-[#f2f0ea]">
+    <p className="text-xs font-semibold">Se termine dans</p>
+    <p role="timer" aria-live="off" aria-label={`${Number(hours)} heures, ${Number(minutes)} minutes et ${Number(seconds)} secondes restantes`} className="mt-0.5 font-display text-lg font-bold tabular-nums text-[#98741b] dark:text-[#ffd100]">{remaining}</p>
+    <p className="text-[10px] text-black/55 dark:text-white/60">Heure de Madagascar</p>
+  </div>;
+}
+
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
-  const { campaigns, status } = usePromotions();
+  const { campaigns, status, clockOffset } = usePromotions();
   return <div className="mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-6 sm:pt-8 md:px-8 lg:px-10">
     <h1 className="sr-only">Promotions</h1>
     {status === "loading" && <p role="status">Chargement des promotions…</p>}
@@ -31,8 +54,11 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
       {campaigns.map((campaign) => {
         const selected = campaign.products.map((item) => products.find((p) => p.id === item.productId && p.categoryId === item.categoryId)).filter((p): p is Product => !!p);
         return <section key={campaign.id} aria-labelledby={`promotion-${campaign.id}`}>
-          <h2 id={`promotion-${campaign.id}`} className="fluid-h2 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">{campaign.name}</h2>
-          <p className="mt-2 text-sm text-black/60 dark:text-white/60">Offre du {campaign.startDate.split('-').reverse().join('/')} au {campaign.endDate.split('-').reverse().join('/')} inclus.</p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div><h2 id={`promotion-${campaign.id}`} className="fluid-h2 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">{campaign.name}</h2>
+            <p className="mt-2 text-sm text-black/60 dark:text-white/60">Offre du {campaign.startDate.split('-').reverse().join('/')} au {campaign.endDate.split('-').reverse().join('/')} inclus.</p></div>
+            <Countdown endDate={campaign.endDate} clockOffset={clockOffset} />
+          </div>
           <div className="mt-7 space-y-9 sm:space-y-10">
             {categoryGroups(selected).map((group) => <section key={group.key} aria-labelledby={`promotion-${campaign.id}-${group.key}`}>
               <div className="mb-4 flex items-baseline justify-between gap-3 border-b border-black/10 pb-2 dark:border-white/10">
