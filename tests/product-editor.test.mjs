@@ -75,3 +75,17 @@ test('retirer la principale impose un nouveau choix, puis une ancienne photo peu
   const product = JSON.parse(calls[0].options.body.get('product'));
   assert.equal(product.images.length, 1); assert.equal(product.images[0].url, '/autre.jpg'); assert.equal(product.images[0].isMain, true);
 });
+
+test('création depuis une promotion : la fiche et la photo sont envoyées une seule fois', async () => {
+  const savedProduct = { ...current, id: 'produit-nouveau', name: 'Nouvelle moto', images: [] };
+  let received, failed;
+  globalThis.fetch = async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => ({ data: savedProduct }) }; };
+  const view = render(React.createElement(ProductEditor, { catalog, close() {}, refresh: async () => {}, onSaved: (product, refreshFailed) => { received = product; failed = refreshFailed; } }));
+  fireEvent.change(view.getByLabelText('Nom'), { target: { value: savedProduct.name } });
+  fireEvent.change(view.getByLabelText('Ajouter des photos (JPG, PNG ou WebP)'), { target: { files: [file('nouvelle.png')] } });
+  fireEvent.submit(view.container.querySelector('form'));
+  await waitFor(() => assert.ok(received));
+  assert.equal(calls.length, 1); assert.match(calls[0].url, /products\/motorcycles.php$/);
+  assert.equal(calls[0].options.body.get('mainImage').name, 'nouvelle.png');
+  assert.equal(received.id, 'produit-nouveau'); assert.equal(failed, false);
+});

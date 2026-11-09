@@ -1,3 +1,4 @@
+import { PromotionPrice } from "./PromotionsContext";
 import { homepageContent } from "../content/homepage";
 import { content } from "../constants/content";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -105,7 +106,7 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                     <div className="flex items-center justify-between gap-3 border-t border-black/15 pt-3 dark:border-white/15">
                       <div>
                         <p className="text-[9px] uppercase tracking-[0.14em] text-black/45 dark:text-white/45">{homepageContent.nouveautes.tarif}</p>
-                        <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]">{product.price ?? "Sur devis"}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]"><PromotionPrice product={product} /></p>
                       </div>
                       <button
                         onClick={openDetail}

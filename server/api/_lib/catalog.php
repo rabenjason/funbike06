@@ -148,3 +148,17 @@ function funbikeUniqueProductId($baseId)
     while (in_array($id, $ids, true)) $id = $baseId . '-' . $n++;
     return $id;
 }
+
+/** Empêche qu'un ancien tarif soit appliqué à une nouvelle fiche réutilisant le même identifiant. */
+function funbikePreventPromotionProductDeletion($categoryId, $id)
+{
+    $file = dirname(__DIR__, 2) . '/storage/data/promotions.json';
+    if (!file_exists($file)) return;
+    $raw = @file_get_contents($file);
+    $data = $raw === false ? null : json_decode($raw, true);
+    if (!is_array($data) || !isset($data['campaigns']) || !is_array($data['campaigns'])) funbikeJsonResponse(500, ['error' => 'Impossible de vérifier les promotions : produit non supprimé.']);
+    foreach ($data['campaigns'] as $campaign) {
+        if (!is_array($campaign) || !isset($campaign['products']) || !is_array($campaign['products'])) funbikeJsonResponse(500, ['error' => 'Impossible de vérifier les promotions : produit non supprimé.']);
+        foreach ($campaign['products'] as $item) if (($item['productId'] ?? null) === $id && ($item['categoryId'] ?? null) === $categoryId) funbikeJsonResponse(409, ['error' => 'Retirez d’abord ce produit des promotions qui le référencent.']);
+    }
+}

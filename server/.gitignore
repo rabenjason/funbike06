@@ -24,3 +24,7 @@
 /storage/data/sherco-banner.json
 /uploads/homepage/*
 !/uploads/homepage/.htaccess
+
+# Campagnes et photos administrées localement ou en production.
+/storage/data/promotions.json
+/uploads/promotions/

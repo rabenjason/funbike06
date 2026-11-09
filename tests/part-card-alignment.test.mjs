@@ -33,7 +33,7 @@ test('cartes équipements : titres courts et longs, prix et actions restent dans
   assert.equal(cards.length, parts.length);
   cards.forEach((card, index) => {
     const title = card.querySelector('h3');
-    const price = [...card.querySelectorAll('p')].find((p) => p.textContent === parts[index].price);
+    const price = [...card.querySelectorAll('p')].find((p) => p.textContent === 'Sur devis');
     assert.ok(card.classList.contains('flex') && card.classList.contains('flex-col'));
     assert.ok(title.parentElement.parentElement.classList.contains('flex-1'));
     assert.ok(title.classList.contains('line-clamp-2') && title.classList.contains('min-h-10'));

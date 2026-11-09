@@ -251,7 +251,7 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
     if (matches.length === 1) {
       const p = matches[0]; mem.lastIds = [p.id]; mem.pendingIntent = undefined;
       if (isStock) return done({ text: `Je ne peux pas confirmer le stock de **${p.name}**. Contactez l’équipe pour connaître sa disponibilité.`, productIds: [p.id], actions: [CONTACT] });
-      if (isPrice) return done({ text: p.price?.trim() ? `Prix indiqué pour **${p.name}** : **${p.price.trim()}**. L’équipe peut confirmer le tarif et la disponibilité.` : `Le prix de **${p.name}** n’est pas renseigné. L’équipe peut vous établir un devis.`, productIds: [p.id], actions: [CONTACT] });
+      if (isPrice) return done({ text: p.price?.trim().toLowerCase() === "sur devis" ? `Pour connaître le prix actuel de **${p.name}**, consultez sa fiche ou demandez un devis à l’équipe.` : p.price?.trim() ? `Prix indiqué pour **${p.name}** : **${p.price.trim()}**. L’équipe peut confirmer le tarif et la disponibilité.` : `Le prix de **${p.name}** n’est pas renseigné. L’équipe peut vous établir un devis.`, productIds: [p.id], actions: [CONTACT] });
       const match = (p.specifications ?? []).find((s) => spec!.keys.some((key) => norm(s.key).includes(key)) && s.value.trim());
       return done({ text: match ? `Pour **${p.name}**, ${match.key} : **${match.value}**.` : `Cette caractéristique n’est pas renseignée pour **${p.name}**. L’équipe peut vous aider.`, productIds: [p.id], actions: [CONTACT] });
     }

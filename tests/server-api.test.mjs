@@ -68,6 +68,48 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
 
+    // Les campagnes référencent les fiches sans réécrire le catalogue.
+    const promoFile = join(serverDir, 'storage/data/products/motorcycles.json');
+    const originalCatalog = readFileSync(promoFile, 'utf8');
+    const promoProduct = JSON.parse(originalCatalog).products.find((p) => p.status === 'PUBLISHED');
+    const campaign = { id: '', name: 'Essai', description: 'Offre', bannerUrl: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: promoProduct.id, categoryId: 'motos', originalPrice: 1000000, discountPercent: 20 }] };
+    const promoAdminCookie = cookie;
+    assert.equal((await call('promotions.php?admin=1')).status, 401);
+    assert.equal((await call('promotions.php', { method: 'POST', body: { campaign } })).status, 401);
+    cookie = promoAdminCookie;
+    let promo = await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign } });
+    assert.equal(promo.status, 201, JSON.stringify(promo.body));
+    const promoId = promo.body.campaign.id;
+    const publicPromo = await call('promotions.php');
+    assert.equal(publicPromo.body.campaigns.length, 1);
+    assert.ok(!Number.isNaN(Date.parse(publicPromo.body.serverTime)));
+    assert.equal((await call(`products/motorcycles.php?id=${encodeURIComponent(promoProduct.id)}`, { method: 'DELETE', authenticated: true })).status, 409);
+    const bannerForm = new FormData();
+    bannerForm.set('banner', new Blob([readFileSync(join(serverDir, 'public/assets/company/logo-funbike-720-a3ab2dc4.png'))], { type: 'image/png' }), 'banner.png');
+    const uploaded = await call('promotions.php', { method: 'POST', authenticated: true, body: bannerForm });
+    assert.equal(uploaded.status, 201, JSON.stringify(uploaded.body));
+    assert.match(uploaded.body.url, /^\/server\/uploads\/promotions\/[a-f0-9]{32}\.png$/);
+    assert.ok(existsSync(join(dir, uploaded.body.url)));
+    const withBanner = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url } } });
+    assert.equal(withBanner.status, 200, JSON.stringify(withBanner.body));
+    assert.equal((await call('promotions.php')).body.campaigns[0].bannerUrl, uploaded.body.url);
+    const hiddenCatalog = JSON.parse(originalCatalog);
+    hiddenCatalog.products.find((p) => p.id === promoProduct.id).status = 'DRAFT';
+    writeFileSync(promoFile, JSON.stringify(hiddenCatalog));
+    assert.equal((await call('promotions.php')).body.campaigns.length, 0, 'brouillon absent publiquement');
+    assert.equal((await call('promotions.php?admin=1', { authenticated: true })).body.campaigns.length, 1, 'campagne conservée pour les administrateurs');
+    writeFileSync(promoFile, originalCatalog);
+    assert.equal((await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign } })).status, 409);
+    assert.equal((await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign: { ...campaign, startDate: '2026-02-30' } } })).status, 400);
+    assert.equal((await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign: { ...campaign, products: [{ ...campaign.products[0], originalPrice: 0 }] } } })).status, 400);
+    const badBanner = new FormData(); badBanner.set('banner', new Blob(['not an image'], { type: 'image/png' }), 'image.png');
+    assert.equal((await call('promotions.php', { method: 'POST', authenticated: true, body: badBanner })).status, 400);
+    promo = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, enabled: false } } });
+    assert.equal(promo.status, 200, JSON.stringify(promo.body));
+    assert.equal((await call('promotions.php')).body.campaigns.length, 0);
+    assert.equal((await call('promotions.php', { method: 'DELETE', authenticated: true, body: { id: promoId } })).status, 200);
+    assert.equal(readFileSync(promoFile, 'utf8'), originalCatalog);
+
     // Bibliothèque de la bannière : réservée à l’admin, sans toucher au contenu existant.
     const galleryFile = join(serverDir, 'storage/data/sherco-banner.json');
     const homeBeforeBanner = readFileSync(join(serverDir, 'api/_lib/homepage-defaults.json'), 'utf8');

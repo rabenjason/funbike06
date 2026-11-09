@@ -575,6 +575,7 @@ if ($method === "DELETE") {
         respond(false, null, "Moto introuvable.", 404);
     }
 
+    funbikePreventPromotionProductDeletion("motos", $id);
     $data["products"] = array_values($data["products"]);
     saveMotorcycles($jsonFile, $data);
 

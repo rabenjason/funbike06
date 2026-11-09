@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { Product } from "../types/product";
 import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../catalog";
 import SmartImage from "./SmartImage";
+import { PromotionPrice } from "./PromotionsContext";
 import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
@@ -87,7 +88,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
           <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
-            {bike.price ?? "Sur devis"}
+            <PromotionPrice product={bike} />
           </span>
         </div>
       </div>
@@ -138,7 +139,7 @@ export function PartCard({
         <button type="button" onClick={openDetail} className="mt-1 block w-full cursor-pointer text-left">
           <h3 className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-[#171816] [overflow-wrap:anywhere] transition group-hover:underline dark:text-[#f2f0ea]">{part.name}</h3>
         </button>
-        <p className="mt-auto pt-1.5 text-[10px] uppercase tracking-[0.1em] text-black/45 [overflow-wrap:anywhere] dark:text-white/45">{part.price ?? "Sur devis"}</p>
+        <p className="mt-auto pt-1.5 text-[10px] uppercase tracking-[0.1em] text-black/45 [overflow-wrap:anywhere] dark:text-white/45"><PromotionPrice product={part} /></p>
         {onEnquire && (
           <button
             type="button"

@@ -8,6 +8,7 @@ const pages: Record<string, [string, string]> = {
   motos: ["Motos à Madagascar | Funbike", "Découvrez les motos du catalogue Funbike à Madagascar."],
   equipements: ["Casques et équipements moto | Funbike Madagascar", "Découvrez les casques et équipements moto du catalogue Funbike."],
   spares: ["Pièces détachées moto | Funbike Madagascar", "Découvrez les pièces détachées moto du catalogue Funbike."],
+  promotions: ["Promotions | Funbike Madagascar", "Découvrez les offres promotionnelles Funbike à Madagascar."],
   revendeurs: ["Nos revendeurs | Funbike Madagascar", "Retrouvez les revendeurs et points de vente Funbike."],
   contact: ["Contact | Funbike Madagascar", "Contactez l’équipe Funbike pour vos questions sur les motos, pièces et équipements."],
 };
