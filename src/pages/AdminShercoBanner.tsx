@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { json, request } from "../lib/adminApi";
 
@@ -72,8 +74,13 @@ export function AdminShercoBanner({ onDirtyChange, onSavingChange }: { onDirtyCh
     {!legacy && !data.selected && <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900">Aucune photo n’est sélectionnée : la bannière s’affiche sans image. Choisissez une photo ci-dessous.</p>}
     {error && <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {notice && <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    <label className="block text-sm font-semibold">Ajouter une photo (JPEG, PNG ou WebP, 8 Mo maximum)
-      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} className="mt-2 block w-full text-sm" onChange={(e) => { chooseFile(e.currentTarget.files?.[0] ?? null); e.currentTarget.value = ""; }} />
+    <label className={`flex w-full max-w-lg items-center gap-4 rounded-lg border-2 border-dashed border-black/25 bg-[#faf9f5] p-4 text-left transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#98741b] ${busy ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-[#98741b] hover:bg-[#fff9df]"}`}>
+      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} aria-label="Ajouter une photo" aria-describedby="sherco-photo-hint" className="sr-only" onChange={(e) => { chooseFile(e.currentTarget.files?.[0] ?? null); e.currentTarget.value = ""; }} />
+      <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ffd100] text-lg text-[#171816]"><FontAwesomeIcon icon={faCloudArrowUp} /></span>
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-[#171816]">Choisir une photo à ajouter</span>
+        <span id="sherco-photo-hint" className="mt-1 block text-xs leading-5 text-black/65">JPEG, PNG ou WebP · 8 Mo maximum. Confirmez l’ajout après l’aperçu.</span>
+      </span>
     </label>
     {file && <div className="space-y-2 rounded-lg border border-black/10 p-3"><p className="text-sm">Aperçu avant enregistrement : {file.name}</p>{preview && <img src={preview} alt="Aperçu de la nouvelle photo" className="max-h-56 max-w-full object-contain" />}<div className="flex gap-2"><button type="button" className={primary} disabled={busy} onClick={() => void upload()}>{busy ? "Envoi…" : "Ajouter la photo"}</button><button type="button" className={secondary} disabled={busy} onClick={() => chooseFile(null)}>Annuler</button></div></div>}
     {data.images.length === 0 ? <p className="text-sm text-black/60">Aucune photo locale enregistrée.</p> : <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.images.map((image, index) => <li key={image.id} className="rounded-lg border border-black/10 p-3"><img src={image.url} alt={`Photo Sherco ${index + 1}`} loading="lazy" className="aspect-video w-full object-cover" /><p className="mt-2 text-sm font-semibold">{data.selected === image.id ? "Photo affichée" : `Photo ${index + 1}`}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" className={primary} disabled={busy || !!file || data.selected === image.id} onClick={() => void perform("sherco-banner.php", json("PUT", { id: image.id }), "Photo sélectionnée. Rechargez le site pour la voir.")}>Afficher cette photo</button><button type="button" className={secondary} disabled={busy || !!file} onClick={() => void remove(image)}>Retirer</button></div></li>)}</ul>}
