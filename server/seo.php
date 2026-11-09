@@ -48,6 +48,7 @@ $pages = [
     '/motos' => ['Motos à Madagascar | Funbike', 'Découvrez les motos du catalogue Funbike à Madagascar.', 'Nos motos'],
     '/equipements' => ['Casques et équipements moto | Funbike Madagascar', 'Découvrez les casques et équipements moto du catalogue Funbike.', 'Casques et équipements'],
     '/pieces-detachees' => ['Pièces détachées moto | Funbike Madagascar', 'Découvrez les pièces détachées moto du catalogue Funbike.', 'Pièces détachées'],
+    '/promotions' => ['Promotions | Funbike Madagascar', 'Découvrez les offres promotionnelles Funbike à Madagascar.', 'Nos promotions'],
     '/revendeurs' => ['Nos revendeurs | Funbike Madagascar', 'Retrouvez les revendeurs et points de vente Funbike.', 'Nos revendeurs'],
     '/contact' => ['Contact | Funbike Madagascar', 'Contactez l’équipe Funbike pour vos questions sur les motos, pièces et équipements.', 'Contacter Funbike'],
 ];

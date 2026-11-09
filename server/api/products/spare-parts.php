@@ -609,6 +609,7 @@ if ($method === "DELETE") {
         respond(false, null, "Pièce détachée introuvable.", 404);
     }
 
+    funbikePreventPromotionProductDeletion("pieces-detachees", $id);
     $data["products"] = array_values($data["products"]);
     saveProducts($jsonFile, $data);
 

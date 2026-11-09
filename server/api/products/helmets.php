@@ -622,6 +622,7 @@ if ($method === "DELETE") {
         respond(false, null, "Casque introuvable.", 404);
     }
 
+    funbikePreventPromotionProductDeletion("casques", $id);
     $data["products"] = array_values($data["products"]);
     saveProducts($jsonFile, $data);
 

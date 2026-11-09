@@ -1,3 +1,4 @@
+import { PromotionPrice } from "../components/PromotionsContext";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -116,7 +117,7 @@ function ProductDetail({ bike, go, back, backLabel }: ProductPageProps & { bike:
                   Prix & disponibilité
                 </p>
                 <p className="mt-1 font-display text-[clamp(1.25rem,1.1rem+0.6vw,1.65rem)] font-semibold leading-none text-[#171816] dark:text-[#f2f0ea]">
-                  {bike.price ?? "Sur devis"}
+                  <PromotionPrice product={bike} />
                 </p>
               </div>
 

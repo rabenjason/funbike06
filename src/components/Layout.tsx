@@ -19,6 +19,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
 import { LOGO, brands } from "../catalog";
+import { usePromotions } from "./PromotionsContext";
 import { content } from "../constants/content";
 import { routePath, navigateLink } from "../lib/routes";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../catalog/contact";
@@ -61,6 +62,8 @@ export function Header({
   toggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const hasPromotions = usePromotions().campaigns.length > 0;
+  const nav = hasPromotions ? NAV.flatMap((item) => item.key === "spares" ? [{ ...item, label: "Pièces" }, { key: "promotions", label: "Promotions" }] : [item]) : NAV;
   return (
     <header className="glass-header sticky top-0 z-40 border-b border-black/10 dark:border-white/10">
       <div className="mx-auto flex h-[64px] w-full max-w-(--container-site) items-center gap-4 px-4 sm:h-[68px] sm:px-7 lg:px-10">
@@ -68,8 +71,8 @@ export function Header({
           <BrandMark />
         </button>
 
-        <nav className="ml-auto hidden h-full items-center gap-3 md:flex md:gap-4 lg:gap-7">
-          {NAV.map((item) => {
+        <nav className={`ml-auto hidden h-full items-center gap-3 md:gap-4 lg:gap-7 ${hasPromotions ? "min-[1100px]:flex" : "md:flex"}`}>
+          {nav.map((item) => {
             const active =
               route.page === item.key ||
               (route.page === "product" && item.key === "motos") ||
@@ -104,7 +107,7 @@ export function Header({
           <button
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? content.navigation.fermerMenu : content.navigation.ouvrirMenu}
-            className="grid h-9 w-9 place-items-center border border-black/15 text-sm text-[#171816] md:hidden dark:border-white/15 dark:text-white"
+            className={`grid h-9 w-9 place-items-center border border-black/15 text-sm text-[#171816] dark:border-white/15 dark:text-white ${hasPromotions ? "min-[1100px]:hidden" : "md:hidden"}`}
           >
             <FontAwesomeIcon icon={open ? faXmark : faBars} />
           </button>
@@ -118,10 +121,10 @@ export function Header({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="glass-header overflow-hidden border-t border-black/10 md:hidden dark:border-white/10"
+            className={`glass-header overflow-hidden border-t border-black/10 dark:border-white/10 ${hasPromotions ? "min-[1100px]:hidden" : "md:hidden"}`}
           >
             <div className="px-4 pb-4 pt-2">
-              {NAV.map((item, index) => (
+              {nav.map((item, index) => (
                 <motion.button
                   key={item.key}
                   initial={{ opacity: 0, x: -8 }}

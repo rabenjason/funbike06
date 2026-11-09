@@ -37,7 +37,7 @@ export async function loadServerData(signal?: AbortSignal) {
   const newTypes = list<ProductType>(typeData, "productTypes");
   const newModels = list<Model>(modelData, "models");
   const normalizeProducts = (input: Product[]) => input.filter((product) => product.status === "PUBLISHED").map((product) => ({
-    ...product, description: product.description ?? "", images: Array.isArray(product.images) ? product.images : [],
+    ...product, price: "Sur devis", description: product.description ?? "", images: Array.isArray(product.images) ? product.images : [],
     specifications: Array.isArray(product.specifications) ? product.specifications : [], isNewArrival: product.isNewArrival === true,
   }));
   const motos = normalizeProducts(list<Product>(motoData, "data"));

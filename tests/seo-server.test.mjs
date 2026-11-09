@@ -46,6 +46,10 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
     let ready = false;
     for (let i = 0; i < 100; i++) { try { if ((await fetch(origin + '/robots.txt')).ok) { ready = true; break; } } catch {} await new Promise((r) => setTimeout(r, 100)); }
     assert.ok(ready, 'le serveur PHP doit démarrer');
+    const promotionsPage = await fetch(origin + '/promotions');
+    assert.equal(promotionsPage.status, 200);
+    assert.match(await promotionsPage.text(), /Nos promotions/);
+    assert.match(readFileSync('public/.htaccess', 'utf8'), /promotions\/\?/);
     const robotsResponse = await fetch(origin + '/robots.txt');
     assert.match(robotsResponse.headers.get('content-type'), /text\/plain/);
     const robots = await robotsResponse.text();

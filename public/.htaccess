@@ -7,5 +7,5 @@ RewriteRule ^index\.html$ / [R=301,L,NE]
 RewriteRule ^$ server/seo.php [L,QSA]
 # Anciennes sections vérifiées : ne pas router tous les chemins inconnus.
 RewriteRule ^(?:catalogue-motos/?|catalogue-motos/page/2/?|catalogue-equipements/?)$ server/seo.php [L,QSA,NC]
-RewriteRule ^(?:sitemap\.xml|robots\.txt|admin/?|catalogue/?|motos(?:/[^/]+)?/?|casques/[^/]+/?|equipements(?:/[^/]+)?/?|pieces-detachees(?:/[^/]+)?/?|revendeurs/?|contact/?|catalogue-motos/[^/]+/?)$ server/seo.php [L,QSA,NC]
+RewriteRule ^(?:sitemap\.xml|robots\.txt|admin/?|catalogue/?|motos(?:/[^/]+)?/?|casques/[^/]+/?|equipements(?:/[^/]+)?/?|pieces-detachees(?:/[^/]+)?/?|revendeurs/?|promotions/?|contact/?|catalogue-motos/[^/]+/?)$ server/seo.php [L,QSA,NC]
 </IfModule>

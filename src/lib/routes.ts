@@ -2,7 +2,7 @@ import { products } from "../catalog/products";
 import type { Product } from "../types/product";
 
 export type SiteRoute = { page: string; id?: string; categoryId?: string };
-const pages: Record<string, string> = { home: "/", catalogue: "/catalogue", motos: "/motos", equipements: "/equipements", spares: "/pieces-detachees", revendeurs: "/revendeurs", contact: "/contact" };
+const pages: Record<string, string> = { home: "/", catalogue: "/catalogue", motos: "/motos", equipements: "/equipements", spares: "/pieces-detachees", promotions: "/promotions", revendeurs: "/revendeurs", contact: "/contact" };
 
 /** L'identifiant immuable, et non le nom modifiable, constitue le lien public. */
 export function productPath(product: Product): string {

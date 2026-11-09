@@ -5,6 +5,8 @@ import CatChat from "./components/CatChat";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
 import { RouteProgress } from "./components/Loaders";
 import Home from "./pages/Home";
+import Promotions from "./pages/Promotions";
+import { PromotionsProvider } from "./components/PromotionsContext";
 import { Catalogue, Equipements, Spares } from "./pages/Catalog";
 import Product from "./pages/Product";
 import AccessoryDetail from "./pages/AccessoryDetail";
@@ -39,6 +41,8 @@ function routeLabel(route: Route): string {
       const part = findProductById(route.id);
       return part ? part.name : "Fiche produit";
     }
+    case "promotions":
+      return "Promotions";
     case "revendeurs":
       return "Revendeurs";
     case "contact":
@@ -112,7 +116,7 @@ export default function App() {
   }, [canGoBack, go]);
 
   return (
-    <MotionConfig reducedMotion="user">
+    <PromotionsProvider><MotionConfig reducedMotion="user">
       {progressKey > 0 && <RouteProgress key={progressKey} />}
 
       <div className="min-h-screen bg-white text-[#171816] transition-colors duration-300 dark:bg-[#141513] dark:text-[#f2f0ea]">
@@ -131,6 +135,7 @@ export default function App() {
               {route.page === "catalogue" && <Catalogue go={go} />}
               {route.page === "motos" && <Catalogue go={go} motosOnly initialQuery={route.id} />}
               {route.page === "equipements" && <Equipements go={go} initialBrand={route.id} />}
+              {route.page === "promotions" && <Promotions go={go} />}
               {route.page === "spares" && <Spares go={go} initialBrand={route.id} />}
               {route.page === "product" && (
                 <Product id={route.id} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />
@@ -147,6 +152,6 @@ export default function App() {
         <CatChat go={go} hiddenOnMobile={cookieOpen} />
         <CookieConsent open={cookieOpen} onClose={() => setCookieOpen(false)} />
       </div>
-    </MotionConfig>
+    </MotionConfig></PromotionsProvider>
   );
 }
