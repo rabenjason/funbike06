@@ -36,6 +36,8 @@ test('site : menu, cartes, prix et retour à Sur devis après désactivation', a
     React.createElement(Promotions, { go: () => {} }),
     React.createElement('aside', { 'aria-label': 'Catalogue' }, React.createElement(BikeCard, { bike: product, go: () => {} }))));
   await waitFor(() => assert.ok(view.getByText('Promo Noël')));
+  assert.ok(view.getByText('Offre du 01/01/2020 au 31/12/2099 inclus.'));
+  assert.equal(view.queryByRole('timer'), null);
   assert.ok(view.getByRole('link', { name: 'Promotions' }));
   assert.ok(view.getByRole('link', { name: 'Pièces' }));
   assert.equal(view.queryByText('Texte non souhaité'), null);
@@ -245,13 +247,97 @@ test('campagne du 9 au 10 novembre : compteur dès la veille et commandes compac
     assert.equal(view.getByRole('timer').textContent, '1 j 07:21:00');
     assert.match(view.getByRole('timer').getAttribute('aria-label'), /1 jour, 7 heures, 21 minutes et 0 secondes/);
     const title = view.getByRole('heading', { name: 'Promotion noel' });
-    const date = view.getByText('Offre du 09/11/2026 au 10/11/2026 inclus.');
-    assert.equal(date.parentElement.parentElement, title.parentElement, 'date à droite dans la même ligne que le titre');
-    assert.ok(date.parentElement.classList.contains('justify-end'));
+    assert.equal(view.queryByText('Offre du 09/11/2026 au 10/11/2026 inclus.'), null, 'les dates disparaissent lorsque le compte à rebours apparaît');
+    const timer = view.getByRole('timer');
+    assert.equal(timer.parentElement.parentElement, title.parentElement, 'titre et compte à rebours partagent la même ligne compacte');
+    assert.ok(!timer.parentElement.className.includes('bg-') && !timer.parentElement.className.includes('border'), 'aucun fond ni encadrement autour du compte à rebours');
     const search = view.getByLabelText('Rechercher une promotion');
     const type = view.getByLabelText('Filtrer par type');
     assert.ok(search.parentElement.classList.contains('sm:w-72'));
     assert.ok(type.parentElement.classList.contains('sm:w-52'));
     assert.ok(search.classList.contains('h-10') && type.classList.contains('h-10'));
   } finally { Date.now = realNow; }
+});
+
+
+test('dashboard : parcourir, trier, sélectionner et renseigner les promotions sur plusieurs pages', async () => {
+  const base = catalog.motorcycles[0];
+  const entries = Array.from({ length: 16 }, (_, index) => ({ ...structuredClone(base), id: `fixture-${index}`, name: `Produit ${String(index).padStart(2, '0')}`, categoryId: index >= 12 ? 'equipements' : 'motos', status: index === 10 ? 'DRAFT' : 'PUBLISHED' }));
+  const adminCatalog = { products: entries, brands: catalog.brands, categories: [{ id: 'motos', name: 'Motos' }, { id: 'equipements', name: 'Équipements' }], families: [], types: [], models: [] };
+  let saved;
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('promotions-display.php')) return { ok: true, json: async () => ({ data: { preferredCategory: 'motos' }, revision: 'r1' }) };
+    if (options.method === 'POST') { saved = JSON.parse(options.body).campaign; return { ok: true, json: async () => ({ campaigns: [{ ...saved, id: 'saved' }] }) }; }
+    return { ok: true, json: async () => ({ campaigns: [] }) };
+  };
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotions, { catalog: adminCatalog, onDirtyChange: () => {}, onSavingChange: () => {}, productEditor: () => null })));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Créer une promotion' })));
+  fireEvent.click(view.getByRole('button', { name: 'Créer une promotion' }));
+  fireEvent.change(view.getByLabelText('Nom'), { target: { value: 'Offre test' } });
+  fireEvent.change(view.getByLabelText('Début (Madagascar)'), { target: { value: '2026-11-09' } });
+  fireEvent.change(view.getByLabelText('Fin incluse (Madagascar)'), { target: { value: '2026-11-10' } });
+  fireEvent.click(view.getByRole('button', { name: 'Liste des produits' }));
+  assert.equal(view.getAllByRole('checkbox', { name: /Sélectionner Produit/ }).length, 8);
+  const page = view.getByRole('navigation', { name: 'Pagination de la liste des produits' });
+  assert.match(page.textContent, /Page 1 sur 2/);
+  for (let index = 0; index < 8; index++) {
+    const checkbox = view.getByRole('checkbox', { name: `Sélectionner Produit ${String(index).padStart(2, '0')}` });
+    fireEvent.click(checkbox);
+    const row = checkbox.closest('div');
+    fireEvent.change(within(row).getByLabelText('Prix original (Ar)'), { target: { value: '1000' } });
+    fireEvent.change(within(row).getByLabelText('Réduction (%)'), { target: { value: '20' } });
+    assert.match(row.textContent, /800 Ar/);
+  }
+  fireEvent.click(within(page).getByRole('button', { name: 'Suivant' }));
+  for (const index of [8, 9]) {
+    const checkbox = view.getByRole('checkbox', { name: `Sélectionner Produit ${String(index).padStart(2, '0')}` });
+    fireEvent.click(checkbox); const row = checkbox.closest('div');
+    fireEvent.change(within(row).getByLabelText('Prix original (Ar)'), { target: { value: '2000' } });
+    fireEvent.change(within(row).getByLabelText('Réduction (%)'), { target: { value: '10' } });
+  }
+  const ninth = view.getByRole('checkbox', { name: 'Sélectionner Produit 08' });
+  fireEvent.click(ninth);
+  assert.ok(view.getByRole('alertdialog')); fireEvent.click(within(view.getByRole('alertdialog')).getByRole('button', { name: 'Annuler' }));
+  assert.equal(view.getByRole('checkbox', { name: 'Sélectionner Produit 08' }).checked, true, 'annuler conserve le produit et sa réduction');
+  fireEvent.click(view.getByRole('button', { name: 'Produits sélectionnés (10)' }));
+  const selectedPage = view.getByRole('navigation', { name: 'Pagination des produits sélectionnés' });
+  assert.match(selectedPage.textContent, /Page 1 sur 2/);
+  assert.equal(view.getAllByLabelText('Prix original (Ar)').length, 8);
+  fireEvent.click(within(selectedPage).getByRole('button', { name: 'Suivant' }));
+  assert.equal(view.getAllByLabelText('Prix original (Ar)').length, 2);
+  assert.equal(view.getAllByLabelText('Prix original (Ar)')[0].value, '2000');
+  fireEvent.click(view.getByRole('button', { name: 'Liste des produits' }));
+  fireEvent.change(view.getByLabelText('Catégorie'), { target: { value: 'equipements' } });
+  fireEvent.change(view.getByLabelText('Trier par'), { target: { value: 'name-desc' } });
+  assert.equal(view.getAllByRole('checkbox', { name: /Sélectionner Produit/ })[0].getAttribute('aria-label'), 'Sélectionner Produit 15');
+  assert.equal(view.getAllByRole('checkbox', { name: /Sélectionner Produit/ }).length, 4);
+  fireEvent.change(view.getByLabelText('Rechercher dans la liste'), { target: { value: 'produit 13' } });
+  assert.ok(view.getByRole('checkbox', { name: 'Sélectionner Produit 13' }));
+  assert.equal(view.queryByRole('navigation', { name: 'Pagination de la liste des produits' }), null);
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer la campagne' }));
+  await waitFor(() => assert.ok(saved));
+  assert.equal(saved.products.length, 10);
+  assert.deepEqual(saved.products.find((item) => item.productId === 'fixture-8'), { productId: 'fixture-8', categoryId: 'motos', originalPrice: 2000, discountPercent: 10 });
+});
+
+test('la date disparaît automatiquement quand le compteur commence', async () => {
+  const product = catalog.motorcycles[0];
+  const campaign = { id: 'transition', name: 'Transition', startDate: '2026-11-01', endDate: '2026-11-10', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 300, discountPercent: 2 }] };
+  const realNow = Date.now, realInterval = window.setInterval, realClear = window.clearInterval;
+  let now = Date.parse('2026-11-08T20:59:59Z');
+  const timers = new Map(); let next = -1;
+  Date.now = () => now;
+  window.setInterval = (fn, delay, ...args) => { if (delay !== 1000) return realInterval.call(window, fn, delay, ...args); const id = next--; timers.set(id, fn); return id; };
+  window.clearInterval = (id) => { if (timers.has(id)) timers.delete(id); else realClear.call(window, id); };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date(now).toISOString() }) });
+  try {
+    const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+    await waitFor(() => assert.ok(view.getByText('Offre du 01/11/2026 au 10/11/2026 inclus.')));
+    assert.equal(view.queryByRole('timer'), null);
+    now += 1000;
+    act(() => { for (const tick of timers.values()) tick(); });
+    assert.equal(view.queryByText('Offre du 01/11/2026 au 10/11/2026 inclus.'), null);
+    assert.equal(view.getByRole('timer').textContent, '2 j 00:00:00');
+    view.unmount(); assert.equal(timers.size, 0);
+  } finally { Date.now = realNow; window.setInterval = realInterval; window.clearInterval = realClear; }
 });

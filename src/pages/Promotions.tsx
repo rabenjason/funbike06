@@ -17,8 +17,8 @@ const perPage = 8;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const typeKey = (product: Product) => `${product.categoryId}:${product.productTypeId}`;
 
-/** The ticking clock is isolated here so the product cards do not rerender each second. */
-function Countdown({ endDate, clockOffset }: { endDate: string; clockOffset: number }) {
+/** L’horloge est isolée pour ne pas réafficher toutes les cartes chaque seconde. */
+function CampaignHeader({ campaign, clockOffset }: { campaign: Promotion; clockOffset: number }) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -28,18 +28,19 @@ function Countdown({ endDate, clockOffset }: { endDate: string; clockOffset: num
     document.addEventListener("visibilitychange", visible);
     return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
   }, []);
-  const remaining = promotionCountdown(endDate, now + clockOffset);
-  if (!remaining) return null;
-  const [totalHours, minutes, seconds] = remaining.split(':').map(Number);
+  const remaining = promotionCountdown(campaign.endDate, now + clockOffset);
+  const [totalHours, minutes, seconds] = (remaining ?? "00:00:00").split(':').map(Number);
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
   const clock = [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
   const spoken = `${days ? `${days} jour${days > 1 ? 's' : ''}, ` : ''}${hours} heures, ${minutes} minutes et ${seconds} secondes restantes`;
-  return <div className="shrink-0 rounded-md border border-[#d3a900]/35 bg-[#ffd100]/10 px-3 py-2 text-[#171816] dark:border-[#ffd100]/30 dark:text-[#f2f0ea]">
-    <p className="text-xs font-semibold">Se termine dans</p>
-    <p role="timer" aria-live="off" aria-label={spoken} className="mt-0.5 font-display text-lg font-bold tabular-nums text-[#98741b] dark:text-[#ffd100]">{days > 0 && `${days} j `}{clock}</p>
-    <p className="text-[10px] text-black/55 dark:text-white/60">Heure de Madagascar</p>
-  </div>;
+  return <section aria-labelledby={`promotion-${campaign.id}`}>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <h2 id={`promotion-${campaign.id}`} className="fluid-h2 min-w-0 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">{campaign.name}</h2>
+      {remaining ? <p className="text-sm text-black/60 dark:text-white/60">Se termine dans <strong role="timer" aria-live="off" aria-label={spoken} className="font-display font-bold tabular-nums text-[#98741b] dark:text-[#ffd100]">{days > 0 && `${days} j `}{clock}</strong> <span className="text-xs">(heure de Madagascar)</span></p>
+        : <p className="text-sm text-black/60 dark:text-white/60">Offre du {campaign.startDate.split('-').reverse().join('/')} au {campaign.endDate.split('-').reverse().join('/')} inclus.</p>}
+    </div>
+  </section>;
 }
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
@@ -77,16 +78,8 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
     {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
     {status === "ready" && campaigns.length === 0 && <div><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
     {status === "ready" && campaigns.length > 0 && <>
-      <div className="space-y-6">{campaigns.map((campaign) => <section key={campaign.id} aria-labelledby={`promotion-${campaign.id}`}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <h2 id={`promotion-${campaign.id}`} className="fluid-h2 min-w-0 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">{campaign.name}</h2>
-          <div className="flex w-full flex-wrap items-center justify-end gap-3 sm:ml-auto sm:w-auto">
-            <p className="text-right text-sm text-black/60 dark:text-white/60">Offre du {campaign.startDate.split('-').reverse().join('/')} au {campaign.endDate.split('-').reverse().join('/')} inclus.</p>
-            <Countdown endDate={campaign.endDate} clockOffset={clockOffset} />
-          </div>
-        </div>
-      </section>)}</div>
-      {active && <section className="mt-7" aria-label="Produits en promotion">
+      <div className="space-y-4">{campaigns.map((campaign) => <CampaignHeader key={campaign.id} campaign={campaign} clockOffset={clockOffset} />)}</div>
+      {active && <section className="mt-4" aria-label="Produits en promotion">
         <div className="flex gap-5 overflow-x-auto border-b border-black/10 dark:border-white/10" aria-label="Catégories de promotions">
           {available.map((group) => <button key={group.key} type="button" aria-pressed={active.key === group.key} onClick={() => { setChosenCategory(group.key); setType(""); setPage(1); }} className={`shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${active.key === group.key ? "border-[#ffd100] text-[#171816] dark:text-white" : "border-transparent text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"}`}>{group.label}</button>)}
         </div>
