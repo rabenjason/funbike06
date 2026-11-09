@@ -45,6 +45,18 @@ test('administration : aperçu, ajout, sélection et retrait seulement après co
   setup(); const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminBanner, { onDirtyChange: (v) => { dirty = v; }, onSavingChange() {} })));
   await waitFor(() => assert.ok(view.getByText(/encore hébergée chez Sherco/)));
   const input = view.getByLabelText(/Ajouter une photo/);
+  const chooser = view.getByText('Choisir une photo à ajouter');
+  const label = chooser.closest('label');
+  assert.ok(label.contains(input), 'toute la zone ouvre le sélecteur de fichier');
+  assert.ok(label.querySelector('[aria-hidden="true"] svg'), 'le symbole de téléversement est visible et décoratif');
+  assert.match(view.container.querySelector(`#${input.getAttribute('aria-describedby')}`).textContent, /8 Mo maximum/);
+  let chooserOpened = false;
+  input.addEventListener('click', () => { chooserOpened = true; }, { once: true });
+  fireEvent.click(chooser);
+  assert.ok(chooserOpened, 'un clic sur le texte active le champ fichier');
+  assert.equal(input.disabled, false);
+  input.focus();
+  assert.equal(document.activeElement, input, 'le champ reste accessible au clavier');
   fireEvent.change(input, { target: { files: [new window.File(['photo'], 'photo.png', { type: 'image/png' })] } });
   assert.equal(dirty, true); assert.ok(view.getByAltText('Aperçu de la nouvelle photo'));
   fireEvent.click(view.getByRole('button', { name: 'Annuler' })); assert.equal(dirty, false); assert.equal(calls.length, 1);
