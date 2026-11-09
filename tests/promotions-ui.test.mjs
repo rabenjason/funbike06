@@ -108,3 +108,47 @@ test('prix de la fiche conserve le pourcentage et affiche Sur devis sans offre',
   assert.match(view.container.textContent, /300 Ar/);
   assert.match(view.container.textContent, /2 %/);
 });
+
+test('une campagne mixte classe les offres par catégorie et conserve les liens et les prix', async () => {
+  const moto = catalog.motorcycles[0], gear = catalog.ridingGear[0], helmet = catalog.helmets[0], part = catalog.spareParts[0];
+  assert.ok(moto && gear && helmet && part, 'fixtures des quatre catégories');
+  const selected = [part, helmet, moto, gear];
+  const campaign = { id: 'mixte', name: 'Offres de saison', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: selected.map((p) => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 })) };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date().toISOString() }) });
+  const calls = [];
+  const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go: (...args) => calls.push(args) })));
+  await waitFor(() => assert.ok(view.getByText('Offres de saison')));
+  const motoSection = view.getByRole('region', { name: 'Motos' });
+  const equipmentSection = view.getByRole('region', { name: 'Équipements et casques' });
+  const partsSection = view.getByRole('region', { name: 'Pièces détachées' });
+  assert.equal(motoSection.querySelectorAll('article').length, 1);
+  assert.equal(equipmentSection.querySelectorAll('article').length, 2);
+  assert.equal(partsSection.querySelectorAll('article').length, 1);
+  assert.ok(motoSection.textContent.includes(moto.name));
+  assert.ok(equipmentSection.textContent.includes(helmet.name) && equipmentSection.textContent.includes(gear.name));
+  assert.ok(partsSection.textContent.includes(part.name));
+  assert.match(equipmentSection.textContent, /2 produits/);
+  assert.equal(view.queryByRole('region', { name: 'Autres produits' }), null);
+  for (const section of [motoSection, equipmentSection, partsSection]) {
+    const grid = section.querySelector('.grid');
+    assert.ok(grid.classList.contains('grid-cols-2') && grid.classList.contains('lg:grid-cols-4'));
+    assert.ok(section.querySelector('[aria-label="Réduction de 20 %"]'));
+    assert.match(section.textContent, /800\s?000 Ar/);
+  }
+  fireEvent.click(within(motoSection).getByRole('button', { name: /Découvrir/i }));
+  assert.deepEqual(calls.pop(), ['product', moto.id]);
+  fireEvent.click(within(partsSection).getByRole('button', { name: part.name }));
+  assert.deepEqual(calls.pop(), ['accessory', part.id, part.categoryId]);
+  assert.equal(view.queryByText('Description masquée'), null);
+});
+
+test('les catégories sans promotion ne sont pas affichées', async () => {
+  const moto = catalog.motorcycles[0];
+  const campaign = { id: 'moto', name: 'Promo moto', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: moto.id, categoryId: moto.categoryId, originalPrice: 300, discountPercent: 2 }] };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+  await waitFor(() => assert.ok(view.getByRole('region', { name: 'Motos' })));
+  assert.equal(view.queryByRole('region', { name: 'Équipements et casques' }), null);
+  assert.equal(view.queryByRole('region', { name: 'Pièces détachées' }), null);
+  assert.match(view.getByRole('region', { name: 'Motos' }).textContent, /1 produit/);
+});

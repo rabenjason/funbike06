@@ -10,12 +10,13 @@ import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
-export function BikeCard({ bike, go, uniformLayout = false, alignActions = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean }) {
+export function BikeCard({ bike, go, uniformLayout = false, alignActions = false, compact = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean; compact?: boolean }) {
   const aligned = uniformLayout || alignActions;
   const gallery = productGallery(bike);
   const family = getProductFamily(bike)?.name;
   const [active, setActive] = useState(0);
   const onPromotion = !!usePromotions().offer(bike);
+  const Heading = compact ? "h4" : "h3";
 
   return (
     <motion.article
@@ -37,7 +38,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             src={gallery[active] ?? mainProductImage(bike)?.url ?? ""}
             alt={mainProductImage(bike)?.altText ?? bike.name}
             className="absolute inset-0"
-            imgClassName="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04] sm:p-5"
+            imgClassName={compact ? "object-contain p-3 transition-transform duration-500 group-hover:scale-[1.04] sm:p-4" : "object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04] sm:p-5"}
           />
         </a>
         <PromotionBadge product={bike} />
@@ -67,25 +68,25 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         )}
       </div>
 
-      <div className="flex flex-1 flex-col border-t border-black/[0.07] p-4 sm:p-5 dark:border-white/[0.07]">
+      <div className={"flex flex-1 flex-col border-t border-black/[0.07] dark:border-white/[0.07] " + (compact ? "p-3 sm:p-4" : "p-4 sm:p-5")}>
         <p className={"text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45 dark:text-white/45 " + (uniformLayout ? "line-clamp-1" : "")}>
           {brandName(bike)}{family ? ` · ${family}` : ""}
         </p>
-        <h3
+        <Heading
           title={uniformLayout ? bike.name : undefined}
-          className={"mt-2 font-display text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] font-bold uppercase leading-[1.05] tracking-[-0.02em] text-[#171816] dark:text-white " + (uniformLayout ? "line-clamp-2 min-h-[2.1em] [overflow-wrap:anywhere]" : alignActions ? "[overflow-wrap:anywhere]" : "")}
+          className={"mt-2 font-display font-bold uppercase tracking-[-0.02em] text-[#171816] dark:text-white " + (compact ? "text-sm leading-[1.1] sm:text-base " : "text-[clamp(1.25rem,1.05rem+0.7vw,1.6rem)] leading-[1.05] ") + (uniformLayout ? (compact ? "line-clamp-2 [overflow-wrap:anywhere]" : "line-clamp-2 min-h-[2.1em] [overflow-wrap:anywhere]") : alignActions ? "[overflow-wrap:anywhere]" : "")}
         >
           {bike.name}
-        </h3>
-        <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em] [overflow-wrap:anywhere]" : "")}>{bike.description}</p>
+        </Heading>
+        <p className={(compact ? "mt-2 text-xs leading-5 " : "fluid-body mt-2.5 ") + "line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? (compact ? "[overflow-wrap:anywhere]" : "min-h-[3.2em] [overflow-wrap:anywhere]") : "")}>{bike.description}</p>
 
-        {onPromotion && <div className="mt-auto pt-4"><PromotionPrice product={bike} card /></div>}
+        {onPromotion && <div className={compact ? "mt-auto pt-3" : "mt-auto pt-4"}><PromotionPrice product={bike} card /></div>}
         <div className={onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => go("product", bike.id)}
-            className={"fluid-btn inline-flex min-h-10 items-center gap-2.5 border border-black/25 px-4 py-2.5 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (aligned ? "shrink-0 whitespace-nowrap" : "")}
+            className={"inline-flex min-h-10 items-center gap-2.5 border border-black/25 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (compact ? "px-3 py-2 text-[10px] " : "fluid-btn px-4 py-2.5 ") + (aligned ? "shrink-0 whitespace-nowrap" : "")}
           >
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
@@ -112,13 +113,17 @@ export function PartCard({
   part,
   go,
   onEnquire,
+  compact = false,
 }: {
   part: Product;
   go?: (p: string, id?: string, categoryId?: string) => void;
   onEnquire?: (part: Product) => void;
+  /** La page Promotions place la carte sous un titre de catégorie. */
+  compact?: boolean;
 }) {
   const openDetail = () => go?.("accessory", part.id, part.categoryId);
   const image = mainProductImage(part);
+  const Heading = compact ? "h4" : "h3";
 
   return (
     <motion.article
@@ -141,7 +146,7 @@ export function PartCard({
       <div className="flex flex-1 flex-col px-1 pb-1 pt-2.5">
         <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#98741b] [overflow-wrap:anywhere] dark:text-[#ffd100]">{partEyebrow(part)}</p>
         <button type="button" onClick={openDetail} className="mt-1 block w-full cursor-pointer text-left">
-          <h3 className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-[#171816] [overflow-wrap:anywhere] transition group-hover:underline dark:text-[#f2f0ea]">{part.name}</h3>
+          <Heading className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-[#171816] [overflow-wrap:anywhere] transition group-hover:underline dark:text-[#f2f0ea]">{part.name}</Heading>
         </button>
         <p className="mt-auto pt-1.5 text-[10px] uppercase tracking-[0.1em] text-black/45 [overflow-wrap:anywhere] dark:text-white/45"><PromotionPrice product={part} card /></p>
         {onEnquire && (
