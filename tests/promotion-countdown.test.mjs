@@ -8,13 +8,17 @@ before(async () => {
 });
 after(async () => { await server.close(); });
 
-test('compte à rebours : dernières 24 h jusqu’à minuit à Madagascar, fin incluse', () => {
+test('compte à rebours : veille et dernier jour jusqu’à minuit à Madagascar, fin incluse', () => {
   const at = (value) => Date.parse(value);
-  assert.equal(countdown('2026-12-12', at('2026-12-11T20:59:59.999Z')), null);
+  assert.equal(countdown('2026-12-12', at('2026-12-10T20:59:59.999Z')), null);
+  assert.equal(countdown('2026-12-12', at('2026-12-10T21:00:00.000Z')), '48:00:00');
+  assert.equal(countdown('2026-12-12', at('2026-12-11T13:39:00.000Z')), '31:21:00');
+  assert.equal(countdown('2026-12-12', at('2026-12-11T20:59:59.999Z')), '24:00:01');
   assert.equal(countdown('2026-12-12', at('2026-12-11T21:00:00.000Z')), '24:00:00');
   assert.equal(countdown('2026-12-12', at('2026-12-12T09:30:15.000Z')), '11:29:45');
   assert.equal(countdown('2026-12-12', at('2026-12-12T20:59:59.999Z')), '00:00:01');
   assert.equal(countdown('2026-12-12', at('2026-12-12T21:00:00.000Z')), null);
+  assert.equal(countdown('2026-11-10', at('2026-11-09T13:39:00Z')), '31:21:00');
   assert.equal(countdown('2024-02-29', at('2024-02-29T20:00:00Z')), '01:00:00');
   assert.equal(countdown('2023-02-29', at('2023-02-28T20:00:00Z')), null);
   assert.equal(countdown('2026-13-12', at('2026-12-12T20:00:00Z')), null);
