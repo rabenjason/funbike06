@@ -1,14 +1,15 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "../types/product";
 import { products } from "../catalog/products";
-import { calculatePromotionPrice, formatAriary, isPromotionActive, type Promotion, type PromotionProduct } from "../lib/promotions";
+import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Promotion[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [offset, setOffset] = useState(0);
+  const [preferredCategory, setPreferredCategory] = useState<PromotionCategory>("motos");
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     let alive = true; let sequence = 0; let midnight: number | undefined;
@@ -21,7 +22,7 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
         if (alive && number === sequence) {
           const serverNow = Date.parse(result.serverTime);
-          setOffset(serverNow - Date.now()); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
+          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
           window.clearTimeout(midnight);
           const elapsed = ((serverNow + 3 * 3600000) % 86400000 + 86400000) % 86400000;
           midnight = window.setTimeout(() => { setClock(Date.now()); void refresh(); }, 86400000 - elapsed + 1000);
@@ -38,8 +39,8 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     const now = new Date(clock + offset);
     const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status, clockOffset: offset };
-  }, [data, offset, clock, status]);
+    return { campaigns, offer, status, clockOffset: offset, preferredCategory };
+  }, [data, offset, clock, status, preferredCategory]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function PromotionBadge({ product }: { product: Product }) {

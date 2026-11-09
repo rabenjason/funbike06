@@ -1,0 +1,20 @@
+<?php
+require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/promotions-display.php';
+funbikeBootstrapApi();
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+funbikeProtectWriteMethods($method);
+funbikeRequireAdmin();
+if (!in_array($method, ['GET', 'PUT'], true)) funbikeJsonResponse(405, ['error' => 'Méthode non autorisée.']);
+$current = funbikePromotionDisplayRead();
+if ($current === null) funbikeJsonResponse(500, ['error' => 'Réglage d’affichage invalide. Restaurez une sauvegarde.']);
+$revision = funbikePromotionDisplayRevision($current);
+if ($method === 'GET') funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision]);
+$body = funbikeReadJsonBody();
+if (!is_string($body['revision'] ?? null) || !hash_equals($revision, $body['revision'])) funbikeJsonResponse(409, ['error' => 'Le réglage a changé. Rechargez avant de réenregistrer.']);
+$category = $body['preferredCategory'] ?? null;
+if (!in_array($category, ['motos', 'equipements', 'pieces'], true)) funbikeJsonResponse(400, ['error' => 'Catégorie invalide.']);
+$data = ['preferredCategory' => $category];
+$file = dirname(__DIR__) . '/storage/data/promotions-display.json';
+if (!funbikeAtomicWrite($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le réglage.']);
+funbikeJsonResponse(200, ['data' => $data, 'revision' => funbikePromotionDisplayRevision($data)]);
