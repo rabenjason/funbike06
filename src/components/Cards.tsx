@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import type { Product } from "../types/product";
 import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../catalog";
 import SmartImage from "./SmartImage";
-import { PromotionPrice } from "./PromotionsContext";
+import { PromotionBadge, PromotionPrice, usePromotions } from "./PromotionsContext";
 import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
@@ -15,6 +15,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
   const gallery = productGallery(bike);
   const family = getProductFamily(bike)?.name;
   const [active, setActive] = useState(0);
+  const onPromotion = !!usePromotions().offer(bike);
 
   return (
     <motion.article
@@ -39,6 +40,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             imgClassName="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04] sm:p-5"
           />
         </a>
+        <PromotionBadge product={bike} />
 
         {gallery.length > 1 && (
           <div className="absolute inset-x-0 bottom-3 z-10 flex items-center justify-center gap-1.5">
@@ -77,7 +79,8 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         </h3>
         <p className={"fluid-body mt-2.5 line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? "min-h-[3.2em] [overflow-wrap:anywhere]" : "")}>{bike.description}</p>
 
-        <div className={"flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
+        {onPromotion && <div className="mt-auto pt-4"><PromotionPrice product={bike} card /></div>}
+        <div className={onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
@@ -87,9 +90,9 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
-          <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
+          {!onPromotion && <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
             <PromotionPrice product={bike} />
-          </span>
+          </span>}
         </div>
       </div>
     </motion.article>
@@ -126,20 +129,21 @@ export function PartCard({
       transition={{ duration: 0.32, ease: "easeOut" }}
       className="fb-card group flex min-w-0 flex-col overflow-hidden p-1.5 sm:p-2"
     >
-      <a href={productPath(part)} onClick={(event) => { if (go) navigateLink(event, go, "accessory", part.id, part.categoryId); }} aria-label={`Voir les détails de ${part.name}`} className="block w-full cursor-pointer text-left">
+      <a href={productPath(part)} onClick={(event) => { if (go) navigateLink(event, go, "accessory", part.id, part.categoryId); }} aria-label={`Voir les détails de ${part.name}`} className="relative block w-full cursor-pointer text-left">
         <SmartImage
           src={image?.url ?? ""}
           alt={image?.altText ?? part.name}
           className="fb-card-media-white aspect-square"
           imgClassName="object-contain p-2 transition-transform duration-500 group-hover:scale-105 sm:p-3"
         />
+        <PromotionBadge product={part} />
       </a>
       <div className="flex flex-1 flex-col px-1 pb-1 pt-2.5">
         <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#98741b] [overflow-wrap:anywhere] dark:text-[#ffd100]">{partEyebrow(part)}</p>
         <button type="button" onClick={openDetail} className="mt-1 block w-full cursor-pointer text-left">
           <h3 className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-[#171816] [overflow-wrap:anywhere] transition group-hover:underline dark:text-[#f2f0ea]">{part.name}</h3>
         </button>
-        <p className="mt-auto pt-1.5 text-[10px] uppercase tracking-[0.1em] text-black/45 [overflow-wrap:anywhere] dark:text-white/45"><PromotionPrice product={part} /></p>
+        <p className="mt-auto pt-1.5 text-[10px] uppercase tracking-[0.1em] text-black/45 [overflow-wrap:anywhere] dark:text-white/45"><PromotionPrice product={part} card /></p>
         {onEnquire && (
           <button
             type="button"
