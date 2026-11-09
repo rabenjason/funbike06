@@ -65,6 +65,7 @@ test('onglet unique : textes, destination TVS et photo, changements non enregist
   fireEvent.change(view.getByLabelText(/Ajouter une photo/), { target: { files: [file] } });
   fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.ok(view.getByText(/Image ajoutée/)));
+  await waitFor(() => assert.equal(view.getByRole('button', { name: 'Textes et liens' }).disabled, false));
   fireEvent.click(view.getByRole('button', { name: 'Textes et liens' }));
   assert.ok(view.getByRole('alertdialog'), 'enregistrer la photo ne doit pas effacer la protection du brouillon texte');
   fireEvent.click(view.getByRole('button', { name: 'Continuer à modifier' }));
@@ -74,6 +75,7 @@ test('onglet unique : textes, destination TVS et photo, changements non enregist
   assert.deepEqual(data.bannerLink, { to: 'motos', brandId: 'tvs' });
   assert.equal(photoData.selected, selected);
   assert.equal(data.content.hero.titreLigne1, defaults.content.hero.titreLigne1);
+  await waitFor(() => assert.equal(view.getByRole('button', { name: 'Textes et liens' }).disabled, false));
   fireEvent.change(view.getByLabelText('Destination du bouton'), { target: { value: 'contact' } });
   assert.equal(view.getByLabelText('Marque du bouton (facultatif)').value, '');
   assert.equal(view.getByLabelText('Marque du bouton (facultatif)').disabled, true);

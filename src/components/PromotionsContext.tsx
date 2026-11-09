@@ -3,7 +3,7 @@ import type { Product } from "../types/product";
 import { products } from "../catalog/products";
 import { calculatePromotionPrice, formatAriary, isPromotionActive, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Promotion[]>([]);
@@ -38,7 +38,7 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     const now = new Date(clock + offset);
     const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status };
+    return { campaigns, offer, status, clockOffset: offset };
   }, [data, offset, clock, status]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
