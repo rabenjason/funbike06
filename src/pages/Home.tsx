@@ -54,6 +54,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               key={current.id}
               src={heroImage.url}
               alt={heroImage.altText || current.name}
+              fetchPriority={activeIndex === 0 ? "high" : "auto"}
               initial={{ opacity: 0, scale: 1.035 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
