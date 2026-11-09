@@ -1,0 +1,6 @@
+# Uniquement les fichiers à nom unique : ne jamais mettre en cache les API ou données privées.
+<IfModule mod_headers.c>
+  <FilesMatch "^sherco-[a-f0-9]{32}\.(jpg|png|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

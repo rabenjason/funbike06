@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
 let server, LOGO, Header, Footer;
-const logoUrl = '/server/public/assets/company/logo-funbike.png';
+const logoUrl = '/server/public/assets/company/logo-funbike-720-a3ab2dc4.png';
 before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   ({ LOGO } = await server.ssrLoadModule('/src/catalog/brands.ts'));

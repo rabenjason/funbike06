@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { HomepageManager, type AdminCatalog, type HomepageField } from "./AdminCatalog";
+import { AdminShercoBanner } from "./AdminShercoBanner";
 import { json, request } from "../lib/adminApi";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { validHomepage, type HomepageContent, type HomepageData, type HomepageLink } from "../content/homepage";
@@ -31,19 +32,20 @@ const destinations: { value: HomepageLink["to"]; label: string }[] = [
 const icons: { value: HomepageLink["icon"]; label: string }[] = [{ value: "moto", label: "Moto" }, { value: "helmet", label: "Casque" }, { value: "parts", label: "Pièces" }, { value: "gear", label: "Équipement" }];
 
 export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange, onSavingChange }: { catalog: AdminCatalog; onToggle: (p: Product, field: HomepageField, value: boolean) => Promise<void>; dirty: boolean; saving: boolean; onDirtyChange: (value: boolean) => void; onSavingChange: (value: boolean) => void }) {
-  const [mode, setMode] = useState<"products" | "content">("products");
+  const [mode, setMode] = useState<"products" | "content" | "sherco">("products");
   const confirm = useConfirmation();
-  async function changeMode(next: "products" | "content") {
+  async function changeMode(next: "products" | "content" | "sherco") {
     if (mode === next || saving) return;
-    if (dirty && !await confirm({ title: "Abandonner les modifications ?", description: "Les textes et liens non enregistrés seront perdus.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
+    if (dirty && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
     onDirtyChange(false); setMode(next);
   }
   return <div>
     <div className="mb-5 flex flex-wrap gap-2" aria-label="Gestion de l’accueil">
       <button type="button" className={mode === "products" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "products"} disabled={saving} onClick={() => void changeMode("products")}>Sélections de produits</button>
       <button type="button" className={mode === "content" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "content"} disabled={saving} onClick={() => void changeMode("content")}>Textes et liens</button>
+      <button type="button" className={mode === "sherco" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "sherco"} disabled={saving} onClick={() => void changeMode("sherco")}>Photos bannière Sherco</button>
     </div>
-    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} /> : <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
+    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminShercoBanner onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
   </div>;
 }
 
@@ -86,7 +88,7 @@ export function HomepageContentEditor({ catalog, onDirtyChange, onSavingChange }
   const updateLink = (index: number, patch: Partial<HomepageLink>) => update({ ...draft, links: draft.links.map((link, i) => i === index ? { ...link, ...patch } : link) });
   const moveLink = (index: number, direction: number) => { const links = [...draft.links]; const other = index + direction; if (other < 0 || other >= links.length) return; [links[index], links[other]] = [links[other], links[index]]; update({ ...draft, links }); };
   return <form onSubmit={save} className="space-y-4">
-    <div><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Mise en avant</p><h1 className="mt-1 text-2xl font-bold">Textes et liens de l’accueil</h1><p className="mt-1 text-sm text-black/60">Modifiez les textes visibles et les libellés accessibles. Les photos des produits se règlent dans leurs fiches ; l’image de la bannière Sherco reste fixe.</p></div>
+    <div><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Mise en avant</p><h1 className="mt-1 text-2xl font-bold">Textes et liens de l’accueil</h1><p className="mt-1 text-sm text-black/60">Modifiez les textes visibles et les libellés accessibles. Les photos des produits se règlent dans leurs fiches ; les photos de la bannière Sherco se gèrent dans leur onglet dédié.</p></div>
     {error && <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error} {error.includes("changé depuis") && <span>Copiez vos modifications si nécessaire, puis quittez et rouvrez cet écran pour recharger.</span>}</div>}
     {notice && <p role="status" className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <fieldset disabled={busy} className="space-y-3">

@@ -19,3 +19,8 @@
 
 # Correspondances locales des anciennes adresses SEO.
 /storage/data/seo-redirects.json
+
+# Bibliothèque et photos réelles de la bannière Sherco.
+/storage/data/sherco-banner.json
+/uploads/homepage/*
+!/uploads/homepage/.htaccess

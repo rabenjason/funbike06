@@ -1,4 +1,4 @@
-import { homepageContent } from "../content/homepage";
+import { homepageContent, shercoBannerImage } from "../content/homepage";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { motion, useInView, type Variants } from "framer-motion";
@@ -33,8 +33,8 @@ export default function ShercoBanner({ go }: { go: (page: string, id?: string) =
 
   return (
     <section className="relative isolate min-h-[330px] overflow-hidden bg-[#1a1b18] sm:min-h-[440px]">
-      <motion.img
-        src="https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg"
+      {shercoBannerImage && <motion.img
+        src={shercoBannerImage}
         alt={homepageContent.sherco.imageAlt}
         loading="lazy"
         initial={{ scale: 1.035 }}
@@ -42,7 +42,7 @@ export default function ShercoBanner({ go }: { go: (page: string, id?: string) =
         viewport={{ once: true }}
         transition={{ duration: 1.2, ease: "easeOut" }}
         className="absolute inset-0 h-full w-full object-cover object-[58%_center]"
-      />
+      />}
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-black/5" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
       <div className="hero-glass-sheet max-w-[760px]" aria-hidden="true" />

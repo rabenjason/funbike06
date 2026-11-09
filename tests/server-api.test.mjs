@@ -68,6 +68,40 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
 
+    // Bibliothèque de la bannière : réservée à l’admin, sans toucher au contenu existant.
+    const galleryFile = join(serverDir, 'storage/data/sherco-banner.json');
+    const homeBeforeBanner = readFileSync(join(serverDir, 'api/_lib/homepage-defaults.json'), 'utf8');
+    const bannerAdminCookie = cookie;
+    assert.equal((await call('sherco-banner.php')).status, 401);
+    assert.equal((await call('sherco-banner.php', { method: 'PUT', body: { id: 'x' } })).status, 401);
+    cookie = bannerAdminCookie;
+    let gallery = await call('sherco-banner.php', { authenticated: true });
+    assert.equal(gallery.status, 200); assert.equal(gallery.body.legacy, true); assert.equal(existsSync(galleryFile), false);
+    let homepageBanner = await call('homepage-content.php');
+    assert.equal(homepageBanner.body.shercoBannerConfigured, false); assert.equal(homepageBanner.body.shercoBannerImage, null);
+    const malicious = new FormData(); malicious.set('image', new Blob(['<?php echo 1; ?>'], { type: 'image/png' }), 'test.png');
+    assert.equal((await call('sherco-banner.php', { method: 'POST', authenticated: true, body: malicious })).status, 400);
+    assert.equal(existsSync(galleryFile), false);
+    const originalLogo = readFileSync(join(serverDir, 'public/assets/company/logo-funbike-720-a3ab2dc4.png'));
+    const upload = async () => { const form = new FormData(); form.set('image', new Blob([originalLogo], { type: 'image/png' }), 'banner.png'); return call('sherco-banner.php', { method: 'POST', authenticated: true, body: form }); };
+    const firstBanner = await upload(); assert.equal(firstBanner.status, 201);
+    const firstImage = firstBanner.body.data.images[0]; assert.equal(firstBanner.body.data.selected, firstImage.id);
+    assert.match(firstImage.url, /^\/server\/uploads\/homepage\/sherco-[a-f0-9]{32}\.png$/);
+    assert.equal((await call('homepage-content.php')).body.shercoBannerImage, firstImage.url);
+    const secondBanner = await upload(); assert.equal(secondBanner.status, 201);
+    const secondImage = secondBanner.body.data.images[1]; assert.notEqual(secondImage.url, firstImage.url);
+    assert.equal(secondBanner.body.data.selected, firstImage.id, 'ajouter une photo ne remplace pas la sélection');
+    assert.equal((await call('sherco-banner.php', { method: 'PUT', authenticated: true, body: { id: '../../storage/private' } })).status, 400);
+    const evilBanner = await fetch(base + 'sherco-banner.php', { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie, Origin: 'https://malicious.invalid' }, body: JSON.stringify({ id: secondImage.id }) });
+    assert.equal(evilBanner.status, 403);
+    assert.equal((await call('homepage-content.php')).body.shercoBannerImage, firstImage.url);
+    assert.equal((await call('sherco-banner.php', { method: 'PUT', authenticated: true, body: { id: secondImage.id } })).status, 200);
+    assert.equal((await call('homepage-content.php')).body.shercoBannerImage, secondImage.url);
+    assert.equal((await call('sherco-banner.php', { method: 'DELETE', authenticated: true, body: { id: secondImage.id } })).status, 200);
+    homepageBanner = await call('homepage-content.php'); assert.equal(homepageBanner.body.shercoBannerConfigured, true); assert.equal(homepageBanner.body.shercoBannerImage, null);
+    assert.equal(existsSync(join(dir, secondImage.url)), true, 'le fichier est conservé pour récupération');
+    assert.equal(readFileSync(join(serverDir, 'api/_lib/homepage-defaults.json'), 'utf8'), homeBeforeBanner);
+
     // Contenu de l’accueil : initialisation sans écriture, mises à jour protégées et conflit.
     const homepageFile = join(serverDir, 'storage/data/homepage.json');
     assert.equal(existsSync(homepageFile), false);
