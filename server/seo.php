@@ -69,9 +69,16 @@ if ($path === '/sitemap.xml') {
     foreach ($all as $p) echo '<url><loc>' . seoEsc($origin . seoPath($p)) . "</loc></url>\n";
     echo '</urlset>'; exit;
 }
-// Correspondances explicites uniquement, établies après audit des anciennes URL.
+// Correspondances vérifiées une par une ; aucune règle générale par préfixe.
+// Les choix explicites de l'installation restent prioritaires, y compris une
+// valeur null permettant de désactiver une correspondance fournie par défaut.
+$knownRedirects = [
+    '/catalogue-motos/tvs-hlx-plus' => '/motos/tvs-hlx-plus',
+    '/catalogue-motos/tvs-apache-rtr-200-4v' => '/motos/tvs-apache-rtr-200-4v',
+];
 $redirects = json_decode((string) @file_get_contents(__DIR__ . '/storage/data/seo-redirects.json'), true);
-if (is_array($redirects) && isset($redirects[$path]) && is_string($redirects[$path])) {
+$redirects = is_array($redirects) ? $redirects + $knownRedirects : $knownRedirects;
+if (isset($redirects[$path]) && is_string($redirects[$path])) {
     $target = $redirects[$path];
     $valid = isset($pages[$target]);
     foreach ($all as $p) if (seoPath($p) === $target) $valid = true;

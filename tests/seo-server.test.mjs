@@ -21,7 +21,10 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
   const products = JSON.parse(readFileSync(file, 'utf8'));
   const original = products.products.find((p) => p.status === 'PUBLISHED');
   const injected = { ...structuredClone(original), id: 'nouveau-test', name: 'Moto <script>danger</script> & Test', description: 'Description test <img src=x onerror=alert(1)>', status: 'PUBLISHED' };
-  products.products.push(injected, { ...structuredClone(original), id: 'brouillon-secret', name: 'Brouillon secret', status: 'DRAFT' }, { ...structuredClone(original), id: 'marque-masquee', brandId: 'marque-cachee', status: 'PUBLISHED' });
+  // Le catalogue de démonstration ne contient pas forcément les mêmes produits
+  // qu'en production ; ces données restent isolées dans le dossier temporaire.
+  const apacheFixture = { ...structuredClone(original), id: 'tvs-apache-rtr-200-4v', name: 'TVS Apache RTR 200 4V', status: 'PUBLISHED' };
+  products.products.push(apacheFixture, injected, { ...structuredClone(original), id: 'brouillon-secret', name: 'Brouillon secret', status: 'DRAFT' }, { ...structuredClone(original), id: 'marque-masquee', brandId: 'marque-cachee', status: 'PUBLISHED' });
   writeFileSync(file, JSON.stringify(products));
   const brands = JSON.parse(readFileSync(brandsFile, 'utf8')); brands.brands.push({ id: 'marque-cachee', name: 'Cachée', isPublished: false }); writeFileSync(brandsFile, JSON.stringify(brands));
   const listener = createServer(); await new Promise((r) => listener.listen(0, '127.0.0.1', r)); const port = listener.address().port; await new Promise((r) => listener.close(r));
@@ -66,7 +69,22 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
     injected.status = 'PUBLISHED'; writeFileSync(file, JSON.stringify(products));
     assert.equal((await fetch(origin + '/motos/nouveau-test')).status, 200);
     const redirects = join(dir, 'server/storage/data/seo-redirects.json');
-    writeFileSync(redirects, JSON.stringify({ '/catalogue-motos/ancienne': '/motos/nouveau-test', '/catalogue-motos/externe': 'https://evil.invalid/' }));
+    for (const id of ['tvs-hlx-plus', 'tvs-apache-rtr-200-4v']) {
+      for (const suffix of ['', '/', '/?utm_source=test']) {
+        const old = await fetch(`${origin}/catalogue-motos/${id}${suffix}`, { redirect: 'manual' });
+        assert.equal(old.status, 301); assert.equal(old.headers.get('location'), `${origin}/motos/${id}`);
+        assert.equal((await fetch(old.headers.get('location'))).status, 200);
+      }
+      assert.doesNotMatch(sitemap, new RegExp(`/catalogue-motos/${id}`));
+    }
+    assert.equal((await fetch(origin + '/catalogue-motos/apache-rtr-160-4v', { redirect: 'manual' })).status, 404, 'ne pas confondre 160 4V et 160 2V');
+    apacheFixture.status = 'ARCHIVED'; writeFileSync(file, JSON.stringify(products));
+    assert.equal((await fetch(origin + '/catalogue-motos/tvs-apache-rtr-200-4v', { redirect: 'manual' })).status, 404, 'ne pas rediriger vers une fiche archivée');
+    apacheFixture.status = 'PUBLISHED'; writeFileSync(file, JSON.stringify(products));
+    writeFileSync(redirects, JSON.stringify({ '/catalogue-motos/ancienne': '/motos/nouveau-test', '/catalogue-motos/externe': 'https://evil.invalid/', '/catalogue-motos/tvs-hlx-plus': null, '/catalogue-motos/tvs-apache-rtr-200-4v': '/motos/nouveau-test' }));
+    assert.equal((await fetch(origin + '/catalogue-motos/tvs-hlx-plus', { redirect: 'manual' })).status, 404, 'une configuration existante peut désactiver une redirection par défaut');
+    const overridden = await fetch(origin + '/catalogue-motos/tvs-apache-rtr-200-4v', { redirect: 'manual' });
+    assert.equal(overridden.status, 301); assert.equal(overridden.headers.get('location'), origin + '/motos/nouveau-test', 'la configuration de l’installation est prioritaire');
     const redirect = await fetch(origin + '/catalogue-motos/ancienne/', { redirect: 'manual' });
     assert.equal(redirect.status, 301); assert.equal(redirect.headers.get('location'), origin + '/motos/nouveau-test');
     assert.equal((await fetch(origin + '/catalogue-motos/externe', { redirect: 'manual' })).status, 404);
