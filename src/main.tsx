@@ -38,8 +38,9 @@ function Bootstrap() {
           const { default: Admin } = await import("./pages/Admin");
           if (active) setContent(<Admin />);
         } else {
-          await initializePublicData();
-          const { default: App } = await import("./App");
+          // Le code public et les données se chargent en parallèle, mais aucun
+          // rendu n'a lieu avant que toutes les données publiées soient prêtes.
+          const [, { default: App }] = await Promise.all([initializePublicData(), import("./App")]);
           if (active) setContent(<App />);
         }
       } catch {

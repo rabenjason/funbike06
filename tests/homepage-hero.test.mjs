@@ -51,6 +51,7 @@ test("le bandeau utilise le nom, la marque et l'image du produit sélectionné",
   assert.equal(images.length, 1, "une seule image pour tout le bandeau");
   assert.ok(images[0].includes("object-cover"), "l'image remplit le bandeau");
   assert.ok(images[0].includes(escapeHtml(data.mainProductImage(bike).url)));
+  assert.match(images[0], /fetchPriority="high"/i, "la première image du bandeau est prioritaire");
   assert.ok(!images[0].includes("blur-2xl"));
   assert.equal((hero.match(/aria-pressed=/g) ?? []).length, 3);
 });
