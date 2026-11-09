@@ -135,7 +135,7 @@ test('onglets : catégories disponibles, filtre par type et prix/liens inchangé
   fireEvent.click(view.getByRole('button', { name: 'Pièces détachées' }));
   fireEvent.click(within(results).getByRole('button', { name: part.name }));
   assert.deepEqual(calls.pop(), ['accessory', part.id, part.categoryId]);
-  const grid = results.querySelector('.grid'); assert.ok(grid.classList.contains('grid-cols-2') && grid.classList.contains('lg:grid-cols-4'));
+  const grid = results.querySelector('article').closest('.grid'); assert.ok(grid.classList.contains('grid-cols-2') && grid.classList.contains('lg:grid-cols-4'));
 });
 
 test('préférence indisponible : seule une catégorie avec promotions est affichée', async () => {
@@ -214,18 +214,44 @@ test('compte à rebours : heure serveur, campagnes distinctes, évolution et fin
     const first = view.getByRole('region', { name: 'Campagne 0' });
     const second = view.getByRole('region', { name: 'Campagne 1' });
     assert.equal(within(first).getByRole('timer').textContent, '00:00:02');
-    assert.equal(within(second).queryByRole('timer'), null, 'plus de 24 heures restantes');
+    assert.equal(within(second).getByRole('timer').textContent, '1 j 00:00:02');
+    assert.match(within(second).getByRole('timer').getAttribute('aria-label'), /1 jour, 0 heures, 0 minutes et 2 secondes/);
     clientNow += 1000; serverNow += 1000;
     act(() => { for (const timer of timers.values()) if (timer.delay === 1000) timer.fn(); });
     assert.equal(within(first).getByRole('timer').textContent, '00:00:01');
     clientNow += 1000; serverNow += 1000;
     act(() => { for (const timer of timers.values()) if (timer.delay === 1000) timer.fn(); });
     assert.equal(within(first).queryByRole('timer'), null, 'pas de compteur négatif');
-    assert.equal(within(second).getByRole('timer').textContent, '24:00:00');
+    assert.equal(within(second).getByRole('timer').textContent, '1 j 00:00:00');
     await act(async () => { for (const timer of timers.values()) if (timer.delay === 30000) timer.fn(); await Promise.resolve(); });
     await waitFor(() => assert.equal(view.queryByRole('region', { name: 'Campagne 0' }), null));
     assert.ok(view.getByRole('region', { name: 'Campagne 1' }));
     view.unmount();
     assert.equal(timers.size, 0, 'nettoyage des minuteries');
   } finally { Date.now = realNow; window.setInterval = realInterval; window.clearInterval = realClearInterval; }
+});
+
+
+test('campagne du 9 au 10 novembre : compteur dès la veille et commandes compactes', async () => {
+  const product = catalog.motorcycles[0];
+  const campaign = { id: 'noel', name: 'Promotion noel', startDate: '2026-11-09', endDate: '2026-11-10', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 300, discountPercent: 2 }] };
+  const realNow = Date.now;
+  const instant = Date.parse('2026-11-09T13:39:00Z'); // 16 h 39 à Antananarivo
+  Date.now = () => instant + 3600000; // visiteur dans un autre fuseau ou horloge erronée
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date(instant).toISOString() }) });
+  try {
+    const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+    await waitFor(() => assert.ok(view.getByRole('timer')));
+    assert.equal(view.getByRole('timer').textContent, '1 j 07:21:00');
+    assert.match(view.getByRole('timer').getAttribute('aria-label'), /1 jour, 7 heures, 21 minutes et 0 secondes/);
+    const title = view.getByRole('heading', { name: 'Promotion noel' });
+    const date = view.getByText('Offre du 09/11/2026 au 10/11/2026 inclus.');
+    assert.equal(date.parentElement.parentElement, title.parentElement, 'date à droite dans la même ligne que le titre');
+    assert.ok(date.parentElement.classList.contains('justify-end'));
+    const search = view.getByLabelText('Rechercher une promotion');
+    const type = view.getByLabelText('Filtrer par type');
+    assert.ok(search.parentElement.classList.contains('sm:w-72'));
+    assert.ok(type.parentElement.classList.contains('sm:w-52'));
+    assert.ok(search.classList.contains('h-10') && type.classList.contains('h-10'));
+  } finally { Date.now = realNow; }
 });
