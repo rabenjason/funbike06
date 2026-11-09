@@ -104,5 +104,9 @@
       "brandId": "sherco",
       "tagline": "ADN Compétition"
     }
-  ]
+  ],
+  "bannerLink": {
+    "to": "motos",
+    "brandId": ""
+  }
 }

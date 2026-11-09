@@ -13,13 +13,15 @@ export type HomepageContent = {
   partenaires: { titre: string; description: string; logoPrefix: string };
 };
 export type HomepageLink = { title: string; to: "catalogue" | "motos" | "equipements" | "spares" | "revendeurs" | "contact"; brandId: string; icon: "moto" | "helmet" | "parts" | "gear" };
-export type HomepageData = { content: HomepageContent; links: HomepageLink[]; exclusiveBrands: { brandId: string; tagline: string }[] };
+export type BannerLink = { to: HomepageLink["to"] | "promotions"; brandId: string };
+export type HomepageData = { content: HomepageContent; links: HomepageLink[]; exclusiveBrands: { brandId: string; tagline: string }[]; bannerLink: BannerLink };
 
 // Valeurs d'installation uniquement : les données publiées viennent de l'API.
 const initial = defaults as HomepageData;
 export let homepageContent: HomepageContent = initial.content;
 export let homepageCategories: HomepageLink[] = initial.links;
 export let homepageExclusiveBrands: HomepageData["exclusiveBrands"] = initial.exclusiveBrands;
+export let homepageBannerLink: BannerLink = initial.bannerLink;
 // Préserve la bannière actuelle jusqu'à la première image locale choisie par l'admin.
 export let shercoBannerImage: string | null = "https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg";
 
@@ -36,11 +38,12 @@ export function validHomepage(value: unknown): value is HomepageData {
       if (Array.isArray(expected) ? !Array.isArray(field) || !field.length || !field.every((item) => typeof item === "string" && item.trim()) : typeof field !== "string" || !field.trim()) return false;
     }
   }
+  if (!data.bannerLink || !["catalogue", "motos", "equipements", "spares", "revendeurs", "contact", "promotions"].includes(data.bannerLink.to) || typeof data.bannerLink.brandId !== "string" || (data.bannerLink.brandId !== "" && !/^[a-z0-9][a-z0-9_-]{0,99}$/.test(data.bannerLink.brandId)) || (data.bannerLink.brandId !== "" && !["motos", "equipements", "spares"].includes(data.bannerLink.to))) return false;
   return data.links.length > 0 && data.links.length <= 8 && data.links.every((link) => link && typeof link.title === "string" && !!link.title.trim() && ["catalogue", "motos", "equipements", "spares", "revendeurs", "contact"].includes(link.to) && typeof link.brandId === "string" && ["moto", "helmet", "parts", "gear"].includes(link.icon)) && data.exclusiveBrands.length <= 6 && data.exclusiveBrands.every((brand) => brand && typeof brand.brandId === "string" && !!brand.brandId && typeof brand.tagline === "string" && !!brand.tagline.trim());
 }
 export function setHomepage(data: HomepageData) {
   if (!validHomepage(data)) throw new Error("Données de l’accueil invalides.");
-  homepageContent = data.content; homepageCategories = data.links; homepageExclusiveBrands = data.exclusiveBrands;
+  homepageContent = data.content; homepageCategories = data.links; homepageExclusiveBrands = data.exclusiveBrands; homepageBannerLink = data.bannerLink;
 }
 
 /** Chargé au démarrage ; Piston actualise le catalogue séparément. */
