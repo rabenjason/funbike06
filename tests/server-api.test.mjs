@@ -68,6 +68,37 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
 
+    // Version publique : empreinte stable, uniquement opaque, changements même à taille égale.
+    const versionFirst = await call('public-data-version.php');
+    assert.equal(versionFirst.status, 200); assert.match(versionFirst.body.version, /^[a-f0-9]{64}$/);
+    assert.deepEqual(Object.keys(versionFirst.body), ['version']);
+    assert.equal((await call('public-data-version.php', { method: 'POST', body: {} })).status, 405);
+    assert.equal((await call('public-data-version.php')).body.version, versionFirst.body.version);
+    const dataFiles = ['brands.json', 'categories.json', 'families.json', 'product-types.json', 'models.json', 'products/motorcycles.json', 'products/helmets.json', 'products/riding-gear.json', 'products/spare-parts.json', 'dealers.json', 'contacts.json'];
+    for (const name of dataFiles) {
+      const path = join(serverDir, 'storage/data', name); const original = readFileSync(path, 'utf8');
+      try {
+        const sameSize = original.replace(' ', '\t');
+        assert.notEqual(sameSize, original); assert.equal(sameSize.length, original.length);
+        writeFileSync(path, sameSize);
+        assert.notEqual((await call('public-data-version.php')).body.version, versionFirst.body.version, name);
+      } finally { writeFileSync(path, original); }
+    }
+    const dealersFileForVersion = join(serverDir, 'storage/data/dealers.json');
+    const dealersBeforeVersion = readFileSync(dealersFileForVersion, 'utf8');
+    try {
+      writeFileSync(dealersFileForVersion, '{invalid');
+      assert.equal((await call('public-data-version.php')).status, 500);
+    } finally { writeFileSync(dealersFileForVersion, dealersBeforeVersion); }
+    assert.equal((await call('public-data-version.php')).body.version, versionFirst.body.version);
+    const versionHeaders = await fetch(base + 'public-data-version.php');
+    assert.match(versionHeaders.headers.get('cache-control'), /no-store/);
+    const sourceFile = join(serverDir, 'api/products/motorcycles.php');
+    const sourceBefore = readFileSync(sourceFile, 'utf8');
+    try { writeFileSync(sourceFile, sourceBefore + '\n'); assert.notEqual((await call('public-data-version.php')).body.version, versionFirst.body.version); }
+    finally { writeFileSync(sourceFile, sourceBefore); }
+    assert.equal((await call('public-data-version.php')).body.version, versionFirst.body.version);
+
     // Chatbot : réglage distinct, protégé, validation stricte et absence d'écrasement.
     const chatbotFile = join(serverDir, 'storage/data/chatbot-settings.json');
     assert.equal(existsSync(chatbotFile), false);

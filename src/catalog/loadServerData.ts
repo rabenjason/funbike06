@@ -22,10 +22,13 @@ function list<T>(data: Record<string, unknown>, key: string): T[] {
   if (!Array.isArray(data[key])) throw new Error(`Les données ${key} sont invalides.`);
   return data[key] as T[];
 }
+// Tout remplacement externe invalide une empreinte précédemment vérifiée.
+let dataGeneration = 0;
+export function getPublicDataGeneration() { return dataGeneration; }
 function replace<T>(target: T[], values: T[]) { target.splice(0, target.length, ...values); }
 
 /** Charge toutes les données publiques avant de démarrer React, sans afficher de copie périmée en cas d'erreur. */
-export async function loadServerData(signal?: AbortSignal) {
+export async function loadServerData(signal?: AbortSignal, confirmBeforeCommit?: () => Promise<void>) {
   const [brandData, categoryData, familyData, typeData, modelData, motoData, helmetData, gearData, partsData, dealerData, contactData] = await Promise.all([
     read("brands.php", signal), read("categories.php", signal), read("families.php", signal), read("product-types.php", signal), read("models.php", signal),
     read("products/motorcycles.php", signal), read("products/helmets.php", signal), read("products/riding-gear.php", signal), read("products/spare-parts.php", signal),
@@ -48,8 +51,11 @@ export async function loadServerData(signal?: AbortSignal) {
   const contact = contactData.contact as Parameters<typeof setContactInfo>[0];
   if (!contact || typeof contact.email !== "string" || typeof contact.phone !== "string" || typeof contact.phoneHref !== "string" || typeof contact.address !== "string" || typeof contact.hours !== "string") throw new Error("Les coordonnées sont invalides.");
   if (signal?.aborted) throw new Error("Chargement annulé.");
+  if (confirmBeforeCommit) await confirmBeforeCommit();
+  if (signal?.aborted) throw new Error("Chargement annulé.");
   replace(brands, newBrands); replace(categories, newCategories); replace(families, newFamilies); replace(productTypes, newTypes); replace(models, newModels);
   replace(motorcycles, motos); replace(helmets, casques); replace(ridingGear, gear); replace(spareParts, parts);
   replace(products, [...motos, ...parts, ...casques, ...gear]);
   replace(DEALERS, newDealers); setContactInfo(contact);
+  return ++dataGeneration;
 }
