@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
+import { chatbotEnabled } from "./content/homepage";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
 import { RouteProgress } from "./components/Loaders";
 import { PromotionsProvider } from "./components/PromotionsContext";
@@ -141,7 +142,7 @@ export default function App() {
           </AnimatePresence>
         </main>
         <Footer go={go} onCookies={() => setCookieOpen(true)} />
-        <CatChat go={go} hiddenOnMobile={cookieOpen} />
+        {chatbotEnabled && <CatChat go={go} hiddenOnMobile={cookieOpen} />}
         <CookieConsent open={cookieOpen} onClose={() => setCookieOpen(false)} />
       </div>
     </MotionConfig></PromotionsProvider>
