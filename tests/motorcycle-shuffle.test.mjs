@@ -93,11 +93,12 @@ test('page motos : cartes alignées, pagination stable, recherche, filtres et no
   } finally { catalog.motorcycles.splice(0, catalog.motorcycles.length, ...original); }
 });
 
-test('le haut compact concerne la page motos sans changer les autres pages du catalogue', () => {
+test('le haut compact concerne le début des pages motos et catalogue', () => {
   const motos = render(React.createElement(Catalogue, { motosOnly: true, go() {} }));
-  assert.ok(motos.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('moto-catalog-compact-top'));
+  assert.ok(motos.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('page-compact-top'));
   motos.unmount();
   const catalogue = render(React.createElement(Catalogue, { go() {} }));
-  assert.ok(!catalogue.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('moto-catalog-compact-top'));
+  assert.ok(catalogue.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('page-compact-top'));
+  assert.equal(catalogue.container.querySelectorAll('section.page-compact-top').length, 1, 'les sections suivantes gardent leurs espacements');
   catalogue.unmount();
 });

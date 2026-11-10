@@ -72,7 +72,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   // Five numbered buttons at most, even for very large campaigns.
   const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
-  return <div className="mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-6 sm:pt-8 md:px-8 lg:px-10">
+  return <div className="page-compact-top mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-6 sm:pt-8 md:px-8 lg:px-10">
     <h1 className="sr-only">Promotions</h1>
     {status === "loading" && <p role="status">Chargement des promotions…</p>}
     {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
