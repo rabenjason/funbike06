@@ -14,6 +14,8 @@
 :root[data-site-theme="tvs"] [class~="bg-[#ffd100]"],
 :root[data-site-theme="tvs"].dark [class~="dark:bg-[#ffd100]"],
 :root[data-site-theme="tvs"] .group[aria-pressed="true"] [class~="group-aria-pressed:bg-[#ffd100]"] { background-color: #183883; }
+/* Dans la pagination le fond animé est un enfant, pas le bouton lui-même. */
+:root[data-site-theme="tvs"] .fb-pagination-page[aria-current="page"] { color: #fff; }
 /* Les boutons auparavant jaunes avaient du texte sombre : assurer le contraste. */
 :root[data-site-theme="tvs"] [class~="bg-[#ffd100]"][class~="text-[#171816]"],
 :root[data-site-theme="tvs"].dark [class~="dark:bg-[#ffd100]"][class~="dark:text-[#171816]"] { color: #fff; }

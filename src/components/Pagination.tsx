@@ -36,7 +36,7 @@ export default function Pagination({ id, page, total, onChange }: Props) {
               aria-label={`Page ${n}`}
               aria-current={active ? "page" : undefined}
               className={
-                "relative grid h-11 w-11 place-items-center font-display text-xs font-semibold transition " +
+                "fb-pagination-page relative grid h-11 w-11 place-items-center font-display text-xs font-semibold transition " +
                 (active ? "text-[#171816]" : "text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white")
               }
             >
