@@ -45,5 +45,7 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
   assert.equal(document.documentElement.classList.contains('fb-booting'), false);
   assert.equal(document.querySelector('#root [aria-label="Chargement du site"]'), null, 'aucun second écran de chargement React');
+  assert.match(document.getElementById('root').textContent, /TVS HLX Plus/, 'la fiche directe est prête avant la disparition du chargement');
+  assert.doesNotMatch(document.getElementById('root').textContent, /Chargement de la page/);
   await waitFor(() => assert.match(document.title, /TVS HLX Plus/));
 });
