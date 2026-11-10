@@ -9,6 +9,7 @@ import {
   faEnvelope,
   faLocationCrosshairs,
   faLocationDot,
+  faMagnifyingGlass,
   faMinus,
   faPhone,
   faPlus,
@@ -25,6 +26,18 @@ const osmEmbed = (lat: number, lon: number, d: number) =>
   `https://www.openstreetmap.org/export/embed.html?bbox=${lon - d}%2C${lat - d}%2C${lon + d}%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lon}`;
 const directionsLink = (d: Dealer) => `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lon}`;
 const telHref = (phone: string) => `tel:${phone.replace(/\s/g, "")}`;
+const normalize = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr").trim().replace(/\s+/g, " ");
+function groupCities(dealers: Dealer[]) {
+  const cities: { id: string; name: string; dealers: Dealer[] }[] = [];
+  const lookup = new Map<string, (typeof cities)[number]>();
+  for (const dealer of dealers) {
+    const id = normalize(dealer.city);
+    let city = lookup.get(id);
+    if (!city) { city = { id, name: dealer.city.trim(), dealers: [] }; lookup.set(id, city); cities.push(city); }
+    city.dealers.push(dealer);
+  }
+  return cities;
+}
 
 const ICON = "w-4 shrink-0 text-[#98741b] dark:text-[#ffd100]";
 const LABEL = "text-[10px] font-semibold uppercase tracking-[0.1em] text-black/40 dark:text-white/40";
@@ -37,15 +50,27 @@ export default function Dealers(props: { go: (p: string, id?: string) => void; i
 function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => void; initialCity?: string }) {
   const valid = DEALERS.some((d) => d.key === initialCity);
   const [activeKey, setActiveKey] = useState(valid ? initialCity! : DEALERS[0].key);
+  const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(1);
   const [mapReady, setMapReady] = useState(false);
   const [mapEnabled, setMapEnabled] = useState(false);
   const locatorRef = useRef<HTMLDivElement>(null);
   const cityTrackRef = useRef<HTMLDivElement>(null);
   const dealerTrackRef = useRef<HTMLUListElement>(null);
+  const [cityAtStart, setCityAtStart] = useState(true);
+  const [cityAtEnd, setCityAtEnd] = useState(true);
   const [sliderAtStart, setSliderAtStart] = useState(true);
   const [sliderAtEnd, setSliderAtEnd] = useState(false);
   const dealer = DEALERS.find((d) => d.key === activeKey)!;
+  const cities = groupCities(DEALERS);
+  const activeCity = normalize(dealer.city);
+  const selectedCity = cities.find((city) => city.id === activeCity)!;
+  const activeCityIndex = cities.findIndex((city) => city.id === activeCity);
+  const terms = normalize(query).split(" ").filter(Boolean);
+  const results = terms.length ? DEALERS.filter((item) => {
+    const text = normalize(`${item.city} ${item.name} ${item.address}`);
+    return terms.every((term) => text.includes(term));
+  }) : [];
 
   useEffect(() => {
     if (initialCity && DEALERS.some((d) => d.key === initialCity)) select(initialCity);
@@ -53,6 +78,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
   }, [initialCity]);
 
   function select(key: string, scroll = false) {
+    setQuery("");
     if (key !== activeKey) {
       setActiveKey(key);
       setZoom(1);
@@ -75,15 +101,35 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
 
   function moveCityFocus(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
-    if (event.key === "ArrowRight") next = (index + 1) % DEALERS.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + DEALERS.length) % DEALERS.length;
+    if (event.key === "ArrowRight") next = (index + 1) % cities.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + cities.length) % cities.length;
     else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = DEALERS.length - 1;
+    else if (event.key === "End") next = cities.length - 1;
     else return;
     event.preventDefault();
-    select(DEALERS[next].key);
+    select(cities[next].dealers[0].key);
     cityTrackRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
+
+  function updateCityEdges() {
+    const track = cityTrackRef.current;
+    if (!track) return;
+    setCityAtStart(track.scrollLeft <= 2);
+    setCityAtEnd(track.scrollLeft + track.clientWidth >= track.scrollWidth - 2);
+  }
+  function scrollCities(direction: 1 | -1) {
+    const track = cityTrackRef.current;
+    if (!track) return;
+    track.scrollBy({ left: direction * Math.max(track.clientWidth * 0.8, 180), behavior: "smooth" });
+  }
+  useEffect(() => {
+    updateCityEdges();
+    const track = cityTrackRef.current;
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateCityEdges) : null;
+    if (track) observer?.observe(track);
+    window.addEventListener("resize", updateCityEdges);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", updateCityEdges); };
+  }, [cities.length]);
 
   function changeZoom(delta: 1 | -1) {
     setZoom((z) => Math.max(0, Math.min(ZOOMS.length - 1, z + delta)));
@@ -121,48 +167,65 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
             Choisissez votre ville.
           </h1>
 
-          {/* Sur mobile, deux villes visibles et les suivantes accessibles au glissement.
-              À partir de 640px, conserver les onglets de l'affichage existant. */}
-          <div
-            ref={cityTrackRef}
-            role="tablist"
-            aria-label="Choisir une ville"
-            className="flex snap-x snap-mandatory gap-2 overflow-x-auto border-black/10 [scrollbar-width:none] sm:snap-none sm:gap-0 sm:overflow-visible sm:border-y dark:border-white/10"
-          >
-            {DEALERS.map((d, index) => (
-              <button
-                key={d.key}
-                type="button"
-                role="tab"
-                aria-selected={activeKey === d.key}
-                aria-controls="dealer-panel"
-                tabIndex={activeKey === d.key ? 0 : -1}
-                onKeyDown={(event) => moveCityFocus(event, index)}
-                onClick={() => select(d.key)}
-                className="dealer-city snap-start"
-              >
-                <span className="truncate">{d.city}</span>
-                {activeKey === d.key && (
-                  <motion.span
-                    layoutId="dealer-city-indicator"
-                    className="absolute inset-x-0 bottom-0 hidden h-[3px] bg-[#ffd100] sm:block"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                  />
-                )}
-              </button>
-            ))}
+          <div className="relative mb-4 max-w-xl">
+            <label htmlFor="dealer-search" className="mb-1.5 block text-sm font-semibold">Rechercher un revendeur ou une ville</label>
+            <div className="flex min-h-11 items-center gap-3 border border-black/20 bg-white px-3 focus-within:ring-2 focus-within:ring-[#98741b] dark:border-white/20 dark:bg-[#1b1c19] dark:focus-within:ring-[#ffd100]">
+              <FontAwesomeIcon icon={faMagnifyingGlass} className="text-sm text-black/45 dark:text-white/55" aria-hidden="true" />
+              <input id="dealer-search" type="search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setQuery(""); }} placeholder="Ville, nom ou adresse" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none" />
+              {query && <button type="button" onClick={() => setQuery("")} className="min-h-11 text-xs font-semibold underline">Effacer</button>}
+            </div>
+            {terms.length > 0 && <div className="absolute inset-x-0 top-full z-30 max-h-64 overflow-y-auto border border-black/15 bg-white shadow-lg dark:border-white/15 dark:bg-[#1b1c19]">
+              {results.length ? <ul aria-label="Résultats de recherche des revendeurs">{results.map((item) => <li key={item.key}><button type="button" onClick={() => select(item.key)} className="block w-full border-b border-black/10 px-3 py-3 text-left text-sm hover:bg-black/5 focus-visible:bg-black/5 dark:border-white/10 dark:hover:bg-white/10 dark:focus-visible:bg-white/10"><span className="block font-semibold">{item.name}</span><span className="block text-xs text-black/60 dark:text-white/60">{item.city} · {item.address}</span></button></li>)}</ul> : <p role="status" className="p-3 text-sm">Aucun revendeur trouvé.</p>}
+            </div>}
           </div>
-          {DEALERS.length > 2 ? (
+
+          {/* Deux villes visibles sur mobile ; quatre sur ordinateur, puis défilement. */}
+          <div className="flex items-stretch">
+            {cities.length > 4 && <button type="button" onClick={() => scrollCities(-1)} disabled={cityAtStart} aria-label="Villes précédentes" className="hidden min-h-11 w-11 shrink-0 items-center justify-center border-y border-l border-black/10 disabled:opacity-30 sm:flex dark:border-white/10"><FontAwesomeIcon icon={faArrowLeft} /></button>}
+            <div
+              ref={cityTrackRef}
+              role="tablist"
+              aria-label="Choisir une ville"
+              onScroll={updateCityEdges}
+              className={"flex min-w-0 flex-1 snap-x snap-mandatory gap-2 overflow-x-auto border-black/10 [scrollbar-width:none] sm:snap-none sm:gap-0 sm:border-y dark:border-white/10 " + (cities.length > 4 ? "dealer-cities-many" : "")}
+            >
+              {cities.map((city, index) => (
+                <button
+                  key={city.id}
+                  id={`dealer-city-tab-${index}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCity === city.id}
+                  aria-controls="dealer-panel"
+                  tabIndex={activeCity === city.id ? 0 : -1}
+                  onKeyDown={(event) => moveCityFocus(event, index)}
+                  onClick={() => { if (city.id !== activeCity) select(city.dealers[0].key); else setQuery(""); }}
+                  className="dealer-city snap-start"
+                >
+                  <span className="truncate">{city.name}</span>
+                  {activeCity === city.id && <motion.span layoutId="dealer-city-indicator" className="absolute inset-x-0 bottom-0 hidden h-[3px] bg-[#ffd100] sm:block" transition={{ type: "spring", stiffness: 420, damping: 36 }} />}
+                </button>
+              ))}
+            </div>
+            {cities.length > 4 && <button type="button" onClick={() => scrollCities(1)} disabled={cityAtEnd} aria-label="Villes suivantes" className="hidden min-h-11 w-11 shrink-0 items-center justify-center border-y border-r border-black/10 disabled:opacity-30 sm:flex dark:border-white/10"><FontAwesomeIcon icon={faArrowRight} /></button>}
+          </div>
+          {cities.length > 2 ? (
             <p className="mb-3 mt-1.5 text-right text-[11px] text-black/55 sm:hidden dark:text-white/60">
               Glissez pour voir les autres villes <span aria-hidden="true">→</span>
             </p>
           ) : <div className="mb-4 sm:hidden" />}
           <div className="hidden sm:mb-4 sm:block" />
+          {selectedCity.dealers.length > 1 && <label className="mb-4 block max-w-xl text-sm font-semibold">Revendeur à {selectedCity.name}
+            <select value={activeKey} onChange={(event) => select(event.target.value)} className="mt-2 block min-h-11 w-full border border-black/20 bg-white px-3 text-sm dark:border-white/20 dark:bg-[#1b1c19]">
+              {selectedCity.dealers.map((item) => <option key={item.key} value={item.key}>{item.name} — {item.address}</option>)}
+            </select>
+          </label>}
 
           {/* Map + selected dealer: stacked on phones, side by side from 1024px */}
           <div
             id="dealer-panel"
             role="tabpanel"
+            aria-labelledby={`dealer-city-tab-${activeCityIndex}`}
             className="grid overflow-hidden border border-black/10 bg-white lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] dark:border-white/10 dark:bg-[#1b1c19]"
           >
             <div className="relative aspect-[16/10] bg-[#e4e7dc] sm:aspect-auto sm:h-[320px] md:h-[340px] lg:h-full lg:min-h-[400px] dark:bg-[#232722]">

@@ -217,6 +217,9 @@ textarea.chat-composer:focus-visible {
     font-size: 0.9375rem;
   }
 
+  .dealer-cities-many .dealer-city,
+  .dark .dealer-cities-many .dealer-city { flex: 0 0 25%; }
+
   .dealer-city {
     color: rgb(23 24 22 / 0.45);
   }

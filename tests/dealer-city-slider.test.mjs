@@ -34,7 +34,7 @@ test('rangée mobile de deux villes : accès tactile et clavier, carte et sélec
   const tabs = [...list.querySelectorAll('[role=tab]')];
   assert.deepEqual(tabs.map((tab) => tab.textContent), cities);
   assert.ok(list.classList.contains('overflow-x-auto'));
-  assert.ok(list.classList.contains('sm:overflow-visible'));
+  assert.ok(!list.classList.contains('sm:overflow-visible'), 'le défilement reste disponible sur ordinateur');
   assert.match(view.getByText(/Glissez pour voir les autres villes/).className, /sm:hidden/);
   assert.equal(tabs[0].getAttribute('aria-selected'), 'true');
   assert.equal(tabs[0].tabIndex, 0);
@@ -72,4 +72,46 @@ test('les boutons occupent chacun la moitié de la rangée mobile sans modifier 
   const css = readFileSync('src/index.css', 'utf8');
   assert.match(css, /\.dealer-city\s*\{[^}]*flex:\s*0 0 calc\(\(100% - 0\.5rem\) \/ 2\)/s);
   assert.match(css, /@media \(min-width: 640px\)[\s\S]*?\.dealer-city,[\s\S]*?flex:\s*1 1 0/);
+});
+
+test('recherche et regroupement de 17 revendeurs, sans distinction des accents ou de la casse', () => {
+  const many = Array.from({ length: 17 }, (_, i) => ({
+    ...fixtures[0], key: `dealer-${i}`, city: i < 2 ? (i ? '  ANTANANARIVO  ' : 'Antananarivo') : `Ville ${i}`,
+    name: i === 1 ? 'Moto Évasion' : `Concession ${i}`, address: `Route ${i}`, lat: -18 - i, lon: 47 + i,
+  }));
+  DEALERS.splice(0, DEALERS.length, ...many);
+  const view = render(React.createElement(Dealers, { go() {}, initialCity: 'dealer-1' }));
+  const list = view.getByRole('tablist', { name: 'Choisir une ville' });
+  assert.equal(list.querySelectorAll('[role=tab]').length, 16);
+  assert.equal(view.getByRole('tab', { name: 'Antananarivo' }).getAttribute('aria-selected'), 'true');
+  const dealerChoice = view.getByLabelText('Revendeur à Antananarivo');
+  assert.equal(dealerChoice.value, 'dealer-1');
+  assert.ok(view.getByTitle(/Carte OpenStreetMap de/).getAttribute('src').includes('marker=-19%2C48'));
+  fireEvent.change(dealerChoice, { target: { value: 'dealer-0' } });
+  assert.ok(view.getByTitle(/Carte OpenStreetMap de/).getAttribute('src').includes('marker=-18%2C47'));
+  const search = view.getByLabelText('Rechercher un revendeur ou une ville');
+  fireEvent.change(search, { target: { value: 'EVASION antananarivo' } });
+  const results = view.getByRole('list', { name: 'Résultats de recherche des revendeurs' });
+  assert.equal(results.querySelectorAll('button').length, 1);
+  fireEvent.click(results.querySelector('button'));
+  assert.equal(search.value, '');
+  assert.equal(view.getByLabelText('Revendeur à Antananarivo').value, 'dealer-1');
+  assert.ok(view.getByTitle(/Carte OpenStreetMap de/).getAttribute('src').includes('marker=-19%2C48'));
+  fireEvent.change(search, { target: { value: 'ville 16' } });
+  fireEvent.click(view.getByRole('list', { name: 'Résultats de recherche des revendeurs' }).querySelector('button'));
+  assert.equal(view.getByRole('tab', { name: 'Ville 16' }).getAttribute('aria-selected'), 'true');
+  assert.ok(view.getByTitle('Carte OpenStreetMap de Ville 16'));
+  assert.ok(view.getByRole('button', { name: 'Villes suivantes' }));
+  fireEvent.change(search, { target: { value: 'introuvable' } });
+  assert.equal(view.getByRole('status').textContent, 'Aucun revendeur trouvé.');
+  fireEvent.keyDown(search, { key: 'Escape' });
+  assert.equal(search.value, '');
+  fireEvent.change(search, { target: { value: 'introuvable' } });
+  fireEvent.click(view.getByRole('button', { name: 'Effacer' }));
+  assert.equal(search.value, '');
+  view.rerender(React.createElement(Dealers, { go() {}, initialCity: 'dealer-1' }));
+  view.rerender(React.createElement(Dealers, { go() {}, initialCity: 'dealer-0' }));
+  assert.equal(view.getByLabelText('Revendeur à Antananarivo').value, 'dealer-0');
+  view.unmount();
+  DEALERS.splice(0);
 });
