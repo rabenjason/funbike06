@@ -1,4 +1,4 @@
-import { PromotionPrice } from "./PromotionsContext";
+import { PromotionBadge, PromotionPrice } from "./PromotionsContext";
 import { homepageContent } from "../content/homepage";
 import { content } from "../constants/content";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -75,7 +75,7 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                     className="absolute inset-0"
                     imgClassName="object-contain p-3"
                   />
-
+                  <PromotionBadge product={product} />
                 </button>
 
                 <div className="flex flex-1 flex-col pt-4">
@@ -103,14 +103,14 @@ export default function NewArrivals({ go }: { go: (p: string, id?: string) => vo
                   )}
 
                   <div className="mt-auto pt-5">
-                    <div className="flex items-center justify-between gap-3 border-t border-black/15 pt-3 dark:border-white/15">
-                      <div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-black/15 pt-3 dark:border-white/15">
+                      <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                         <p className="text-[9px] uppercase tracking-[0.14em] text-black/45 dark:text-white/45">{homepageContent.nouveautes.tarif}</p>
-                        <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]"><PromotionPrice product={product} /></p>
+                        <p className="mt-0.5 text-xs font-semibold text-[#171816] dark:text-[#f2f0ea]"><PromotionPrice product={product} card /></p>
                       </div>
                       <button
                         onClick={openDetail}
-                        className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#171816] transition hover:text-black/60 dark:text-[#f2f0ea] dark:hover:text-white/70"
+                        className="inline-flex shrink-0 items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#171816] transition hover:text-black/60 dark:text-[#f2f0ea] dark:hover:text-white/70"
                       >
                         {content.boutons.voirProduit}
                         <FontAwesomeIcon icon={faArrowRight} className="transition-transform group-hover:translate-x-1" />
