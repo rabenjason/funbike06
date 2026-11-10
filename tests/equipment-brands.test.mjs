@@ -86,3 +86,17 @@ test("les anciens liens tld et mt continuent à ouvrir la bonne marque", () => {
   const selected = render(AccessoryBrandSelector, { active: "tvs", onSelect() {}, equipmentBrands: data.getEquipmentBrandsByProductCount() });
   assert.match(selected, /aria-pressed="true"/);
 });
+
+test("sélecteur équipements : logo et nom, sélection accessible et repli sans logo", () => {
+  const brands = [{ id: "logo", name: "Marque Logo", logo: "/logo.png" }, { id: "fallback", name: "Autre Marque" }];
+  const html = render(AccessoryBrandSelector, { active: "logo", onSelect() {}, equipmentBrands: brands });
+  assert.match(html, /role="group" aria-label="Marques d’équipements"/);
+  assert.match(html, /class="equipment-brand-scroll"/);
+  assert.match(html, /aria-pressed="true"/);
+  assert.match(html, /aria-pressed="false"/);
+  assert.ok(html.includes('/logo.png'));
+  assert.ok(html.includes('Marque Logo'));
+  assert.ok(html.includes('Autre Marque'));
+  assert.ok(html.includes('>AU</span>'), 'initiales si le logo est absent');
+  assert.match(html, /equipment-brand-active/);
+});
