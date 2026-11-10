@@ -526,7 +526,7 @@ textarea.chat-composer:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
-/* Sélecteur des marques d'équipements : logos et noms, défilable au doigt. */
+/* Sélecteurs de marques : logos et noms, défilables au doigt. */
 .equipment-brand-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -589,3 +589,15 @@ textarea.chat-composer:focus-visible {
 :root[data-site-theme="tvs"].dark .equipment-brand-active { border-color: #628df0; }
 :root[data-site-theme="tvs"] .equipment-brand-button:focus-visible { outline-color: #183883; }
 :root[data-site-theme="tvs"].dark .equipment-brand-button:focus-visible { outline-color: #a9c5ff; }
+
+/* Aucun trait gris ne traverse ni ne double le contour de la marque choisie. */
+.equipment-brand-button[aria-pressed="true"],
+.dark .equipment-brand-button[aria-pressed="true"] {
+  z-index: 1;
+  border-color: transparent;
+  border-radius: 12px;
+}
+.equipment-brand-button[aria-pressed="true"] + .equipment-brand-button,
+.dark .equipment-brand-button[aria-pressed="true"] + .equipment-brand-button {
+  border-left-color: transparent;
+}
