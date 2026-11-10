@@ -45,7 +45,7 @@ export default function PartnerMarquee({ partners }: { partners: Brand[] }) {
               <div key={copy} ref={half === 0 && copy === 0 ? setRef : undefined} className="fb-partner-set flex shrink-0 items-center gap-6 pr-6 sm:gap-10 sm:pr-10" aria-hidden={half === 0 && copy === 0 ? undefined : true}>
                 {partners.map((brand) => (
                   <motion.div key={brand.id} whileHover={{ scale: 1.08 }} transition={{ type: "spring", stiffness: 320, damping: 20 }} className="brand-logo-tile shrink-0">
-                    <img src={brand.logo ?? ""} alt={`${homepageContent.partenaires.logoPrefix} ${brand.name}`} loading="lazy" className="partner-logo h-full w-full object-contain transition-opacity hover:opacity-100" />
+                    <img src={brand.logo ?? ""} alt={`${homepageContent.partenaires.logoPrefix} ${brand.name}`} loading="lazy" className="object-contain" />
                   </motion.div>
                 ))}
               </div>

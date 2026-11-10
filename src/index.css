@@ -346,14 +346,19 @@ textarea.chat-composer:focus-visible {
   }
 }
 
-/* Partner ticker logo: fixed footprint so all logos share the same visual size. */
+/* Partenaires : un même support discret, quelle que soit la forme du fichier.
+   Le logo conserve ses proportions et ses couleurs, même en thème sombre. */
 .brand-logo-tile {
   display: inline-flex;
-  width: 6rem;
-  height: 2.5rem;
+  width: 6.25rem;
+  height: 3rem;
+  padding: 0.5rem 0.625rem;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 0.5rem;
+  background: #fff;
 }
 
 .brand-logo-tile img {
@@ -367,8 +372,9 @@ textarea.chat-composer:focus-visible {
 
 @media (min-width: 640px) {
   .brand-logo-tile {
-    width: 8rem;
-    height: 3rem;
+    width: 7rem;
+    height: 3.25rem;
+    padding: 0.5625rem 0.625rem;
   }
 }
 
