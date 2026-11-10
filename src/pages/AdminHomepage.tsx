@@ -44,7 +44,7 @@ export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange,
       <button type="button" className={mode === "content" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "content"} disabled={saving} onClick={() => void changeMode("content")}>Textes et liens</button>
       <button type="button" className={mode === "sherco" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "sherco"} disabled={saving} onClick={() => void changeMode("sherco")}>Bannière de mise en avant</button>
     </div>
-    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
+    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} saving={saving} onSavingChange={onSavingChange} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
   </div>;
 }
 

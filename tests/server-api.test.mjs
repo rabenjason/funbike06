@@ -68,6 +68,29 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
 
+    // Chatbot : réglage distinct, protégé, validation stricte et absence d'écrasement.
+    const chatbotFile = join(serverDir, 'storage/data/chatbot-settings.json');
+    assert.equal(existsSync(chatbotFile), false);
+    assert.equal((await call('homepage-content.php')).body.chatbotEnabled, true);
+    const chatbotCookie = cookie;
+    assert.equal((await call('chatbot-settings.php')).status, 401);
+    assert.equal((await call('chatbot-settings.php', { method: 'PUT', body: { enabled: false, revision: 'x' } })).status, 401);
+    cookie = chatbotCookie;
+    const initialChatbot = await call('chatbot-settings.php', { authenticated: true });
+    assert.equal(initialChatbot.body.data.enabled, true);
+    assert.equal(existsSync(chatbotFile), false);
+    assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: 'false', revision: initialChatbot.body.revision } })).status, 400);
+    const chatOff = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: false, revision: initialChatbot.body.revision } });
+    assert.equal(chatOff.status, 200); assert.equal((await call('homepage-content.php')).body.chatbotEnabled, false);
+    assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: true, revision: initialChatbot.body.revision } })).status, 409);
+    assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: true, revision: chatOff.body.revision } })).status, 200);
+    assert.equal((await call('homepage-content.php')).body.chatbotEnabled, true);
+    writeFileSync(chatbotFile, '{invalid');
+    assert.equal((await call('chatbot-settings.php', { authenticated: true })).status, 500);
+    assert.equal((await call('homepage-content.php')).status, 500);
+    assert.equal(readFileSync(chatbotFile, 'utf8'), '{invalid');
+    writeFileSync(chatbotFile, '{"enabled":true}');
+
     // Thème global : défaut sans écriture, validation, conflits, et retour au thème initial.
     const themeFile = join(serverDir, 'storage/data/site-theme.json');
     assert.equal(existsSync(themeFile), false);
