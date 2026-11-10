@@ -40,6 +40,8 @@ test('catalogue motos : prix aligné à droite du bouton, repli pour les grands 
   assert.ok(row.classList.contains('items-center'), 'les prix sont centrés verticalement sur le bouton');
   assert.ok(button.classList.contains('self-end'), 'le bouton reste ancré en bas lorsque les prix sont longs');
   assert.ok(price.closest('.text-right'), 'prix alignés à droite');
+  assert.ok(price.closest('.text-right').classList.contains('min-w-0'), 'le prix peut se réduire sans pousser le bouton');
+  assert.ok(button.classList.contains('min-h-11'), 'cible tactile mobile d’au moins 44 px');
   assert.ok(price.parentElement.classList.contains('justify-end'));
   assert.match(card.textContent.replace(/\s/g, ''), /1000000000000Ar/);
   assert.match(card.textContent.replace(/\s/g, ''), /500000000000Ar/);
@@ -53,6 +55,7 @@ test('catalogue motos : prix aligné à droite du bouton, repli pour les grands 
   assert.ok(regularButton.parentElement.textContent.includes('Sur devis'));
   assert.ok(regularButton.parentElement.classList.contains('items-center'), 'Sur devis est aussi centré verticalement');
   assert.ok(regularButton.classList.contains('self-end'));
+  assert.ok(regularButton.classList.contains('min-h-11'));
 });
 
 test('les autres cartes motos conservent leur disposition promotionnelle existante', async () => {
