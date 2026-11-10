@@ -483,6 +483,34 @@ textarea.chat-composer:focus-visible {
 }
 .animate-fb-ear { animation: fb-ear 2.6s ease-in-out infinite; transform-origin: center; }
 
+/* Lien social du pied de page : cible tactile généreuse et icône discrète. */
+.fb-footer-social {
+  --fb-social-accent: #ffd100;
+  --fb-social-ink: #171816;
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 4px;
+  color: var(--fb-social-accent);
+  font-size: 18px;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.fb-footer-social:focus-visible {
+  background-color: var(--fb-social-accent);
+  border-color: var(--fb-social-accent);
+  color: var(--fb-social-ink);
+}
+@media (hover: hover) {
+  .fb-footer-social:hover {
+    background-color: var(--fb-social-accent);
+    border-color: var(--fb-social-accent);
+    color: var(--fb-social-ink);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fb-partner-track { animation: none !important; width: 100%; }
   .fb-partner-half { width: 100%; }

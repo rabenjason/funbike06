@@ -277,8 +277,8 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
                 ))}
               </p>
             </div>}
-            {facebook && <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Notre page Facebook (nouvel onglet)" className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877f2] text-white transition hover:bg-[#1664cc]">
-              <FontAwesomeIcon icon={faFacebookF} aria-hidden="true" className="text-base" />
+            {facebook && <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Notre page Facebook (nouvel onglet)" className="fb-footer-social mt-4">
+              <FontAwesomeIcon icon={faFacebookF} aria-hidden="true" />
             </a>}
           </motion.div>
 
