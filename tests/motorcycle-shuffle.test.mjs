@@ -92,3 +92,12 @@ test('page motos : cartes alignées, pagination stable, recherche, filtres et no
     returned.unmount();
   } finally { catalog.motorcycles.splice(0, catalog.motorcycles.length, ...original); }
 });
+
+test('le haut compact concerne la page motos sans changer les autres pages du catalogue', () => {
+  const motos = render(React.createElement(Catalogue, { motosOnly: true, go() {} }));
+  assert.ok(motos.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('moto-catalog-compact-top'));
+  motos.unmount();
+  const catalogue = render(React.createElement(Catalogue, { go() {} }));
+  assert.ok(!catalogue.getByRole('heading', { name: 'Véhicules' }).closest('section').classList.contains('moto-catalog-compact-top'));
+  catalogue.unmount();
+});
