@@ -39,3 +39,21 @@ test('liens optionnels seulement s’ils sont renseignés et sans protocole dang
   assert.match(empty, /Aucun revendeur renseigné/);
   assert.ok(!empty.includes('Revendeur test'));
 });
+
+test('footer : icône Facebook uniquement pour une adresse renseignée et fiable', async () => {
+  const { isFacebookUrl } = await server.ssrLoadModule('/src/lib/socialLinks.ts');
+  for (const url of ['https://www.facebook.com/funbike', 'https://m.facebook.com/funbike', 'https://fb.me/funbike', 'https://fb.com/funbike']) assert.equal(isFacebookUrl(url), true, url);
+  for (const url of ['javascript:alert(1)', 'https://facebook.com.evil.example/', 'https://evil.example/facebook.com', 'https://facebook.com@evil.example/', 'https://user@facebook.com/', 'https://evilfb.me/', '']) assert.equal(isFacebookUrl(url), false, url);
+  const renderFooter = () => renderToStaticMarkup(React.createElement(Footer, { go() {}, onCookies() {} }));
+  setContactInfo({ ...contact, socialLinks: [] });
+  assert.doesNotMatch(renderFooter(), /Notre page Facebook/);
+  setContactInfo({ ...contact, socialLinks: [{ label: 'Facebook', url: 'https://facebook.com.evil.example/' }, { label: 'Instagram', url: 'https://instagram.com/funbike' }] });
+  assert.doesNotMatch(renderFooter(), /Notre page Facebook/, 'une adresse trompeuse ne devient pas un lien Facebook');
+  setContactInfo({ ...contact, socialLinks: [{ label: 'Autre', url: 'https://example.com' }, { label: 'Notre page', url: 'https://www.facebook.com/funbike' }, { label: 'Facebook secondaire', url: 'https://facebook.com/second' }] });
+  const html = renderFooter();
+  assert.match(html, /href="https:\/\/www\.facebook\.com\/funbike"/);
+  assert.match(html, /aria-label="Notre page Facebook \(nouvel onglet\)"/);
+  assert.match(html, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(html, /data-icon="facebook"/);
+  assert.doesNotMatch(html, /facebook\.com\/second/, 'un seul lien dans le footer');
+});

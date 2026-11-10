@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFacebook } from "@fortawesome/free-brands-svg-icons";
 import {
   faArrowRight,
   faArrowUp,
@@ -22,7 +23,8 @@ import { LOGO, brands } from "../catalog";
 import { usePromotions } from "./PromotionsContext";
 import { content } from "../constants/content";
 import { routePath, navigateLink } from "../lib/routes";
-import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF } from "../catalog/contact";
+import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF, CONTACT_SOCIAL_LINKS } from "../catalog/contact";
+import { facebookUrl } from "../lib/socialLinks";
 
 export type Route = { page: string; id?: string; categoryId?: string };
 
@@ -177,6 +179,7 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
   }
 
   const exclusiveBrands = content.footer.marquesExclusives.filter((name) => brands.some((brand) => brand.name.toLowerCase() === name.toLowerCase() && brand.isPublished !== false));
+  const facebook = facebookUrl(CONTACT_SOCIAL_LINKS);
   const shopIcons = [faMotorcycle, faMotorcycle, faHelmetSafety, faGears, faStore];
   const shop = content.footer.catalogueLiens.map((item, index) => ({
     ...item,
@@ -351,6 +354,12 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
                   <span className="break-all font-semibold">{CONTACT_EMAIL}</span>
                 </a>
               </li>
+              {facebook && <li>
+                <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Notre page Facebook (nouvel onglet)" className="flex min-h-10 items-center gap-3 text-white/85 transition hover:text-[#ffd100]">
+                  <FontAwesomeIcon icon={faFacebook} className="w-4 shrink-0 text-[#ffd100]" />
+                  <span className="font-semibold">Facebook</span>
+                </a>
+              </li>}
               <li className="flex items-center gap-3 text-white/60">
                 <FontAwesomeIcon icon={faClock} className="w-3.5 shrink-0 text-[#ffd100]" />
                 <span className="whitespace-pre-line break-words">{CONTACT_HOURS}</span>
