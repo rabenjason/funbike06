@@ -54,7 +54,7 @@ const phrase = (t: string, terms: string[]) => terms.some((term) => contains(t, 
 const CONTACT: ChatAction = { label: "Contacter l’équipe", page: "contact", icon: "contact" };
 const DEFAULT_QUICK = ["Les nouveautés", "Quelle moto pour la ville ?", "Horaires du showroom", "Pièces détachées"];
 export function initialQuick() { return [...DEFAULT_QUICK]; }
-export function greetingText(name?: string) { return `Bonjour${name ? ` ${name}` : ""} ! Je suis **Piston**, l’assistant automatique de Funbike. Je peux rechercher dans notre catalogue et vous orienter vers l’équipe.`; }
+export function greetingText(name?: string, assistantName = "Piston") { return `Bonjour${name ? ` ${name}` : ""} ! Je suis **${assistantName}**, l’assistant automatique de Funbike. Je peux rechercher dans notre catalogue et vous orienter vers l’équipe.`; }
 
 /** Les calculs se font sur les données publiques actuelles, jamais sur une liste figée. */
 export function searchProducts(question: string): Product[] {

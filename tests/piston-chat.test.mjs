@@ -83,3 +83,26 @@ test('le chat guide le client de motocross à une moto puis affine en 125 cc', a
   await waitFor(() => assert.equal(screen.getAllByText('XX 125 2026').length, 2), { timeout: 5000 });
   view.unmount();
 });
+
+test('identité personnalisée : nom, logo et salutation sans supprimer la conversation', async () => {
+  globalThis.localStorage = window.localStorage;
+  window.localStorage.clear();
+  const content = await server.ssrLoadModule('/src/content/homepage.ts');
+  const defaults = JSON.parse(readFileSync('src/content/homepage-defaults.json', 'utf8'));
+  const logo = '/server/uploads/chatbot/logo-' + 'b'.repeat(32) + '.png';
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: defaults, chatbotEnabled: true, chatbotName: 'Tiana', chatbotLogo: logo }) });
+  await content.loadHomepageData(); globalThis.fetch = mockFetch;
+  const view = render(React.createElement(CatChat, { go() {} }));
+  assert.ok(view.container.querySelector(`img[src="${logo}"]`));
+  fireEvent.click(screen.getByLabelText(/^Ouvrir la discussion/));
+  assert.ok(screen.getByRole('dialog', { name: 'Discussion avec Tiana, conseiller Funbike' }));
+  assert.ok(screen.getAllByText('Tiana', { exact: true })[0]);
+  assert.ok(screen.getByText(/l’assistant automatique de Funbike/));
+  assert.equal(screen.queryByText('Piston', { exact: true }), null);
+  const saved = window.localStorage.getItem('fb_chat_v3');
+  view.unmount();
+  assert.ok(saved); assert.equal(window.localStorage.getItem('fb_chat_v3'), saved);
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ data: defaults }) });
+  await content.loadHomepageData(); globalThis.fetch = mockFetch;
+  delete globalThis.localStorage;
+});

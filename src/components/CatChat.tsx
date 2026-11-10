@@ -26,6 +26,7 @@ import {
 import { brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import SmartImage from "./SmartImage";
+import { chatbotName, chatbotLogo } from "../content/homepage";
 import {
   EMPTY_MEMORY,
   greetingText,
@@ -150,7 +151,7 @@ const botMsg = (reply: BotReply): Msg => ({
   actions: reply.actions,
 });
 
-const greetMsg = (name?: string): Msg => botMsg({ text: greetingText(name) });
+const greetMsg = (name?: string): Msg => botMsg({ text: greetingText(name, chatbotName) });
 
 function loadStored(): Stored | null {
   try {
@@ -201,10 +202,15 @@ function RichText({ text }: { text: string }) {
   );
 }
 
+function ChatFace({ animated = false, className }: { animated?: boolean; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (chatbotLogo && !failed) return <img src={chatbotLogo} alt="" className={`${className} rounded-full object-contain`} onError={() => setFailed(true)} />;
+  return <CatFace className={className} animated={animated} />;
+}
 function Avatar({ size = "h-8 w-8" }: { size?: string }) {
   return (
     <span className={"fb-cat-avatar grid shrink-0 place-items-center rounded-full bg-[#ffd100] " + size} aria-hidden="true">
-      <CatFace className="h-[72%] w-[72%]" />
+      <ChatFace className="h-[72%] w-[72%]" />
     </span>
   );
 }
@@ -581,7 +587,7 @@ export default function CatChat({
             key="chat-panel"
             role="dialog"
             aria-modal={isMobile}
-            aria-label="Discussion avec Piston, conseiller Funbike"
+            aria-label={`Discussion avec ${chatbotName}, conseiller Funbike`}
             {...panelMotion}
             style={{ transformOrigin: "bottom right" }}
             className="fixed inset-0 z-[70] flex h-[100dvh] flex-col overflow-hidden bg-white text-[#171816] dark:bg-[#161714] dark:text-[#f2f0ea] sm:inset-auto sm:bottom-[92px] sm:right-6 sm:h-[min(620px,calc(100dvh-116px))] sm:w-[380px] sm:rounded-2xl sm:border sm:border-black/10 sm:shadow-[0_24px_70px_-12px_rgba(0,0,0,0.35)] lg:h-[min(660px,calc(100dvh-116px))] lg:w-[400px] dark:border-white/10"
@@ -602,7 +608,7 @@ export default function CatChat({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight">
-                  Piston
+                  <span className="min-w-0 truncate">{chatbotName}</span>
                   <span className="rounded-full bg-black/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-black/55 dark:bg-white/10 dark:text-white/60">
                     Funbike
                   </span>
@@ -721,7 +727,7 @@ export default function CatChat({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 4 }}
                       className="flex items-end gap-2 pb-2.5"
-                      aria-label="Piston est en train d'écrire"
+                      aria-label={`${chatbotName} est en train d’écrire`}
                     >
                       <Avatar />
                       <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-black/[0.05] bg-white px-4 py-3.5 dark:border-white/[0.05] dark:bg-[#232420]">
@@ -831,7 +837,7 @@ export default function CatChat({
               className="relative flex max-w-[15rem] items-start gap-2 rounded-2xl rounded-br-md border border-black/10 bg-white py-2.5 pl-3.5 pr-2 text-[13px] leading-snug text-[#171816] shadow-[0_12px_32px_-8px_rgba(0,0,0,0.25)] dark:border-white/10 dark:bg-[#1c1d1a] dark:text-[#f2f0ea]"
             >
               <button type="button" onClick={() => setOpen(true)} className="text-left">
-                <span className="block font-semibold">Piston, conseiller Funbike</span>
+                <span className="block font-semibold [overflow-wrap:anywhere]">{chatbotName}, conseiller Funbike</span>
                 <span className="text-black/60 dark:text-white/60">Une question sur une moto ? Je réponds tout de suite.</span>
               </button>
               <button
@@ -872,7 +878,7 @@ export default function CatChat({
               </motion.span>
             ) : (
               <motion.span key="cat" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }}>
-                <CatFace className="h-9 w-9 sm:h-10 sm:w-10" animated />
+                <ChatFace className="h-9 w-9 sm:h-10 sm:w-10" animated />
               </motion.span>
             )}
           </AnimatePresence>
