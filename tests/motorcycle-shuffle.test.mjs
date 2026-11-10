@@ -54,7 +54,8 @@ test('page motos : cartes alignées, pagination stable, recherche, filtres et no
       const title = card.querySelector('h3');
       const button = [...card.querySelectorAll('button')].find((item) => item.textContent.includes('Découvrir'));
       assert.ok(button.parentElement.classList.contains('mt-auto'));
-      assert.ok(button.parentElement.classList.contains('items-end'));
+      assert.ok(button.parentElement.classList.contains('items-center'), 'prix centré verticalement');
+      assert.ok(button.classList.contains('self-end'), 'bouton ancré en bas de la carte');
       assert.ok(!title.classList.contains('line-clamp-2'), 'le nom complet reste visible');
       assert.ok(button.parentElement.querySelector('span').classList.contains('min-w-0'));
     });

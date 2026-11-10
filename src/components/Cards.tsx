@@ -82,12 +82,12 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         <p className={(compact ? "mt-2 text-xs leading-5 " : "fluid-body mt-2.5 ") + "line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? (compact ? "[overflow-wrap:anywhere]" : "min-h-[3.2em] [overflow-wrap:anywhere]") : "")}>{bike.description}</p>
 
         {onPromotion && !bottomPromotion && <div className={compact ? "mt-auto pt-3" : "mt-auto pt-4"}><PromotionPrice product={bike} card /></div>}
-        <div className={bottomPromotion ? "mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-5" : onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
+        <div className={bottomPromotion ? "mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-5" : onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 " + (promotionPriceAtBottom ? "items-center" : "items-end") : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => go("product", bike.id)}
-            className={"inline-flex min-h-10 items-center gap-2.5 border border-black/25 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (compact ? "px-3 py-2 text-[10px] " : "fluid-btn px-4 py-2.5 ") + (aligned ? "shrink-0 whitespace-nowrap" : "")}
+            className={"inline-flex min-h-10 items-center gap-2.5 border border-black/25 font-bold uppercase text-[#171816] transition hover:border-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/30 dark:text-white dark:hover:border-white dark:hover:bg-white dark:hover:text-[#171816] " + (compact ? "px-3 py-2 text-[10px] " : "fluid-btn px-4 py-2.5 ") + (aligned ? "shrink-0 whitespace-nowrap" : "") + (promotionPriceAtBottom ? " self-end" : "")}
           >
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />

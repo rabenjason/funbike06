@@ -29,12 +29,16 @@ test('catalogue motos : prix aligné à droite du bouton, repli pour les grands 
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: active ? [campaign] : [], serverTime: new Date().toISOString() }) });
   const calls = [];
   const view = render(React.createElement(PromotionsProvider, null, React.createElement(Catalogue, { go: (...args) => calls.push(args), motosOnly: true })));
+  // Le catalogue mélange les motos : isoler la fiche rend le test déterministe.
+  fireEvent.change(view.getByLabelText('Rechercher dans le catalogue'), { target: { value: bike.name } });
   const findCard = () => view.getByRole('heading', { name: bike.name }).closest('article');
   await waitFor(() => assert.ok(within(findCard()).getByLabelText('Réduction de 50 %')));
   const card = findCard(); const button = within(card).getByRole('button', { name: /Découvrir/ });
   const row = button.parentElement; const price = card.querySelector('del');
   assert.ok(row.contains(price), 'prix et bouton partagent la même zone de bas de carte');
   assert.ok(row.classList.contains('flex-wrap'), 'les montants longs peuvent se placer à la ligne');
+  assert.ok(row.classList.contains('items-center'), 'les prix sont centrés verticalement sur le bouton');
+  assert.ok(button.classList.contains('self-end'), 'le bouton reste ancré en bas lorsque les prix sont longs');
   assert.ok(price.closest('.text-right'), 'prix alignés à droite');
   assert.ok(price.parentElement.classList.contains('justify-end'));
   assert.match(card.textContent.replace(/\s/g, ''), /1000000000000Ar/);
@@ -45,7 +49,10 @@ test('catalogue motos : prix aligné à droite du bouton, repli pour les grands 
   active = false; fireEvent(document, new window.Event('visibilitychange'));
   await waitFor(() => assert.match(findCard().textContent, /Sur devis/));
   assert.equal(findCard().querySelector('del'), null);
-  assert.ok(within(findCard()).getByRole('button', { name: /Découvrir/ }).parentElement.textContent.includes('Sur devis'));
+  const regularButton = within(findCard()).getByRole('button', { name: /Découvrir/ });
+  assert.ok(regularButton.parentElement.textContent.includes('Sur devis'));
+  assert.ok(regularButton.parentElement.classList.contains('items-center'), 'Sur devis est aussi centré verticalement');
+  assert.ok(regularButton.classList.contains('self-end'));
 });
 
 test('les autres cartes motos conservent leur disposition promotionnelle existante', async () => {
