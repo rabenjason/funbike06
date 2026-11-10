@@ -416,7 +416,7 @@ export function Section({
   compactTop?: boolean;
 }) {
   return (
-    <section id={id} className={"mx-auto w-full max-w-(--container-site) px-4 py-10 sm:px-6 sm:py-12 md:px-8 md:py-16 lg:px-10 lg:py-20" + (compactTop ? " moto-catalog-compact-top" : "")}>
+    <section id={id} className={"mx-auto w-full max-w-(--container-site) px-4 py-10 sm:px-6 sm:py-12 md:px-8 md:py-16 lg:px-10 lg:py-20" + (compactTop ? " page-compact-top" : "")}>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-t border-black/15 pt-4 dark:border-white/15 sm:mb-8 md:mb-10">
         <div>
           <p className="fluid-eyebrow mb-2 font-bold uppercase text-[#a27b17] dark:text-[#ffd100]">

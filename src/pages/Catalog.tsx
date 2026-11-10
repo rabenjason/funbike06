@@ -116,7 +116,7 @@ export function Catalogue({
         title="Véhicules"
         subtitle={`${bikeList.length} modèle(s) disponible(s) · page ${safePage} sur ${totalPages}`}
         number="01 / Motos"
-        compactTop={motosOnly}
+        compactTop
       >
         <div
           ref={gridRef}
@@ -253,6 +253,7 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
         title="Choisir une marque"
         subtitle="Touchez une marque pour afficher sa gamme et les informations utiles."
         number="01 / Équipements"
+        compactTop
       >
         <div ref={gridRef}>
           <AccessoryBrandSelector
@@ -413,6 +414,7 @@ export function Spares({ go, initialBrand }: { go: (p: string, id?: string) => v
         title="Choisir une marque"
         subtitle="Touchez une marque pour afficher ses pièces et consommables."
         number="01 / Pièces"
+        compactTop
       >
         <div ref={gridRef}>
           <SpareBrandSelector

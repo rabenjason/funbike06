@@ -48,7 +48,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
   return (
     <div className="bg-white dark:bg-[#141513]">
 
-      <div className="mx-auto grid w-full max-w-(--container-site) gap-8 px-4 py-10 sm:gap-10 sm:px-7 sm:py-12 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20 lg:px-10 lg:py-14">
+      <div className="page-compact-top mx-auto grid w-full max-w-(--container-site) gap-8 px-4 py-10 sm:gap-10 sm:px-7 sm:py-12 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20 lg:px-10 lg:py-14">
         <motion.aside
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}

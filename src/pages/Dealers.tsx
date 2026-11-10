@@ -114,7 +114,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
 
   return (
     <div className="overflow-x-hidden bg-white text-[#171816] dark:bg-[#141513] dark:text-[#f2f0ea]">
-      <div className="mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-7 sm:pb-10 sm:pt-8 lg:px-10 lg:pb-12 lg:pt-10">
+      <div className="page-compact-top mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-7 sm:pb-10 sm:pt-8 lg:px-10 lg:pb-12 lg:pt-10">
         {/* ---------------- Locator ---------------- */}
         <div ref={locatorRef} className="scroll-mt-20">
           <h1 className="mb-4 font-display text-[clamp(1.45rem,1.2rem+1.1vw,2.15rem)] font-semibold leading-tight tracking-[-0.05em]">

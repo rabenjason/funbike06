@@ -602,7 +602,7 @@ textarea.chat-composer:focus-visible {
   border-left-color: transparent;
 }
 
-/* Réduit uniquement l’espace avant le titre de la page Motos. */
-.moto-catalog-compact-top {
+/* Réduit l’espace sous le menu sur les pages principales, pas entre les sections. */
+.page-compact-top {
   padding-top: clamp(1.25rem, 2vw, 2rem);
 }
