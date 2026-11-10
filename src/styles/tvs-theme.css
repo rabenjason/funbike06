@@ -52,6 +52,16 @@
 :root[data-site-theme="tvs"] [class~="via-[#ffd100]"],
 :root[data-site-theme="tvs"] [class~="via-[#ffd100]/80"] { --tw-gradient-via: #e62d38; }
 
+/* Section équipements de l’accueil : teintes neutres propres à TVS. */
+:root[data-site-theme="tvs"]:not(.dark) .fb-home-equipment {
+  background-color: #f3f6fc;
+  border-color: #dce4f3;
+}
+:root[data-site-theme="tvs"].dark .fb-home-equipment {
+  background-color: #242830;
+  border-color: rgb(255 255 255 / .1);
+}
+
 /* Le footer reste sombre en modes jour et nuit : garder un contraste lisible. */
 :root[data-site-theme="tvs"] .fb-footer-social {
   --fb-social-accent: #c6d8ff;

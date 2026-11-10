@@ -214,7 +214,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         </button>
       </Section>
 
-      <section className="border-y border-[#e8d574]/50 bg-[#fff9df]/65 backdrop-blur-2xl dark:border-white/10 dark:bg-[#1c1d19]">
+      <section className="fb-home-equipment border-y border-[#e8d574]/50 bg-[#fff9df]/65 backdrop-blur-2xl dark:border-white/10 dark:bg-[#1c1d19]">
         <div className="mx-auto w-full max-w-(--container-site) px-4 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-t border-black/15 pt-4 dark:border-white/15 sm:mb-7">
             <div>
