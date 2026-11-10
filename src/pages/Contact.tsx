@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fortawesome/free-solid-svg-icons";
 import { brands, findProductById } from "../catalog";
 import { CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
+import { isFacebookUrl } from "../lib/socialLinks";
 
 // Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
@@ -16,7 +17,7 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
   const pending = useRef(false);
   const accessory = findProductById(inquiryId);
   const socialLinks = CONTACT_SOCIAL_LINKS.filter((link) => {
-    try { return !!link.label && ["http:", "https:"].includes(new URL(link.url).protocol); } catch { return false; }
+    try { return !!link.label && link.label.trim().toLowerCase() !== "facebook" && !isFacebookUrl(link.url) && ["http:", "https:"].includes(new URL(link.url).protocol); } catch { return false; }
   });
   const whatsappDigits = (CONTACT_WHATSAPP ?? "").replace(/\D/g, "");
   const whatsappUrl = /^\d{8,15}$/.test(whatsappDigits) ? `https://wa.me/${whatsappDigits}` : null;
