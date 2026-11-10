@@ -352,53 +352,35 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
 function SpareBrandSelector({ active, onSelect, available }: { active: string; onSelect: (brand: string) => void; available: ReturnType<typeof getAvailableSpareBrands> }) {
   const tabs = [{ key: "", name: "Toutes", icon: faGears }, ...available.map((brand) => ({ key: brand.id, name: brand.name, logo: brand.logo }))];
   return (
-    <div className="no-scrollbar flex overflow-x-auto border-b border-black/15 dark:border-white/15">
-      {tabs.map((brand) => {
-        const selected = active === brand.key;
-        const visual: AccessoryBrand = { name: brand.name, logo: "logo" in brand ? brand.logo : undefined, icon: "icon" in brand ? brand.icon : undefined };
-        return (
-          <button
-            key={brand.key}
-            type="button"
-            aria-pressed={selected}
-            aria-controls="spare-parts-products"
-            onClick={(event) => {
-              onSelect(brand.key);
-              event.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-            }}
-            className={
-              "relative flex min-w-max items-center gap-2.5 px-3 py-3 text-left transition sm:px-5 " +
-              (selected ? "bg-[#ffd100]/15" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]")
-            }
-          >
-            <BrandVisual brand={visual} />
-            <span
-              className={
-                "block truncate text-xs font-bold " +
-                (selected ? "text-[#171816] dark:text-[#f2f0ea]" : "text-black/50 dark:text-white/50")
-              }
+    <div className="equipment-brand-scroll" role="group" aria-label="Marques de pièces détachées">
+      <div className="equipment-brand-list">
+        {tabs.map((brand) => {
+          const selected = active === brand.key;
+          const visual: AccessoryBrand = { name: brand.name, logo: "logo" in brand ? brand.logo : undefined, icon: "icon" in brand ? brand.icon : undefined };
+          return (
+            <button
+              key={brand.key}
+              type="button"
+              aria-pressed={selected}
+              aria-controls="spare-parts-products"
+              onClick={(event) => {
+                onSelect(brand.key);
+                event.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+              }}
+              className="equipment-brand-button"
             >
-              {brand.name}
-            </span>
-            {selected && (
-              <>
-                <motion.span
-                  aria-hidden="true"
-                  layoutId="spare-brand-border"
-                  className="pointer-events-none absolute inset-0 border border-[#ffd100]"
-                  transition={{ type: "spring", stiffness: 400, damping: 34 }}
-                />
-                <motion.span
-                  aria-hidden="true"
-                  layoutId="spare-brand-active"
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#ffd100]"
-                  transition={{ type: "spring", stiffness: 400, damping: 34 }}
-                />
-              </>
-            )}
-          </button>
-        );
-      })}
+              <BrandVisual brand={visual} />
+              <span className="equipment-brand-name block truncate">{brand.name}</span>
+              {selected && <motion.span
+                aria-hidden="true"
+                layoutId="spare-brand-border"
+                className="equipment-brand-active"
+                transition={{ type: "spring", stiffness: 400, damping: 34 }}
+              />}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
