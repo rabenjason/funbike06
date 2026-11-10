@@ -1,9 +1,10 @@
 import { CatFace } from "./CatFace";
 export { CatFace } from "./CatFace";
 import { getProductFamily, categories, families, models, productTypes, productDetailPage, products } from "../catalog";
-import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE } from "../catalog/contact";
+import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_WHATSAPP } from "../catalog/contact";
 import { DEALERS } from "../catalog/dealers";
 import { loadServerData } from "../catalog/loadServerData";
+import { loadAssistantPromotions } from "../lib/assistant-promotions";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -33,6 +34,7 @@ import {
   EMPTY_MEMORY,
   greetingText,
   initialQuick,
+  needsPromotionData,
   respond,
   typingDelay,
   type BotReply,
@@ -135,7 +137,7 @@ type Stored = { messages: Msg[]; memory: Memory; quick: string[]; catalogVersion
 const STORE_KEY = "fb_chat_v3";
 // Toute modification des données publiques rend les anciennes réponses potentiellement obsolètes.
 function catalogVersion() {
-  const text = JSON.stringify([brands, products, categories, families, productTypes, models, DEALERS, CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE]);
+  const text = JSON.stringify([brands, products, categories, families, productTypes, models, DEALERS, CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_WHATSAPP]);
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
   return (hash >>> 0).toString(36);
@@ -511,7 +513,10 @@ export default function CatChat({
         setMemory(memoryRef.current);
         setMessages([greetMsg(), botMsg({ text: "Le catalogue a changé : je repars des informations à jour." }), userMessage]);
       }
-      const result = respond(value, memoryRef.current);
+      const promotions = needsPromotionData(value, memoryRef.current) ? await loadAssistantPromotions(controller.signal) : undefined;
+      if (version !== requestVersion.current) return;
+      if (controller.signal.aborted) throw new Error("Chargement annulé");
+      const result = respond(value, memoryRef.current, promotions);
       memoryRef.current = result.memory; setMemory(result.memory); reply = result.reply;
     } catch {
       if (version !== requestVersion.current) return;

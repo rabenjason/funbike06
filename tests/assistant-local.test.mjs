@@ -176,3 +176,59 @@ test('une description explicite peut étayer une piste sans transformer une nég
     assert.match(reply.reasons[documented.id], /Description.*Polyvalence route et piste/);
   } finally { catalog.products.splice(0); }
 });
+
+test('revendeurs : noms, ville, suivi et ambiguïtés à partir des fiches actuelles', async () => {
+  const { DEALERS } = await server.ssrLoadModule('/src/catalog/dealers.ts');
+  const original = [...DEALERS];
+  const row = (key, name, city, extra = {}) => ({ key, name, city, kind: 'Magasin', address: `Adresse ${key}`, hours: 'Lundi 9h', phone: '034 123', email: `${key}@test.mg`, services: ['Atelier'], lat: -18, lon: 47, desc: '', ...extra });
+  DEALERS.splice(0, DEALERS.length, row('rider', 'Rider zone', 'Antananarivo'), row('autre', 'Autre magasin', 'Antananarivo'), row('nord', 'Moto Nord', 'Mahajanga'), row('demo', 'Fausse démo', 'Antananarivo', { isDemo: true }));
+  try {
+    let r = ask('rider zone'); assert.match(r.reply.text, /Adresse rider/); assert.match(r.reply.text, /Lundi 9h/); assert.ok(r.reply.actions.some((a) => a.page === 'revendeurs' && a.id === 'rider'));
+    assert.match(ask('adresse de Rider zone').reply.text, /Adresse rider/);
+    assert.match(ask('Moto Nord').reply.text, /Adresse nord/);
+    assert.match(ask('horaires Moto Nord').reply.text, /Adresse nord/);
+    assert.doesNotMatch(ask('prix moto Rider zone').reply.text, /Adresse rider/);
+    assert.match(ask('horaires', r.memory).reply.text, /Lundi 9h/);
+    r = ask('revendeurs à antananarivo'); assert.match(r.reply.text, /Rider zone/); assert.match(r.reply.text, /Autre magasin/); assert.doesNotMatch(r.reply.text, /Fausse démo|Moto Nord/);
+    assert.match(ask('adresse', r.memory).reply.text, /certitude/);
+    assert.match(ask('le deuxième', r.memory).reply.text, /Adresse autre/);
+    assert.match(ask('revendeurs à villeinconnue').reply.text, /ne trouve pas/);
+    assert.match(ask('revendeur introuvable').reply.text, /ne trouve pas/);
+    assert.match(ask('horaires du showroom', r.memory).reply.text, /Showroom Funbike/);
+    DEALERS[0].address = 'Nouvelle adresse'; assert.match(ask('RIDER ZONE').reply.text, /Nouvelle adresse/);
+    DEALERS.splice(0, 1); assert.doesNotMatch(ask('revendeurs').reply.text, /Rider zone/);
+    assert.match(ask('adresse', { ...r.memory, dealerKeys: ['rider'], lastDealerKey: 'rider' }).reply.text, /certitude/);
+    assert.doesNotMatch(ask('moto pour la ville').reply.text, /Points de vente/);
+  } finally { DEALERS.splice(0, DEALERS.length, ...original); }
+});
+
+test('promotions : prix et catégories vérifiés, indisponibilité et produits non publics', async () => {
+  const { loadAssistantPromotions } = await server.ssrLoadModule('/src/lib/assistant-promotions.ts');
+  const oldFetch = globalThis.fetch;
+  const moto = product('PromoMoto', 'motos', { name: 'Zebra Nova' });
+  const gear = product('PromoGear', 'equipements', { name: 'Gants Thermo' });
+  const hidden = product('hidden', 'motos', { name: 'Secret', status: 'DRAFT' });
+  catalog.products.push(moto, gear, hidden);
+  const items = [moto, gear, hidden].map((p) => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 100000, discountPercent: 20 }));
+  const campaign = { id: 'a', name: 'Promo', startDate: '2026-11-01', endDate: '2026-11-30', enabled: true, published: true, products: items };
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign, { ...campaign, id: 'expired', startDate: '2026-10-01', endDate: '2026-10-31' }], serverTime: '2026-11-15T10:00:00Z' }) });
+  try {
+    const snapshot = await loadAssistantPromotions(new AbortController().signal); assert.equal(snapshot.campaigns.length, 1);
+    let r = assistant.respond('promotions', memory(), snapshot); assert.deepEqual(r.reply.productIds, ['PromoMoto', 'PromoGear']);
+    assert.deepEqual(assistant.respond('promotions motos', memory(), snapshot).reply.productIds, ['PromoMoto']);
+    assert.deepEqual(assistant.respond('promos gants Thermo', memory(), snapshot).reply.productIds, ['PromoGear']);
+    assert.match(assistant.respond('promo gants Inexistant', memory(), snapshot).reply.text, /aucune promotion/i);
+    r = assistant.respond('prix Zebra Nova', memory(), snapshot); assert.match(r.reply.text, /80\s?000 Ar/); assert.match(r.reply.text, /30\/11\/2026/); assert.match(r.reply.text, /20 %/);
+    assert.match(assistant.respond('prix Zebra Nova', memory(), null).reply.text, /ne peux pas vérifier/);
+    assert.match(assistant.respond('promotions', memory(), null).reply.text, /ne peux pas vérifier/);
+    assert.equal(assistant.needsPromotionData('Voir la suite', r.memory), false);
+    const listing = assistant.respond('promotions', memory(), snapshot);
+    assert.equal(assistant.needsPromotionData('Voir la suite', listing.memory), true);
+    assert.match(assistant.respond('Voir la suite', listing.memory, { campaigns: [], now: snapshot.now }).reply.text, /plus disponibles/);
+    assert.match(assistant.respond('Voir la suite', listing.memory, null).reply.text, /ne peux pas vérifier/);
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [{ ...campaign, products: [{ ...items[0], originalPrice: -1 }] }], serverTime: '2026-11-15T10:00:00Z' }) });
+    assert.equal(await loadAssistantPromotions(new AbortController().signal), null);
+    globalThis.fetch = async () => { throw new Error('réseau'); };
+    assert.equal(await loadAssistantPromotions(new AbortController().signal), null);
+  } finally { globalThis.fetch = oldFetch; catalog.products.splice(0); }
+});
