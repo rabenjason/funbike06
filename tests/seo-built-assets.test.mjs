@@ -13,7 +13,7 @@ test('build versionné : assets séparés et SEO PHP sans JavaScript', { timeout
   const dir = mkdtempSync(join(tmpdir(), 'funbike-build-seo-'));
   let child;
   try {
-    const built = spawnSync(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'build', '--outDir', dir, '--emptyOutDir'], { encoding: 'utf8', timeout: 60000 });
+    const built = spawnSync(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'build', '--manifest', '--outDir', dir, '--emptyOutDir'], { encoding: 'utf8', timeout: 60000 });
     assert.equal(built.status, 0, built.stderr || built.stdout);
     const html = readFileSync(join(dir, 'index.html'), 'utf8');
     const js = html.match(/<script type="module"[^>]*src="(\/assets\/[^\"]+\.js)"/);
@@ -23,6 +23,21 @@ test('build versionné : assets séparés et SEO PHP sans JavaScript', { timeout
     assert.ok(html.includes('<div id="root"></div>'));
     assert.ok(html.includes('Mise en route'));
     assert.doesNotMatch(html, /src="\/assets\/Admin-[^"]+"/, 'le code admin ne se charge pas dans le HTML public');
+    // La première visite de l’accueil ne télécharge plus les autres pages.
+    const manifest = JSON.parse(readFileSync(join(dir, '.vite/manifest.json'), 'utf8'));
+    const initial = new Set();
+    function collect(key) {
+      if (initial.has(key)) return;
+      assert.ok(manifest[key], `Entrée manquante : ${key}`);
+      initial.add(key);
+      for (const dependency of manifest[key].imports ?? []) collect(dependency);
+    }
+    for (const key of ['index.html', 'src/App.tsx', 'src/pages/Home.tsx', 'src/content/homepage.ts']) collect(key);
+    for (const page of ['Catalog', 'Product', 'AccessoryDetail', 'Promotions', 'Contact', 'Dealers', 'Admin']) {
+      assert.ok(manifest[`src/pages/${page}.tsx`], `page ${page} séparée`);
+      assert.equal(initial.has(`src/pages/${page}.tsx`), false, `page ${page} non chargée à l’accueil`);
+    }
+
     if (!php) { t.diagnostic('Vérification PHP ignorée : PHP indisponible.'); return; }
     cpSync(resolve('server'), join(dir, 'server'), { recursive: true });
     const router = join(dir, 'router.php');

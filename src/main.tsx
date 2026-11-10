@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/light-theme.css";
 import { readDarkPreference } from "./lib/theme";
+import { preloadPublicPage } from "./lib/publicPages";
 
 if (readDarkPreference()) document.documentElement.classList.add("dark");
 
@@ -40,7 +41,7 @@ function Bootstrap() {
         } else {
           // Le code public et les données se chargent en parallèle, mais aucun
           // rendu n'a lieu avant que toutes les données publiées soient prêtes.
-          const [, { default: App }] = await Promise.all([initializePublicData(), import("./App")]);
+          const [, { default: App }] = await Promise.all([initializePublicData(), import("./App"), preloadPublicPage(location.pathname).catch(() => {})]);
           if (active) setContent(<App />);
         }
       } catch {

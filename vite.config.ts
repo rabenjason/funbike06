@@ -19,6 +19,20 @@ export default defineConfig({
       "/server": { target: process.env.FUNBIKE_PHP_TARGET || "http://127.0.0.1:8000", changeOrigin: false },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        onlyExplicitManualChunks: true,
+        // Grouper les petits modules partagés évite des dizaines de requêtes
+        // au premier chargement, sans inclure les pages non visitées.
+        manualChunks(id) {
+          const relative = id.split("?")[0].replace(/\\/g, "/");
+          if (relative.startsWith(`${__dirname.replace(/\\/g, "/")}/src/catalog/`)) return "catalog-core";
+          if (/\/src\/components\/(?:Layout|SmartImage|Cards|AccessoryBrands)\.tsx$/.test(relative)) return "public-cards";
+        },
+      },
+    },
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
