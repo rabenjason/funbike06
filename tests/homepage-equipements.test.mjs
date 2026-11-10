@@ -29,6 +29,7 @@ test("les casques et équipements possèdent un indicateur de sélection pour l'
   const selection = data.getEquipementsAccueil();
   assert.deepEqual(selection.map(({ id }) => id), ["tvs-helmet-raider", "tvs-helmet-anti-matter", "tvs-jacket-tech-core", "tvs-gloves-city"]);
   const html = sectionEquipements();
+  assert.match(html, /<section class="fb-home-equipment /);
   assert.equal((html.match(/<article\b/g) ?? []).length, 4);
   for (const product of selection) assert.ok(html.includes(escapeHtml(product.name)));
   assert.ok(!html.includes("Pneu avant route TVS"));
