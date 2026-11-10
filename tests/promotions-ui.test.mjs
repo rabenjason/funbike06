@@ -120,14 +120,16 @@ test('onglets : catégories disponibles, filtre par type et prix/liens inchangé
   assert.equal(view.getByRole('button', { name: 'Équipements et casques' }).getAttribute('aria-pressed'), 'true');
   const results = view.getByRole('region', { name: 'Produits en promotion' });
   assert.equal(results.querySelectorAll('article').length, 2);
-  assert.match(results.textContent, /2 produits/);
+  assert.doesNotMatch(results.textContent, /\b\d+ produits?\b/, 'aucun nombre de produits affiché');
   assert.ok(results.textContent.includes(helmet.name) && results.textContent.includes(gear.name));
   const filter = view.getByLabelText('Filtrer par type');
   fireEvent.change(filter, { target: { value: `${helmet.categoryId}:${helmet.productTypeId}` } });
   assert.equal(results.querySelectorAll('article').length, 1); assert.ok(results.textContent.includes(helmet.name));
+  assert.doesNotMatch(results.textContent, /\b\d+ produits?\b/, 'pas de compteur après filtrage');
   assert.ok(results.querySelector('[aria-label="Réduction de 20 %"]')); assert.match(results.textContent, /800\s?000 Ar/);
   fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: 'introuvable' } });
   assert.ok(view.getByText(/Aucun produit ne correspond/));
+  assert.doesNotMatch(results.textContent, /\b\d+ produits?\b/, 'pas de compteur lorsque la recherche est vide');
   fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: '' } });
   fireEvent.click(view.getByRole('button', { name: 'Motos' }));
   assert.equal(view.getByLabelText('Filtrer par type').value, '');
@@ -149,7 +151,10 @@ test('préférence indisponible : seule une catégorie avec promotions est affic
   assert.equal(view.getByRole('button', { name: 'Motos' }).getAttribute('aria-pressed'), 'true');
   assert.equal(view.queryByRole('button', { name: 'Équipements et casques' }), null);
   assert.equal(view.queryByRole('button', { name: 'Pièces détachées' }), null);
-  assert.match(view.getByRole('region', { name: 'Produits en promotion' }).textContent, /1 produit/);
+  const results = view.getByRole('region', { name: 'Produits en promotion' });
+  assert.equal(results.querySelectorAll('article').length, 1);
+  assert.ok(results.textContent.includes(moto.name));
+  assert.doesNotMatch(results.textContent, /\b\d+ produits?\b/, 'pas de compteur pour un produit');
 });
 
 test('une seule pagination pour plusieurs campagnes, recherche et retour à la première page', async () => {
@@ -161,6 +166,7 @@ test('une seule pagination pour plusieurs campagnes, recherche et retour à la p
   await waitFor(() => assert.ok(view.getByRole('navigation', { name: 'Pagination des promotions' })));
   assert.equal(view.getAllByRole('navigation', { name: 'Pagination des promotions' }).length, 1);
   assert.equal(view.container.querySelectorAll('article').length, 8);
+  assert.doesNotMatch(view.getByRole('region', { name: 'Produits en promotion' }).textContent, /\b\d+ produits?\b/, 'pas de compteur sur une liste paginée');
   fireEvent.click(view.getByRole('button', { name: 'Page 2' }));
   assert.equal(view.getByRole('button', { name: 'Page 2' }).getAttribute('aria-current'), 'page');
   assert.equal(view.container.querySelectorAll('article').length, list.length - 8);
