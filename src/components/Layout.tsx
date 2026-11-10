@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faFacebook } from "@fortawesome/free-brands-svg-icons";
+import { faFacebookF } from "@fortawesome/free-brands-svg-icons";
 import {
   faArrowRight,
   faArrowUp,
@@ -277,6 +277,9 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
                 ))}
               </p>
             </div>}
+            {facebook && <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Notre page Facebook (nouvel onglet)" className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#1877f2] text-white transition hover:bg-[#1664cc]">
+              <FontAwesomeIcon icon={faFacebookF} aria-hidden="true" className="text-base" />
+            </a>}
           </motion.div>
 
           {/* Links Section: On mobile, grouped into a responsive 2-column grid */}
@@ -354,12 +357,6 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
                   <span className="break-all font-semibold">{CONTACT_EMAIL}</span>
                 </a>
               </li>
-              {facebook && <li>
-                <a href={facebook} target="_blank" rel="noopener noreferrer" aria-label="Notre page Facebook (nouvel onglet)" className="flex min-h-10 items-center gap-3 text-white/85 transition hover:text-[#ffd100]">
-                  <FontAwesomeIcon icon={faFacebook} className="w-4 shrink-0 text-[#ffd100]" />
-                  <span className="font-semibold">Facebook</span>
-                </a>
-              </li>}
               <li className="flex items-center gap-3 text-white/60">
                 <FontAwesomeIcon icon={faClock} className="w-3.5 shrink-0 text-[#ffd100]" />
                 <span className="whitespace-pre-line break-words">{CONTACT_HOURS}</span>

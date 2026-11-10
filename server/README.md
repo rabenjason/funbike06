@@ -396,7 +396,7 @@ Une famille utilisée par un type ne peut pas être supprimée. Modifier ou supp
 
 Les onglets **Revendeurs** et **Contact** permettent de gérer les données de `server/storage/data/dealers.json` et `contacts.json`, sans modifier les fichiers à la main. Seuls les admins connectés peuvent enregistrer ou supprimer ; la lecture publique reste disponible pour le site. Les données existantes, y compris les fiches de démonstration, ne sont pas modifiées automatiquement.
 
-Pour les horaires, saisir une ligne par groupe de jours : l’aperçu de l’administration et le site conservent les retours à la ligne. Pour les revendeurs, la latitude et la longitude sont nécessaires pour la carte. Les changements sont visibles sur le site lors de son prochain chargement. Les liens WhatsApp et de réseaux sociaux ne sont affichés sur la page Contact que s’ils sont renseignés. Le formulaire de demande reste un lien vers la messagerie du visiteur : il ne stocke pas les messages.
+Pour les horaires, saisir une ligne par groupe de jours : l’aperçu de l’administration et le site conservent les retours à la ligne. Pour les revendeurs, la latitude et la longitude sont nécessaires pour la carte. Les changements sont visibles sur le site lors de son prochain chargement. Les liens WhatsApp et des autres réseaux sociaux ne sont affichés sur la page Contact que s’ils sont renseignés ; Facebook apparaît uniquement dans le pied de page. Le formulaire de demande reste un lien vers la messagerie du visiteur : il ne stocke pas les messages.
 
 ## 12. Déploiement FTP et précautions
 
@@ -509,6 +509,6 @@ Dans **Administrateurs**, seul le superadmin peut renommer son compte ou un comp
 
 ### Lien Facebook dans le pied de page
 
-Dans **Contact → Réseaux sociaux**, le bouton « Ajouter Facebook » crée une entrée préremplie ; saisir l’adresse complète de la page puis enregistrer les coordonnées. Une entrée Facebook déjà présente peut être modifiée ou retirée dans la même liste. Le premier lien dont l’adresse appartient à Facebook (`facebook.com`, `fb.com` ou `fb.me`, y compris leurs sous-domaines) apparaît aussi avec son icône dans le pied de page ; sans adresse reconnue, aucun lien n’est inventé. Les autres réseaux et coordonnées restent inchangés. Le lien s’ouvre dans un nouvel onglet. Les pages déjà ouvertes doivent être actualisées pour voir une modification.
+Dans **Contact → Réseaux sociaux**, le bouton « Ajouter Facebook » crée une entrée préremplie ; saisir l’adresse complète de la page puis enregistrer les coordonnées. Une entrée Facebook déjà présente peut être modifiée ou retirée dans la même liste. Le premier lien dont l’adresse appartient à Facebook (`facebook.com`, `fb.com` ou `fb.me`, y compris leurs sous-domaines) apparaît uniquement sous forme d’icône dans le pied de page, sous « Distributeur exclusif » ; sans adresse reconnue, aucun lien n’est inventé. Les autres réseaux et coordonnées restent inchangés. Le lien s’ouvre dans un nouvel onglet. Les pages déjà ouvertes doivent être actualisées pour voir une modification.
 
 Les liens sont conservés dans `server/storage/data/contacts.json`, comme les autres coordonnées : sauvegarder et préserver ce fichier et tous les autres fichiers de `storage` et `uploads` lors d’un déploiement.
