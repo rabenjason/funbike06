@@ -1,7 +1,10 @@
 import { brands, products, categories, productTypes, models, getProductFamily } from "../catalog";
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS } from "../catalog/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS, CONTACT_WHATSAPP } from "../catalog/contact";
 import { DEALERS } from "../catalog/dealers";
 import type { Product } from "../types/product";
+import type { Dealer } from "../types";
+import { calculatePromotionPrice, formatAriary, madagascarDate } from "./promotions";
+import type { PromotionSnapshot } from "./assistant-promotions";
 
 export type ChatActionIcon = "catalog" | "contact" | "parts" | "phone" | "product" | "gear";
 export type ChatAction = { label: string; page: string; id?: string; icon?: ChatActionIcon };
@@ -14,10 +17,13 @@ export type Memory = {
   resultOffset?: number;
   resultTitle?: string;
   resultReasons?: Record<string, string>;
+  resultKind?: "promotions";
   waitingForUsage?: boolean;
   usageBrandId?: string;
   usageNumbers?: string[];
   pendingIntent?: "price" | "stock";
+  dealerKeys?: string[];
+  lastDealerKey?: string;
   pendingCategoryQuery?: string;
   lastUsage?: string;
   lastUsageBrandId?: string;
@@ -39,7 +45,7 @@ const typeName = (p: Product) => productTypes.find((t) => t.id === p.productType
 const modelName = (p: Product) => models.find((m) => m.id === p.modelId && m.brandId === p.brandId)?.name ?? "";
 const categoryName = (p: Product) => categories.find((c) => c.id === p.categoryId)?.name ?? p.categoryId;
 const productText = (p: Product) => [p.name, brandOf(p)?.name, modelName(p), typeName(p), getProductFamily(p)?.name, categoryName(p), p.description, p.subDescription, ...(p.tags ?? []), ...(p.specifications ?? []).flatMap((s) => [s.key, s.value])].filter(Boolean).join(" ");
-const STOP = new Set("bonjour salut hello bjr salama merci pour avec sans dans avez vous votre vos est sont quelles quels quel quelle une des les la le du de au aux et ou je veux voudrais cherche recherche pouvez moi me svp sil vous plait montre montrer voir afficher fiche informations information details detail parle parler produit produits modele modeles prix tarif cout coute combien coute cher coute devis promotion promo reduction disponible disponibilite stock neuf neuve nouveau nouvelle nouveaux nouvelles nouveaute nouveautes arrivage arrivages arrivee arrivees dernier derniers derniere dernieres propose proposes presente une un ce cette ces celui celle ses son sa mon ma mes notre leur leurs sont ils on il y a t il peut tu donner proposez disponible quelle lequel laquelle plus suite suivante suivants prochain suivante page ete avez vous nous affiche moi connais quoi catalogue gamme selection montre je souhaite connaitre savoir voudrais je cherche meilleur conseille recommande conseil recommandation comparer compare comparatif difference entre vs versus poids cylindre cylindree puissance consommation vitesse boite couleur couleur taille pointure moteur caracteristiques caracteristique specification specifications technique techniques possible avoir sil te plait aide aider parle demande mention est ce que ca avez vous cc cm3 faire pratique pratiquer rouler roulerai roules roulez utilise utiliser acheter achat besoin cherche recherche marque marques usage aller en chaque tous jours aimerais premiere mon premier premiere premiers premieres deuxieme second seconde troisieme quatrieme deux deuxieme 2e 3e 4e compatible compatibles compatibilite comparaison".split(/\s+/));
+const STOP = new Set("bonjour salut hello bjr salama merci pour avec sans dans avez vous votre vos est sont quelles quels quel quelle une des les la le du de au aux et ou je veux voudrais cherche recherche pouvez moi me svp sil vous plait montre montrer voir afficher fiche informations information details detail parle parler produit produits modele modeles prix tarif cout coute combien coute cher coute devis promotion promo reduction disponible disponibilite stock neuf neuve nouveau nouvelle nouveaux nouvelles nouveaute nouveautes arrivage arrivages arrivee arrivees dernier derniers derniere dernieres propose proposes presente une un ce cette ces celui celle ses son sa mon ma mes notre leur leurs sont ils on il y a t il peut tu donner proposez disponible quelle lequel laquelle plus suite suivante suivants prochain suivante page ete avez vous nous affiche moi connais quoi catalogue gamme selection montre je souhaite connaitre savoir voudrais je cherche meilleur conseille recommande conseil recommandation comparer compare comparatif difference entre vs versus poids cylindre cylindree puissance consommation vitesse boite couleur couleur taille pointure moteur caracteristiques caracteristique specification specifications technique techniques possible avoir sil te plait aide aider parle demande mention est ce que ca avez vous sur en promotion promotions promos solde soldes remise remises actuel actuelle actuelles actuels actuellement cours cc cm3 faire pratique pratiquer rouler roulerai roules roulez utilise utiliser acheter achat besoin cherche recherche marque marques usage aller en chaque tous jours aimerais premiere mon premier premiere premiers premieres deuxieme second seconde troisieme quatrieme deux deuxieme 2e 3e 4e compatible compatibles compatibilite comparaison".split(/\s+/));
 const queryTerms = (t: string) => words(t).filter((w) => !STOP.has(w) && w.length >= 2).map((w) => stem(w === "motocross" ? "cross" : w));
 const tokenMatch = (source: string, term: string) => words(source).map(stem).some((w) => w === term);
 const categoryFilter = (t: string): string[] | null => {
@@ -52,7 +58,7 @@ const categoryFilter = (t: string): string[] | null => {
 const knownBrand = (t: string) => [...brands].filter((b) => b.id !== "unknown-brand" && b.isPublished !== false && norm(b.name) && contains(t, b.name)).sort((a, b) => b.name.length - a.name.length)[0];
 const phrase = (t: string, terms: string[]) => terms.some((term) => contains(t, term));
 const CONTACT: ChatAction = { label: "Contacter l’équipe", page: "contact", icon: "contact" };
-const DEFAULT_QUICK = ["Les nouveautés", "Quelle moto pour la ville ?", "Horaires du showroom", "Pièces détachées"];
+const DEFAULT_QUICK = ["Les nouveautés", "Quelle moto pour la ville ?", "Revendeurs", "Promotions"];
 export function initialQuick() { return [...DEFAULT_QUICK]; }
 export function greetingText(name?: string, assistantName = "Piston") { return `Bonjour${name ? ` ${name}` : ""} ! Je suis **${assistantName}**, l’assistant automatique de Funbike. Je peux rechercher dans notre catalogue et vous orienter vers l’équipe.`; }
 
@@ -164,7 +170,7 @@ function resultPage(mem: Memory, offset: number): BotReply {
   return { text: `${mem.resultTitle ?? "Voici les produits trouvés"} (${offset + 1}–${offset + page.length} sur ${all.length}) :`, productIds: page.map((p) => p.id), reasons: mem.resultReasons, quick: [...(offset + 4 < all.length ? ["Voir la suite"] : []), "Prix du premier", "Contacter l’équipe"] };
 }
 function showResults(mem: Memory, found: Product[], title: string, reasons?: Record<string, string>): BotReply {
-  mem.results = found.map((p) => p.id); mem.resultTitle = title; mem.resultReasons = reasons;
+  mem.results = found.map((p) => p.id); mem.resultTitle = title; mem.resultReasons = reasons; mem.resultKind = undefined;
   return resultPage(mem, 0);
 }
 function reference(t: string, mem: Memory): Product | undefined {
@@ -176,7 +182,55 @@ function wantsReference(t: string) {
   return any(t, ["premier", "premiere", "deuxieme", "second", "troisieme", "quatrieme", "celle", "celui", "cette moto", "ce modele", "ce produit", "sa", "son", "ses", "elle", "prix", "poids", "fiche", "voir la fiche", "premiere", "combien de cc", "cylindree"]);
 }
 
-export function respond(raw: string, previous: Memory): { reply: BotReply; memory: Memory } {
+const DEALER_INTENT = ["revendeur", "revendeurs", "point de vente", "points de vente", "concessionnaire", "concessionnaires", "magasin", "magasins"];
+const DEALER_DETAIL = ["adresse", "ou", "horaire", "horaires", "heure", "ouvert", "ouverture", "fermeture", "telephone", "appeler", "contact", "contacter", "email", "services", "service", "itineraire", "carte"];
+const PROMO_WORDS = ["promotion", "promotions", "promo", "promos", "reduction", "reductions", "solde", "soldes"];
+const PROMO_ACTION: ChatAction = { label: "Voir les promotions", page: "promotions", icon: "catalog" };
+export function needsPromotionData(text: string, memory: Memory): boolean {
+  const t = norm(text);
+  return phrase(t, PROMO_WORDS) || phrase(t, ["prix", "tarif", "coute", "cout", "devis", "combien"]) || memory.pendingIntent === "price" || (memory.resultKind === "promotions" && phrase(t, ["voir la suite", "suivant", "suivants", "page suivante"]));
+}
+function dealerAction(d: Dealer): ChatAction { return { label: `Voir ${d.name}`, page: "revendeurs", id: d.key, icon: "contact" }; }
+function dealerReply(t: string, mem: Memory): BotReply | null {
+  const dealers = DEALERS.filter((d) => !d.isDemo);
+  const intent = phrase(t, DEALER_INTENT);
+  const explicitProduct = !!categoryFilter(t) || !!knownBrand(t) || phrase(t, ["produit", "produits", "prix", "stock", ...PROMO_WORDS]);
+  const named = dealers.filter((d) => {
+    const name = norm(d.name);
+    if (!name || !contains(t, name) || (words(name).length === 1 && t !== name && !intent)) return false;
+    const rest = t.replace(name, " ");
+    return intent || (!categoryFilter(rest) && !phrase(rest, ["produit", "produits", "prix", "stock", ...PROMO_WORDS]));
+  });
+  const cities = [...new Set(dealers.map((d) => norm(d.city)).filter(Boolean))].filter((city) => contains(t, city) && (intent || t === city || (!explicitProduct && phrase(t, DEALER_DETAIL))));
+  let found = named.length ? named.filter((d) => !cities.length || cities.includes(norm(d.city))) : cities.length ? dealers.filter((d) => cities.includes(norm(d.city))) : [];
+  if (named.length && cities.length && !found.length) return { text: "Je ne trouve pas ce revendeur dans cette ville. Vérifiez le nom ou la ville.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+  if (named.length && !intent && !phrase(t, DEALER_DETAIL) && visible().some((p) => norm(p.name) === t) && norm(named[0].name) === t) return { text: "Ce nom correspond à la fois à un produit et à un revendeur. Cherchez-vous le produit ou le revendeur ?", quick: ["Revendeurs", "Catalogue"], actions: [CONTACT] };
+  const ordinal = any(t, ["premier", "premiere", "1er", "1ere"]) ? 0 : any(t, ["deuxieme", "second", "seconde", "2e"]) ? 1 : any(t, ["troisieme", "3e"]) ? 2 : any(t, ["quatrieme", "4e"]) ? 3 : -1;
+  const followup = !named.length && !cities.length && !intent && !explicitProduct && !phrase(t, ["showroom", "funbike"]) && ((ordinal >= 0 && (mem.dealerKeys?.length ?? 0) > 0) || (phrase(t, DEALER_DETAIL) && (mem.dealerKeys?.length ?? 0) > 0));
+  if (followup) {
+    const key = ordinal >= 0 ? mem.dealerKeys?.[ordinal] : mem.lastDealerKey;
+    found = dealers.filter((d) => d.key === key);
+    if (!found.length) return { text: "Je ne peux pas identifier ce revendeur avec certitude. Indiquez son nom ou sa ville.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+  }
+  if (!found.length && !intent) return null;
+  if (!found.length && intent) {
+    // Ne pas transformer une ville inconnue en liste de tous les revendeurs.
+    const remainder = t.replace(/\b(?:revendeur|revendeurs|point|points|de|vente|concessionnaire|concessionnaires|magasin|magasins|ville|liste|tous|toutes|quel|quels|quelle|quelles|sont|les|la|le|des|du|un|une|a|en|sur|vers|dans|pour|je|cherche|recherche|voir|montre|donne|avez|vous|vos|et|ou|est|ce|que|il|y|pres|moi|bonjour|svp|funbike)\b/g, " ").trim();
+    if (remainder) return { text: "Je ne trouve pas de revendeur correspondant à cette ville ou à ce nom. Vérifiez l’orthographe ou consultez la liste.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+    found = dealers;
+  }
+  mem.dealerKeys = found.map((d) => d.key); mem.lastDealerKey = found.length === 1 ? found[0].key : undefined;
+  mem.pendingIntent = undefined; mem.results = undefined; mem.resultKind = undefined; mem.lastIds = [];
+  if (found.length === 1) {
+    const d = found[0];
+    const field = (value: string | undefined) => value?.trim() || "non renseigné";
+    return { text: `**${d.name}** (${d.city})\n• Adresse : ${field(d.address)}\n• Horaires : ${field(d.hours)}\n• Téléphone : ${field(d.phone)}\n• E-mail : ${field(d.email)}\n• Services : ${d.services?.filter((v) => v.trim()).join(", ") || "non renseignés"}\nPour vérifier une disponibilité ou savoir si le point de vente est ouvert maintenant, contactez-le.`, actions: [dealerAction(d), CONTACT], quick: ["Adresse", "Horaires", "Revendeurs"] };
+  }
+  if (!found.length) return { text: "Aucun point de vente n’est renseigné pour le moment.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+  return { text: `${cities.length ? "Points de vente dans cette ville" : "Points de vente enregistrés"} :\n${found.map((d) => `• ${d.name} (${d.city}) — ${d.address}`).join("\n")}\nIndiquez le nom du revendeur pour consulter ses coordonnées.`, actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+}
+
+export function respond(raw: string, previous: Memory, promotions?: PromotionSnapshot | null): { reply: BotReply; memory: Memory } {
   const mem: Memory = { ...previous, lastIds: [...(previous.lastIds ?? [])] };
   let t = norm(raw);
   if (mem.pendingCategoryQuery) {
@@ -189,16 +243,48 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
   if (!t) return done({ text: "Que recherchez-vous ?", quick: initialQuick() });
   if (phrase(t, ["bonjour", "salut", "salama", "bonsoir"]) && words(t).length <= 3) return done({ text: "Bonjour ! Comment puis-je vous aider ?", quick: initialQuick() });
   if (phrase(t, ["merci", "misaotra"]) && words(t).length <= 3) return done({ text: "Avec plaisir !", quick: initialQuick() });
-  if (phrase(t, ["voir la suite", "suivant", "suivants", "page suivante"]) && mem.results) return done(resultPage(mem, (mem.resultOffset ?? 0) + 4));
+  if (phrase(t, ["voir la suite", "suivant", "suivants", "page suivante"]) && mem.results) {
+    if (mem.resultKind === "promotions") {
+      if (!promotions) return done({ text: "Je ne peux pas vérifier les promotions pour le moment. Consultez la page Promotions ou contactez l’équipe.", actions: [PROMO_ACTION, CONTACT] });
+      const active = mem.results.filter((id) => { const p = byId(id); return p && promotions.campaigns.some((c) => c.products.some((item) => item.productId === p.id && item.categoryId === p.categoryId)); });
+      const date = madagascarDate(new Date(promotions.now)).split("-").reverse().join("/");
+      mem.resultTitle = `Produits en promotion vérifiés le ${date}`;
+      if (active.length !== mem.results.length) {
+        mem.results = active; mem.resultOffset = 0;
+        if (!active.length) return done({ text: "Ces promotions ne sont plus disponibles. Consultez les promotions actuelles.", actions: [PROMO_ACTION, CONTACT] });
+        const reply = resultPage(mem, 0); reply.text = "Les promotions ont changé. " + reply.text; reply.actions = [PROMO_ACTION, CONTACT]; return done(reply);
+      }
+    }
+    const reply = resultPage(mem, (mem.resultOffset ?? 0) + 4);
+    if (mem.resultKind === "promotions") reply.actions = [PROMO_ACTION, CONTACT];
+    return done(reply);
+  }
+  const dealer = dealerReply(t, mem);
+  if (dealer) return done(dealer);
+  // Une nouvelle question sans lien avec les revendeurs ne doit pas réutiliser une ancienne sélection.
+  mem.lastDealerKey = undefined; mem.dealerKeys = undefined;
+  if (phrase(t, PROMO_WORDS)) {
+    if (!promotions) return done({ text: "Je ne peux pas vérifier les promotions pour le moment. Consultez la page Promotions ou contactez l’équipe.", actions: [PROMO_ACTION, CONTACT] });
+    const offered = visible().filter((p) => promotions.campaigns.some((c) => c.products.some((item) => item.productId === p.id && item.categoryId === p.categoryId)));
+    const filter = categoryFilter(t); const brand = knownBrand(t);
+    const terms = queryTerms(t);
+    const constrained = !!filter || !!brand || terms.length > 0;
+    const matching = constrained ? searchProducts(t) : visible();
+    const matches = new Set(matching.map((p) => `${p.categoryId}:${p.id}`));
+    const candidates = offered.filter((p) => matches.has(`${p.categoryId}:${p.id}`));
+    if (!candidates.length) return done({ text: "Je ne trouve aucune promotion active correspondant à cette sélection. Consultez la page Promotions ou contactez l’équipe.", actions: [PROMO_ACTION, CONTACT] });
+    const date = madagascarDate(new Date(promotions.now)).split("-").reverse().join("/");
+    mem.pendingIntent = undefined;
+    const reply = showResults(mem, candidates, `Produits en promotion vérifiés le ${date}`);
+    mem.resultKind = "promotions";
+    reply.text += " Consultez les prix et les dates sur la page Promotions."; reply.actions = [PROMO_ACTION, CONTACT];
+    return done(reply);
+  }
   if (phrase(t, ["horaire", "horaires", "heure", "ouvert", "ouverture", "fermeture", "ferme", "adresse", "ou etes vous", "showroom"])) {
     return done({ text: `Showroom Funbike :\n• Adresse : ${CONTACT_ADDRESS || "non renseignée"}\n• Horaires : ${CONTACT_HOURS || "non renseignés"}\nPour savoir si nous sommes ouverts à cet instant, contactez l’équipe.`, actions: [CONTACT] });
   }
-  if (phrase(t, ["revendeur", "revendeurs", "point de vente", "points de vente"])) {
-    const names = DEALERS.filter((d) => !d.isDemo).map((d) => `${d.name} (${d.city})`);
-    return done({ text: names.length ? `Points de vente enregistrés :\n${names.map((n) => `• ${n}`).join("\n")}` : "Aucun point de vente n’est renseigné pour le moment.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] });
-  }
   if (phrase(t, ["un conseiller", "une conseillere", "humain", "contacter", "contact", "telephone", "appeler", "whatsapp", "email", "equipe"])) {
-    return done({ text: `Vous pouvez joindre l’équipe Funbike :\n• Téléphone : ${CONTACT_PHONE || "non renseigné"}\n• E-mail : ${CONTACT_EMAIL || "non renseigné"}`, actions: [CONTACT] });
+    return done({ text: `Vous pouvez joindre l’équipe Funbike :\n• Téléphone : ${CONTACT_PHONE || "non renseigné"}\n• E-mail : ${CONTACT_EMAIL || "non renseigné"}${CONTACT_WHATSAPP ? `\n• WhatsApp : ${CONTACT_WHATSAPP}` : ""}`, actions: [CONTACT] });
   }
   if (phrase(t, ["nouveaute", "nouveautes", "nouveau", "nouveaux", "nouvelle", "nouvelles", "nouveautes du catalogue", "arrivage", "arrivages", "arrivees", "quoi de neuf"])) {
     const constrained = !!knownBrand(t) || !!categoryFilter(t) || queryTerms(t).length > 0;
@@ -251,6 +337,15 @@ export function respond(raw: string, previous: Memory): { reply: BotReply; memor
     if (matches.length === 1) {
       const p = matches[0]; mem.lastIds = [p.id]; mem.pendingIntent = undefined;
       if (isStock) return done({ text: `Je ne peux pas confirmer le stock de **${p.name}**. Contactez l’équipe pour connaître sa disponibilité.`, productIds: [p.id], actions: [CONTACT] });
+      if (isPrice && promotions === null) return done({ text: `Je ne peux pas vérifier les prix promotionnels de **${p.name}** pour le moment. Consultez sa fiche ou contactez l’équipe.`, productIds: [p.id], actions: [PROMO_ACTION, CONTACT] });
+      const campaign = promotions?.campaigns.find((c) => c.products.some((item) => item.productId === p.id && item.categoryId === p.categoryId));
+      const offer = campaign?.products.find((item) => item.productId === p.id && item.categoryId === p.categoryId);
+      if (isPrice && offer && campaign) {
+        const { finalPrice } = calculatePromotionPrice(offer.originalPrice, offer.discountPercent);
+        const end = campaign.endDate.split("-").reverse().join("/");
+        const checked = madagascarDate(new Date(promotions!.now)).split("-").reverse().join("/");
+        return done({ text: `Prix promotionnel de **${p.name}** vérifié le ${checked} : **${formatAriary(finalPrice)}** au lieu de ${formatAriary(offer.originalPrice)} (−${offer.discountPercent} %), promotion prévue jusqu’au ${end} inclus à Madagascar. Vérifiez la promotion et la disponibilité auprès de l’équipe.`, productIds: [p.id], actions: [PROMO_ACTION, CONTACT] });
+      }
       if (isPrice) return done({ text: p.price?.trim().toLowerCase() === "sur devis" ? `Pour connaître le prix actuel de **${p.name}**, consultez sa fiche ou demandez un devis à l’équipe.` : p.price?.trim() ? `Prix indiqué pour **${p.name}** : **${p.price.trim()}**. L’équipe peut confirmer le tarif et la disponibilité.` : `Le prix de **${p.name}** n’est pas renseigné. L’équipe peut vous établir un devis.`, productIds: [p.id], actions: [CONTACT] });
       const match = (p.specifications ?? []).find((s) => spec!.keys.some((key) => norm(s.key).includes(key)) && s.value.trim());
       return done({ text: match ? `Pour **${p.name}**, ${match.key} : **${match.value}**.` : `Cette caractéristique n’est pas renseignée pour **${p.name}**. L’équipe peut vous aider.`, productIds: [p.id], actions: [CONTACT] });

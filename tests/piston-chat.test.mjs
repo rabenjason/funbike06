@@ -106,3 +106,27 @@ test('identité personnalisée : nom, logo et salutation sans supprimer la conve
   await content.loadHomepageData(); globalThis.fetch = mockFetch;
   delete globalThis.localStorage;
 });
+
+test('dialogue : revendeur dynamique, lien direct et promotion vérifiée', async () => {
+  window.localStorage.clear();
+  const oldDealers = data['dealers.php'];
+  data['dealers.php'] = [...oldDealers, { key: 'rider-essai', city: 'Antananarivo', name: 'Rider Zone Essai', kind: 'Magasin', address: 'Adresse test Rider', hours: 'Lundi 9h', phone: '034 11', email: 'rider@test.mg', services: ['Atelier'], desc: '', lat: -18.9, lon: 47.5 }];
+  const originalMock = globalThis.fetch;
+  const target = data['products/motorcycles.php'][0];
+  globalThis.fetch = async (url, options) => String(url).endsWith('promotions.php') ? { ok: true, json: async () => ({ serverTime: '2026-11-15T09:00:00Z', campaigns: [{ id: 'test', name: 'Essai', startDate: '2026-11-01', endDate: '2026-11-30', enabled: true, published: true, products: [{ productId: target.id, categoryId: target.categoryId, originalPrice: 100000, discountPercent: 20 }] }] }) } : mockFetch(url, options);
+  const navigations = [];
+  const view = render(React.createElement(CatChat, { go: (...args) => navigations.push(args) }));
+  try {
+    fireEvent.click(screen.getByLabelText(/^Ouvrir la discussion/));
+    send('Rider Zone Essai');
+    await waitFor(() => assert.ok(screen.getByText(/Adresse test Rider/)), { timeout: 6000 });
+    fireEvent.click(screen.getByRole('button', { name: /Voir Rider Zone Essai/ }));
+    assert.deepEqual(navigations.at(-1), ['revendeurs', 'rider-essai']);
+    send('promotions motos');
+    await waitFor(() => assert.ok(screen.getByText(/Produits en promotion vérifiés le 15\/11\/2026/)), { timeout: 6000 });
+    assert.ok(screen.getByRole('button', { name: /Voir les promotions/ }));
+    send(`prix ${target.name}`);
+    await waitFor(() => assert.ok(screen.getByText(/Prix promotionnel de/)), { timeout: 6000 });
+    assert.match(screen.getByText(/Prix promotionnel de/).parentElement.textContent, /80\s?000 Ar/);
+  } finally { view.unmount(); data['dealers.php'] = oldDealers; globalThis.fetch = originalMock; }
+});
