@@ -38,48 +38,30 @@ export function AccessoryBrandSelector({
   equipmentBrands: Brand[];
 }) {
   return (
-    <div className="no-scrollbar flex overflow-x-auto border-b border-black/15 dark:border-white/15">
-      {equipmentBrands.map((brand) => {
-        const selected = active === brand.id;
-        return (
-          <button
-            key={brand.id}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onSelect(brand.id)}
-            className={
-              "relative flex min-w-max items-center gap-2.5 px-3 py-3 text-left transition sm:px-5 " +
-              (selected ? "bg-[#ffd100]/15" : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]")
-            }
-          >
-            <BrandVisual brand={{ name: brand.name, logo: brand.logo }} />
-            <span
-              className={
-                "block truncate text-xs font-bold " +
-                (selected ? "text-[#171816] dark:text-[#f2f0ea]" : "text-black/50 dark:text-white/50")
-              }
+    <div className="equipment-brand-scroll" role="group" aria-label="Marques d’équipements">
+      <div className="equipment-brand-list">
+        {equipmentBrands.map((brand) => {
+          const selected = active === brand.id;
+          return (
+            <button
+              key={brand.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onSelect(brand.id)}
+              className="equipment-brand-button"
             >
-              {brand.name}
-            </span>
-            {selected && (
-              <>
-                <motion.span
-                  aria-hidden="true"
-                  layoutId="accessory-brand-border"
-                  className="pointer-events-none absolute inset-0 border border-[#ffd100]"
-                  transition={{ type: "spring", stiffness: 400, damping: 34 }}
-                />
-                <motion.span
-                  aria-hidden="true"
-                  layoutId="accessory-brand-active"
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-[#ffd100]"
-                  transition={{ type: "spring", stiffness: 400, damping: 34 }}
-                />
-              </>
-            )}
-          </button>
-        );
-      })}
+              <BrandVisual brand={{ name: brand.name, logo: brand.logo }} />
+              <span className="equipment-brand-name block truncate">{brand.name}</span>
+              {selected && <motion.span
+                aria-hidden="true"
+                layoutId="accessory-brand-border"
+                className="equipment-brand-active"
+                transition={{ type: "spring", stiffness: 400, damping: 34 }}
+              />}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -526,3 +526,66 @@ textarea.chat-composer:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+/* Sélecteur des marques d'équipements : logos et noms, défilable au doigt. */
+.equipment-brand-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #a5a59d transparent;
+  padding: 3px;
+  -webkit-overflow-scrolling: touch;
+}
+.equipment-brand-list {
+  display: flex;
+  width: max-content;
+  min-width: min-content;
+  overflow: visible;
+}
+.equipment-brand-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  min-height: 60px;
+  max-width: 280px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d2d1ca;
+  border-right-width: 0;
+  background: #f6f5f1;
+  color: #292a26;
+  text-align: left;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+.equipment-brand-button:first-child { border-radius: 12px 0 0 12px; }
+.equipment-brand-button:last-child { border-right-width: 1px; border-radius: 0 12px 12px 0; }
+.equipment-brand-button:only-child { border-radius: 12px; }
+.equipment-brand-button:hover { background: #ecebe5; }
+.equipment-brand-button[aria-pressed="true"] { color: #171816; background: #fffefa; }
+.equipment-brand-button:focus-visible { z-index: 2; outline: 2px solid #98741b; outline-offset: -4px; }
+.equipment-brand-name {
+  overflow: visible;
+  max-width: 11rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.equipment-brand-active {
+  position: absolute;
+  z-index: 1;
+  inset: -1px;
+  pointer-events: none;
+  border: 2px solid #d1aa00;
+  border-radius: 12px;
+}
+.dark .equipment-brand-button { border-color: #3a3a38; background: #171717; color: #eee; }
+.dark .equipment-brand-button:hover { background: #252525; }
+.dark .equipment-brand-button[aria-pressed="true"] { background: #1e1e1e; color: #fff; }
+.dark .equipment-brand-active { border-color: #ffd100; }
+:root[data-site-theme="tvs"] .equipment-brand-active { border-color: #183883; }
+:root[data-site-theme="tvs"].dark .equipment-brand-active { border-color: #628df0; }
+:root[data-site-theme="tvs"] .equipment-brand-button:focus-visible { outline-color: #183883; }
+:root[data-site-theme="tvs"].dark .equipment-brand-button:focus-visible { outline-color: #a9c5ff; }
