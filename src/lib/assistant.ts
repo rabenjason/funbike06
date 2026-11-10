@@ -35,7 +35,7 @@ export function norm(text: string): string {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['’]/g, " ").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 const words = (s: string) => norm(s).split(" ").filter(Boolean);
-const stem = (s: string) => s.length > 4 && s.endsWith("s") ? s.slice(0, -1) : s;
+const stem = (s: string) => /^[a-z]+$/.test(s) && s.length > 4 && s.endsWith("s") ? s.slice(0, -1) : s;
 const contains = (text: string, expression: string) => (` ${norm(text)} `).includes(` ${norm(expression)} `);
 const any = (text: string, expressions: string[]) => expressions.some((s) => contains(text, s));
 const brandOf = (p: Product) => brands.find((b) => b.id === p.brandId && b.isPublished !== false);
@@ -47,7 +47,14 @@ const categoryName = (p: Product) => categories.find((c) => c.id === p.categoryI
 const productText = (p: Product) => [p.name, brandOf(p)?.name, modelName(p), typeName(p), getProductFamily(p)?.name, categoryName(p), p.description, p.subDescription, ...(p.tags ?? []), ...(p.specifications ?? []).flatMap((s) => [s.key, s.value])].filter(Boolean).join(" ");
 const STOP = new Set("bonjour salut hello bjr salama merci pour avec sans dans avez vous votre vos est sont quelles quels quel quelle une des les la le du de au aux et ou je veux voudrais cherche recherche pouvez moi me svp sil vous plait montre montrer voir afficher fiche informations information details detail parle parler produit produits modele modeles prix tarif cout coute combien coute cher coute devis promotion promo reduction disponible disponibilite stock neuf neuve nouveau nouvelle nouveaux nouvelles nouveaute nouveautes arrivage arrivages arrivee arrivees dernier derniers derniere dernieres propose proposes presente une un ce cette ces celui celle ses son sa mon ma mes notre leur leurs sont ils on il y a t il peut tu donner proposez disponible quelle lequel laquelle plus suite suivante suivants prochain suivante page ete avez vous nous affiche moi connais quoi catalogue gamme selection montre je souhaite connaitre savoir voudrais je cherche meilleur conseille recommande conseil recommandation comparer compare comparatif difference entre vs versus poids cylindre cylindree puissance consommation vitesse boite couleur couleur taille pointure moteur caracteristiques caracteristique specification specifications technique techniques possible avoir sil te plait aide aider parle demande mention est ce que ca avez vous sur en promotion promotions promos solde soldes remise remises actuel actuelle actuelles actuels actuellement cours cc cm3 faire pratique pratiquer rouler roulerai roules roulez utilise utiliser acheter achat besoin cherche recherche marque marques usage aller en chaque tous jours aimerais premiere mon premier premiere premiers premieres deuxieme second seconde troisieme quatrieme deux deuxieme 2e 3e 4e compatible compatibles compatibilite comparaison".split(/\s+/));
 const queryTerms = (t: string) => words(t).filter((w) => !STOP.has(w) && w.length >= 2).map((w) => stem(w === "motocross" ? "cross" : w));
-const tokenMatch = (source: string, term: string) => words(source).map(stem).some((w) => w === term);
+// Un nombre suivi d'une variante alphabétique (150X, 125cc) reste identifiable
+// par le nombre seul, sans confondre 150 avec 1500 ni 150X avec 150XS.
+const tokenMatch = (source: string, term: string) => words(source).map(stem).some((w) => {
+  if (w === term) return true;
+  if (!/^\d+$/.test(term)) return false;
+  const match = w.match(/^(\d+)[a-z]+$/);
+  return !!match && match[1] === term;
+});
 const categoryFilter = (t: string): string[] | null => {
   if (any(t, ["piece", "pieces", "pneu", "pneus", "plaquette", "plaquettes", "filtre", "filtres", "chaine", "chaines", "freinage"])) return ["pieces-detachees"];
   if (any(t, ["casque", "casques"])) return ["casques"];
@@ -389,8 +396,8 @@ export function respond(raw: string, previous: Memory, promotions?: PromotionSna
     const cc = displacement(t) ?? (mem.waitingForUsage && usageFollowUp ? mem.usageNumbers?.[0] : (shortRefinement || changingUsage) ? mem.lastDisplacement : undefined);
     const unhandled = unhandledCriteria(t, brandId);
     if (unhandled.length) {
-      const exactModel = found.length === 1 && unhandled.every((term) => tokenMatch(`${found[0].name} ${modelName(found[0])}`, term));
-      if (exactModel) return done(showResults(mem, found, "Voici le modèle correspondant"));
+      const identifiedModels = found.length > 0 && found.every((product) => unhandled.every((term) => tokenMatch(`${product.name} ${modelName(product)}`, term)));
+      if (identifiedModels) return done(showResults(mem, found, found.length === 1 ? "Voici le modèle correspondant" : "Voici les modèles correspondants"));
       return done({ text: "Pour ne pas ignorer vos critères, précisez le modèle, la marque ou le besoin à l’équipe : je ne peux pas interpréter toute la demande avec certitude.", actions: [CONTACT] });
     }
     if (mentioned.length > 1) {

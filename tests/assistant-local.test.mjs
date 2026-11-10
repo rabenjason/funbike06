@@ -232,3 +232,27 @@ test('promotions : prix et catégories vérifiés, indisponibilité et produits 
     assert.equal(await loadAssistantPromotions(new AbortController().signal), null);
   } finally { globalThis.fetch = oldFetch; catalog.products.splice(0); }
 });
+
+test('recherche de modèles avec variante accolée : 150 retrouve 150X sans confondre les chiffres', () => {
+  catalog.brands.push({ id: 'test-tvs', name: 'TVS', isPublished: true, isEquipmentBrand: false });
+  const base = { brandId: 'test-tvs', productTypeId: 'test-ville' };
+  const x5s = product('hlx150x5s', 'motos', { ...base, name: 'HLX 150X 5S' });
+  const x5g = product('hlx150x5g', 'motos', { ...base, name: 'HLX 150X 5G' });
+  const big = product('hlx1500', 'motos', { ...base, name: 'HLX 1500 5S' });
+  const other = product('hlx125', 'motos', { ...base, name: 'HLX 125 5S' });
+  const draft = product('hlxdraft', 'motos', { ...base, name: 'HLX 150X brouillon', status: 'DRAFT' });
+  catalog.products.push(x5s, x5g, big, other, draft);
+  try {
+    assert.deepEqual(assistant.searchProducts('tvs hlx 150').map(p => p.id), [x5s.id, x5g.id]);
+    assert.deepEqual(ask('tvs hlx 150').reply.productIds, [x5s.id, x5g.id]);
+    assert.deepEqual(ask('je cherche une moto tvs hlx 150').reply.productIds, [x5s.id, x5g.id]);
+    assert.deepEqual(ask('tvs hlx 150x 5s').reply.productIds, [x5s.id]);
+    assert.deepEqual(ask('prix tvs hlx 150').reply.productIds, [x5s.id, x5g.id]);
+    assert.deepEqual(assistant.searchProducts('tvs hlx 1500').map(p => p.id), [big.id]);
+    assert.deepEqual(assistant.searchProducts('tvs hlx 125').map(p => p.id), [other.id]);
+    assert.deepEqual(assistant.searchProducts('tvs hlx 150xs'), []);
+    assert.deepEqual(assistant.searchProducts('tvs hlx 1505'), []);
+    const snapshot = { now: Date.parse('2026-11-15T10:00:00Z'), campaigns: [{ id: 'promo', name: 'Promo', startDate: '2026-11-01', endDate: '2026-11-30', enabled: true, published: true, products: [{ productId: x5s.id, categoryId: 'motos', originalPrice: 100000, discountPercent: 20 }] }] };
+    assert.deepEqual(assistant.respond('promotion tvs hlx 150', memory(), snapshot).reply.productIds, [x5s.id]);
+  } finally { catalog.products.splice(0); catalog.brands.pop(); }
+});

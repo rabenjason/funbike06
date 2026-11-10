@@ -130,3 +130,21 @@ test('dialogue : revendeur dynamique, lien direct et promotion vérifiée', asyn
     assert.match(screen.getByText(/Prix promotionnel de/).parentElement.textContent, /80\s?000 Ar/);
   } finally { view.unmount(); data['dealers.php'] = oldDealers; globalThis.fetch = originalMock; }
 });
+
+test('le dialogue retrouve HLX 150X 5S quand le visiteur écrit TVS HLX 150', async () => {
+  window.localStorage.clear();
+  const saved = data['products/motorcycles.php'];
+  const sample = { ...saved[0], id: 'hlx-150x-test', name: 'HLX 150X 5S', description: '', subDescription: '', specifications: [], modelId: undefined };
+  data['products/motorcycles.php'] = [sample];
+  globalThis.fetch = mockFetch;
+  const navigations = [];
+  const view = render(React.createElement(CatChat, { go: (...args) => navigations.push(args) }));
+  try {
+    fireEvent.click(screen.getByLabelText(/^Ouvrir la discussion/));
+    send('tvs hlx 150');
+    await waitFor(() => assert.ok(screen.getByText('HLX 150X 5S')), { timeout: 6000 });
+    assert.equal(screen.queryByText(/Je n’ai pas trouvé de correspondance certaine/), null);
+    fireEvent.click(screen.getByText('Voir la fiche'));
+    assert.deepEqual(navigations.at(-1), ['product', sample.id]);
+  } finally { view.unmount(); data['products/motorcycles.php'] = saved; }
+});
