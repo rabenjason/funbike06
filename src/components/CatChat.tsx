@@ -203,7 +203,7 @@ function RichText({ text }: { text: string }) {
 
 function Avatar({ size = "h-8 w-8" }: { size?: string }) {
   return (
-    <span className={"grid shrink-0 place-items-center rounded-full bg-[#ffd100] " + size} aria-hidden="true">
+    <span className={"fb-cat-avatar grid shrink-0 place-items-center rounded-full bg-[#ffd100] " + size} aria-hidden="true">
       <CatFace className="h-[72%] w-[72%]" />
     </span>
   );
@@ -855,7 +855,7 @@ export default function CatChat({
           whileTap={{ scale: 0.92 }}
           animate={open ? { y: 0 } : { y: [0, -4, 0] }}
           transition={open ? { duration: 0.2 } : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="relative grid h-[52px] w-[52px] place-items-center rounded-full bg-[#ffd100] shadow-[0_10px_28px_-6px_rgba(0,0,0,0.35)] sm:h-14 sm:w-14"
+          className="fb-cat-avatar relative grid h-[52px] w-[52px] place-items-center rounded-full bg-[#ffd100] shadow-[0_10px_28px_-6px_rgba(0,0,0,0.35)] sm:h-14 sm:w-14"
         >
           {!open && (
             <motion.span

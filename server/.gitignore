@@ -28,3 +28,6 @@
 # Campagnes et photos administrées localement ou en production.
 /storage/data/promotions.json
 /uploads/promotions/
+
+# Thème public choisi depuis le dashboard (donnée locale, jamais livrée).
+/storage/data/site-theme.json

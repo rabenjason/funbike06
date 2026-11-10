@@ -268,6 +268,28 @@ class FunbikeUserStore
         });
     }
 
+    /** Renommage atomique, sans changer le rôle ni le mot de passe. */
+    public function renameUserById($id, $username)
+    {
+        $username = self::normalizeUsername($username);
+        $error = self::validateUsername($username);
+        if ($error !== null) throw new InvalidArgumentException($error);
+        return $this->mutateData(function (&$data) use ($id, $username) {
+            $index = null;
+            foreach ($data["users"] as $i => $user) {
+                if (($user["id"] ?? null) === $id) $index = $i;
+                elseif (($user["username"] ?? null) === $username) throw new FunbikeDuplicateUsernameException("Ce nom d'utilisateur existe déjà.");
+            }
+            if ($index === null) return null;
+            if (($data["users"][$index]["username"] ?? null) === $username) return $data["users"][$index];
+            if (password_verify($username, $data["users"][$index]["passwordHash"] ?? "")) throw new InvalidArgumentException("Le nom d'utilisateur ne peut pas être identique au mot de passe.");
+            $data["users"][$index]["username"] = $username;
+            $data["users"][$index]["authVersion"] = (int) ($data["users"][$index]["authVersion"] ?? 1) + 1;
+            $data["users"][$index]["updatedAt"] = gmdate("c");
+            return $data["users"][$index];
+        });
+    }
+
     /** Réinitialisation d'un admin par le superadmin, avec révocation des sessions. */
     public function resetAdminPasswordById($id, $temporaryPassword)
     {

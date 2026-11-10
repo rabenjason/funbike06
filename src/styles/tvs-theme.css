@@ -1,0 +1,51 @@
+/* Thème public optionnel. Aucun sélecteur ne s'applique au thème Funbike. */
+:root[data-site-theme="tvs"] { --color-fb-yellow: #183883; scrollbar-color: #183883 #ffffff; }
+:root[data-site-theme="tvs"] ::selection { color: #fff; background: #183883; }
+:root[data-site-theme="tvs"] :is(button, a):focus-visible { outline-color: #e62d38; }
+:root[data-site-theme="tvs"]:not(.dark),
+:root[data-site-theme="tvs"]:not(.dark) body { background: #fff; }
+:root[data-site-theme="tvs"]:not(.dark) {
+  --fb-card: #fff;
+  --fb-card-media: #f2f4f8;
+}
+:root[data-site-theme="tvs"].dark,
+:root[data-site-theme="tvs"].dark body { background: #2c2c2c; }
+:root[data-site-theme="tvs"].dark [class~="dark:bg-[#141513]"] { background-color: #2c2c2c; }
+:root[data-site-theme="tvs"] [class~="bg-[#ffd100]"],
+:root[data-site-theme="tvs"].dark [class~="dark:bg-[#ffd100]"],
+:root[data-site-theme="tvs"] .group[aria-pressed="true"] [class~="group-aria-pressed:bg-[#ffd100]"] { background-color: #183883; }
+/* Les boutons auparavant jaunes avaient du texte sombre : assurer le contraste. */
+:root[data-site-theme="tvs"] [class~="bg-[#ffd100]"][class~="text-[#171816]"],
+:root[data-site-theme="tvs"].dark [class~="dark:bg-[#ffd100]"][class~="dark:text-[#171816]"] { color: #fff; }
+:root[data-site-theme="tvs"] [class~="hover:bg-[#ffe36b]"]:hover,
+:root[data-site-theme="tvs"] [class~="active:bg-[#ffd100]"]:active { background-color: #254fa7; color: #fff; }
+:root[data-site-theme="tvs"] [class~="bg-[#ffd100]"][class~="hover:bg-white"]:hover { background-color: #fff; color: #183883; }
+:root[data-site-theme="tvs"] [class~="bg-[#ffd100]/15"] { background-color: rgb(24 56 131 / .15); }
+:root[data-site-theme="tvs"] [class~="border-[#ffd100]"],
+:root[data-site-theme="tvs"].dark [class~="dark:border-[#ffd100]"],
+:root[data-site-theme="tvs"] [class~="hover:border-[#ffd100]"]:hover,
+:root[data-site-theme="tvs"].dark [class~="dark:hover:border-[#ffd100]"]:hover,
+:root[data-site-theme="tvs"] [class~="hover:border-[#98741b]"]:hover,
+:root[data-site-theme="tvs"] [class~="focus:border-[#98741b]"]:focus,
+:root[data-site-theme="tvs"].dark [class~="dark:focus:border-[#ffd100]"]:focus,
+:root[data-site-theme="tvs"].dark [class~="dark:focus-within:border-[#ffd100]"]:focus-within { border-color: #e62d38; }
+/* Bleu sur fond clair ; bleu pâle sur les sections anthracite et les photos. */
+:root[data-site-theme="tvs"]:not(.dark) [class~="text-[#98741b]"],
+:root[data-site-theme="tvs"]:not(.dark) [class~="hover:text-[#98741b]"]:hover,
+:root[data-site-theme="tvs"]:not(.dark) .group:hover [class~="group-hover:text-[#98741b]"] { color: #183883; }
+:root[data-site-theme="tvs"] [class~="text-[#ffd100]"],
+:root[data-site-theme="tvs"] [class~="hover:text-[#ffd100]"]:hover,
+:root[data-site-theme="tvs"] [class~="active:text-[#ffd100]"]:active,
+:root[data-site-theme="tvs"].dark [class~="dark:text-[#ffd100]"],
+:root[data-site-theme="tvs"].dark [class~="dark:hover:text-[#ffd100]"]:hover,
+:root[data-site-theme="tvs"].dark .group:hover [class~="dark:group-hover:text-[#ffd100]"] { color: #c6d8ff; }
+:root[data-site-theme="tvs"]:not(.dark) .hero-secondary-cta:hover { background: #183883; border-color: #183883; color: #fff; }
+:root[data-site-theme="tvs"] .dealer-city[aria-selected="true"] { border-color: #183883; background: #183883; color: #fff; }
+@media (min-width: 640px) {
+  :root[data-site-theme="tvs"] .dealer-city[aria-selected="true"] { background: transparent; color: #183883; }
+  :root[data-site-theme="tvs"].dark .dealer-city[aria-selected="true"] { color: #c6d8ff; }
+}
+/* Garder Piston lisible sans modifier son illustration. */
+:root[data-site-theme="tvs"] .fb-cat-avatar { background: #fff; box-shadow: 0 0 0 2px #183883; }
+:root[data-site-theme="tvs"] [class~="via-[#ffd100]"],
+:root[data-site-theme="tvs"] [class~="via-[#ffd100]/80"] { --tw-gradient-via: #e62d38; }

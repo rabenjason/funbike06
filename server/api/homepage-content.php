@@ -3,6 +3,7 @@
 // premier enregistrement et ne doivent jamais être remplacées au déploiement.
 require_once __DIR__ . '/_lib/auth.php';
 require_once __DIR__ . '/_lib/sherco-banner.php';
+require_once __DIR__ . '/_lib/site-theme.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 funbikeProtectWriteMethods($method);
@@ -91,7 +92,7 @@ if (!is_array($current['bannerLink'])) funbikeJsonResponse(500, ['error' => 'Lie
 $revision = homepageRevision($current);
 if ($method === 'GET') {
     $banner = funbikeShercoBannerRead();
-    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null && !($banner['legacy'] ?? false), 'shercoBannerImage' => funbikeShercoBannerSelected($banner)]);
+    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null && !($banner['legacy'] ?? false), 'shercoBannerImage' => funbikeShercoBannerSelected($banner), 'siteTheme' => (funbikeSiteThemeRead()['theme'] ?? 'funbike')]);
 }
 if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 65536) funbikeJsonResponse(413, ['error' => 'Contenu trop volumineux.']);
 $raw = file_get_contents('php://input', false, null, 0, 65537);

@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useLayoutEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/light-theme.css";
+import "./styles/tvs-theme.css";
 import { readDarkPreference } from "./lib/theme";
 import { preloadPublicPage } from "./lib/publicPages";
 
@@ -23,7 +24,7 @@ function showBootScreen() {
 // résultat tardif remplace les tableaux après l'import des index de l'application.
 let publicData: Promise<void> | undefined;
 function initializePublicData() {
-  if (!publicData) publicData = Promise.all([import("./catalog/loadServerData").then(({ loadServerData }) => loadServerData()), import("./content/homepage").then(({ loadHomepageData }) => loadHomepageData())]).then(() => {}).catch((error) => { publicData = undefined; throw error; });
+  if (!publicData) publicData = Promise.all([import("./catalog/loadServerData").then(({ loadServerData }) => loadServerData()), import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(); document.documentElement.dataset.siteTheme = homepage.siteTheme; })]).then(() => {}).catch((error) => { publicData = undefined; throw error; });
   return publicData;
 }
 
