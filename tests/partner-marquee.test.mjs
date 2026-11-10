@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
+import { readFileSync } from 'node:fs';
 
 let dom, server, PartnerMarquee, render, cleanup, act, oldObserver, oldRect;
 let viewportWidth = 1000, setWidth = 168, observer;
@@ -71,4 +72,30 @@ test('le redimensionnement fonctionne aussi sans ResizeObserver', () => {
     check(view, 2);
     view.unmount();
   } finally { globalThis.ResizeObserver = saved; }
+});
+
+
+test('logos partenaires : formats respectés et couleurs préservées sur un support uniforme', () => {
+  const partners = [brand('Carré'), brand('Allongé')];
+  const view = render(React.createElement(PartnerMarquee, { partners }));
+  const logos = [...view.container.querySelectorAll('.fb-partner-set:not([aria-hidden]) img')];
+  assert.equal(logos.length, 2);
+  for (const [index, logo] of logos.entries()) {
+    assert.equal(logo.getAttribute('src'), partners[index].logo, 'le logo du serveur est conservé');
+    assert.match(logo.getAttribute('alt'), new RegExp(partners[index].name));
+    assert.equal(logo.parentElement.classList.contains('brand-logo-tile'), true);
+    assert.equal(logo.classList.contains('partner-logo'), false, 'pas de filtre sombre ni de mélange de couleurs');
+    assert.equal(logo.classList.contains('w-full'), false);
+    assert.equal(logo.classList.contains('h-full'), false);
+  }
+  const css = readFileSync('src/index.css', 'utf8');
+  const tile = css.match(/\.brand-logo-tile \{([^}]+)\}/)?.[1];
+  const img = css.match(/\.brand-logo-tile img \{([^}]+)\}/)?.[1];
+  assert.match(tile, /background:\s*#fff/);
+  assert.match(tile, /width:\s*6\.25rem/);
+  assert.match(img, /width:\s*auto/); assert.match(img, /height:\s*auto/);
+  assert.match(img, /max-width:\s*100%/); assert.match(img, /max-height:\s*100%/);
+  assert.match(img, /object-fit:\s*contain/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  view.unmount();
 });
