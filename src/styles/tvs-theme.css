@@ -49,3 +49,9 @@
 :root[data-site-theme="tvs"] .fb-cat-avatar { background: #fff; box-shadow: 0 0 0 2px #183883; }
 :root[data-site-theme="tvs"] [class~="via-[#ffd100]"],
 :root[data-site-theme="tvs"] [class~="via-[#ffd100]/80"] { --tw-gradient-via: #e62d38; }
+
+/* Le footer reste sombre en modes jour et nuit : garder un contraste lisible. */
+:root[data-site-theme="tvs"] .fb-footer-social {
+  --fb-social-accent: #c6d8ff;
+  --fb-social-ink: #183883;
+}

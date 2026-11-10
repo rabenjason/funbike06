@@ -63,6 +63,8 @@ test('footer : icône Facebook uniquement pour une adresse renseignée et fiable
   const doc = new JSDOM(html).window.document;
   const iconLink = doc.querySelector('a[aria-label="Notre page Facebook (nouvel onglet)"]');
   assert.equal(iconLink.textContent.trim(), '', 'icône seule sans texte visible');
+  assert.ok(iconLink.classList.contains('fb-footer-social'), 'style dédié au lien social');
+  assert.ok(iconLink.querySelector('svg[aria-hidden="true"]'), 'icône décorative, nom accessible sur le lien');
   assert.equal(iconLink.closest('li'), null, 'ne figure plus dans les coordonnées');
   assert.doesNotMatch(html, /facebook\.com\/second/, 'un seul lien dans le footer');
 });
