@@ -116,6 +116,7 @@ export function Catalogue({
         title="Véhicules"
         subtitle={`${bikeList.length} modèle(s) disponible(s) · page ${safePage} sur ${totalPages}`}
         number="01 / Motos"
+        compactTop={motosOnly}
       >
         <div
           ref={gridRef}

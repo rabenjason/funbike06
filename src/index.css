@@ -601,3 +601,8 @@ textarea.chat-composer:focus-visible {
 .dark .equipment-brand-button[aria-pressed="true"] + .equipment-brand-button {
   border-left-color: transparent;
 }
+
+/* Réduit uniquement l’espace avant le titre de la page Motos. */
+.moto-catalog-compact-top {
+  padding-top: clamp(1.25rem, 2vw, 2rem);
+}
