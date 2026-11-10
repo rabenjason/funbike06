@@ -10,12 +10,13 @@ import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
-export function BikeCard({ bike, go, uniformLayout = false, alignActions = false, compact = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean; compact?: boolean }) {
+export function BikeCard({ bike, go, uniformLayout = false, alignActions = false, compact = false, promotionPriceAtBottom = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean; compact?: boolean; promotionPriceAtBottom?: boolean }) {
   const aligned = uniformLayout || alignActions;
   const gallery = productGallery(bike);
   const family = getProductFamily(bike)?.name;
   const [active, setActive] = useState(0);
   const onPromotion = !!usePromotions().offer(bike);
+  const bottomPromotion = onPromotion && promotionPriceAtBottom;
   const Heading = compact ? "h4" : "h3";
 
   return (
@@ -80,8 +81,8 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         </Heading>
         <p className={(compact ? "mt-2 text-xs leading-5 " : "fluid-body mt-2.5 ") + "line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? (compact ? "[overflow-wrap:anywhere]" : "min-h-[3.2em] [overflow-wrap:anywhere]") : "")}>{bike.description}</p>
 
-        {onPromotion && <div className={compact ? "mt-auto pt-3" : "mt-auto pt-4"}><PromotionPrice product={bike} card /></div>}
-        <div className={onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
+        {onPromotion && !bottomPromotion && <div className={compact ? "mt-auto pt-3" : "mt-auto pt-4"}><PromotionPrice product={bike} card /></div>}
+        <div className={bottomPromotion ? "mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-5" : onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 items-end" : "mt-5 items-center")}>
           <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
@@ -91,6 +92,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>
+          {bottomPromotion && <span className="ml-auto min-w-[8rem] max-w-full flex-1 text-right"><PromotionPrice product={bike} card align="right" /></span>}
           {!onPromotion && <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
             <PromotionPrice product={bike} />
           </span>}

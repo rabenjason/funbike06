@@ -158,7 +158,7 @@ export function Catalogue({
         <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
           {loading
             ? Array.from({ length: Math.max(visible.length, 3) }, (_, i) => <BikeCardSkeleton key={i} />)
-            : visible.map((b) => <BikeCard key={b.id} bike={b} go={go} alignActions />)}
+            : visible.map((b) => <BikeCard key={b.id} bike={b} go={go} alignActions promotionPriceAtBottom />)}
         </div>
         {!loading && bikeList.length === 0 && (
           <p className="py-12 text-center text-sm text-black/50 dark:text-white/50">
