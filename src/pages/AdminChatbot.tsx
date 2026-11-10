@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { json, request } from "../lib/adminApi";
+import { CatFace } from "../components/CatFace";
 
 const secondary = "rounded-md border border-black/20 px-3 py-2 text-sm font-semibold hover:bg-black/5 disabled:opacity-50";
 const primary = "rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b] disabled:opacity-50";
@@ -72,7 +73,10 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
           <button type="submit" className={`${secondary} mt-3`} disabled={busy || name === settings.name}>Enregistrer le nom</button>
         </form>
         <div className="mt-6 border-t border-black/10 pt-5"><h3 className="text-sm font-semibold">Logo du chatbot</h3>
-          {settings.logo ? <img src={settings.logo} alt="Logo actuel du chatbot" className="mt-3 h-16 w-16 rounded-full border border-black/15 bg-white object-contain" /> : <p className="mt-2 text-sm text-black/60">Logo d’origine : le chat Funbike.</p>}
+          <div className="mt-3 flex items-center gap-3">
+            {settings.logo ? <img src={settings.logo} alt="Logo actuel du chatbot" className="h-16 w-16 rounded-full border border-black/15 bg-white object-contain" /> : <span role="img" aria-label="Logo par défaut : le chat Funbike" className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#ffd100]"><CatFace className="h-[72%] w-[72%]" /></span>}
+            <p className="text-sm text-black/60">{settings.logo ? "Logo personnalisé actuel." : "Logo par défaut : le chat Funbike. Vous pouvez le garder ou choisir une autre image."}</p>
+          </div>
           <label className="mt-3 block text-sm font-semibold">Choisir une image<input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className={`${input} cursor-pointer`} disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024 || file.size === 0) { setError("Choisissez une image JPEG, PNG ou WebP de 2 Mo maximum."); event.currentTarget.value = ""; return; } void save({ file }); }} /></label>
           <p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP, 2 Mo maximum. Le logo est enregistré dès sa sélection ; une image carrée est conseillée.</p>
           {settings.logo && <button type="button" className={`${secondary} mt-3`} disabled={busy} onClick={() => void save({ resetLogo: true })}>Rétablir le logo d’origine</button>}

@@ -63,6 +63,9 @@ test('nom et logo : enregistrement indépendant, retour au logo et conservation 
   setup(); const dirty = []; const view = render(React.createElement(HomepageManager, { catalog, onToggle: async () => {}, onDirtyChange: value => dirty.push(value) }));
   fireEvent.click(view.getByRole('button', { name: 'Chatbot' }));
   await waitFor(() => view.getByLabelText('Nom du chatbot'));
+  assert.ok(view.getByRole('img', { name: 'Logo par défaut : le chat Funbike' }).querySelector('svg'));
+  assert.ok(view.getByText(/Vous pouvez le garder ou choisir une autre image/));
+  assert.equal(view.queryByRole('button', { name: 'Rétablir le logo d’origine' }), null);
   const field = view.getByLabelText('Nom du chatbot'); assert.equal(field.value, 'Piston');
   fireEvent.change(field, { target: { value: 'Tiana' } }); assert.equal(dirty.at(-1), true);
   fail = true; fireEvent.click(view.getByRole('button', { name: 'Enregistrer le nom' }));
@@ -77,7 +80,7 @@ test('nom et logo : enregistrement indépendant, retour au logo et conservation 
   assert.equal(logo, '/server/uploads/chatbot/logo-' + 'a'.repeat(32) + '.png');
   assert.equal(name, 'Tiana'); assert.equal(enabled, true);
   fireEvent.click(view.getByRole('button', { name: 'Rétablir le logo d’origine' }));
-  await waitFor(() => assert.equal(logo, null)); assert.equal(name, 'Tiana');
+  await waitFor(() => view.getByRole('img', { name: 'Logo par défaut : le chat Funbike' })); assert.equal(logo, null); assert.equal(name, 'Tiana');
   fireEvent.click(view.getByRole('button', { name: 'Désactiver le chatbot' }));
   await waitFor(() => assert.equal(enabled, false)); assert.equal(name, 'Tiana');
 });
