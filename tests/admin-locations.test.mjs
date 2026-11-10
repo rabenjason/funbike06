@@ -132,3 +132,25 @@ test('erreur de chargement : les données ne sont pas présentées comme vides e
   failGet = ''; fireEvent.click(view.getByRole('button', { name: 'Réessayer le chargement' }));
   await waitFor(() => assert.ok(view.getByRole('button', { name: 'Modifier Showroom' })));
 });
+
+test('contact : ajout rapide, modification et retrait du lien Facebook sans perdre les autres coordonnées', async () => {
+  contact.socialLinks = [{ label: 'Instagram', url: 'https://instagram.com/funbike' }];
+  const view = await open('Contact'); await waitFor(() => assert.ok(view.getByLabelText('Nom du réseau 1')));
+  fireEvent.click(view.getByRole('button', { name: 'Ajouter Facebook' }));
+  assert.equal(view.getByLabelText('Nom du réseau 2').value, 'Facebook');
+  change(view, 'Adresse du lien 2', 'https://example.com');
+  assert.match(view.container.textContent, /adresse Facebook valide/);
+  change(view, 'Adresse du lien 2', 'https://www.facebook.com/funbike');
+  assert.doesNotMatch(view.container.textContent, /adresse Facebook valide/);
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer les coordonnées' }));
+  await waitFor(() => assert.match(view.getByRole('status').textContent, /enregistrées/));
+  assert.deepEqual(contact.socialLinks, [{ label: 'Instagram', url: 'https://instagram.com/funbike' }, { label: 'Facebook', url: 'https://www.facebook.com/funbike' }]);
+  assert.equal(contact.email, baseContact.email);
+  change(view, 'Adresse du lien 2', 'https://facebook.com/nouvelle-page');
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer les coordonnées' }));
+  await waitFor(() => assert.equal(contact.socialLinks[1].url, 'https://facebook.com/nouvelle-page'));
+  fireEvent.click(view.getByRole('button', { name: 'Retirer le lien 2' }));
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer les coordonnées' }));
+  await waitFor(() => assert.deepEqual(contact.socialLinks, [{ label: 'Instagram', url: 'https://instagram.com/funbike' }]));
+  assert.ok(view.getByRole('button', { name: 'Ajouter Facebook' }));
+});
