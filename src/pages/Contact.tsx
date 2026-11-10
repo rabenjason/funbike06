@@ -5,6 +5,7 @@ import { faArrowRight, faClock, faEnvelope, faLocationDot, faPhone } from "@fort
 import { brands, findProductById } from "../catalog";
 import { CONTACT_INFO, CONTACT_SOCIAL_LINKS, CONTACT_WHATSAPP } from "../catalog/contact";
 import { isFacebookUrl } from "../lib/socialLinks";
+import { chatbotEnabled, chatbotName } from "../content/homepage";
 
 // Les coordonnées affichées sont centralisées dans l’API de contact.
 const CONTACT_ICONS = { address: faLocationDot, hours: faClock, phone: faPhone, email: faEnvelope } as const;
@@ -79,9 +80,9 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
             {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-[#171816] underline hover:text-[#98741b] dark:text-white dark:hover:text-[#ffd100]">WhatsApp</a>}
             {socialLinks.map((link, index) => <a key={`${link.url}-${index}`} href={link.url} target="_blank" rel="noopener noreferrer" className="break-all text-[#171816] underline hover:text-[#98741b] dark:text-white dark:hover:text-[#ffd100]">{link.label}</a>)}
           </div>}
-          <p className="mt-6 text-xs leading-5 text-black/50 dark:text-white/50">
-            Besoin d'une réponse rapide ? Ouvrez la bulle de discussion en bas à droite pour parler avec Piston.
-          </p>
+          {chatbotEnabled && <p className="mt-6 text-xs leading-5 text-black/50 [overflow-wrap:anywhere] dark:text-white/50">
+            Besoin d'une réponse rapide ? Ouvrez la bulle de discussion en bas à droite pour parler avec {chatbotName}.
+          </p>}
         </motion.aside>
 
         <motion.form

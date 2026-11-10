@@ -90,6 +90,35 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('homepage-content.php')).status, 500);
     assert.equal(readFileSync(chatbotFile, 'utf8'), '{invalid');
     writeFileSync(chatbotFile, '{"enabled":true}');
+    // Migration sans écriture : conserver l'état existant et le chat d'origine.
+    let chat = await call('chatbot-settings.php', { authenticated: true });
+    assert.deepEqual(chat.body.data, { enabled: true, name: 'Piston', logo: null });
+    assert.equal(readFileSync(chatbotFile, 'utf8'), '{"enabled":true}');
+    for (const name of ['', '   ', '<script>', '*bold*', 'x'.repeat(41)]) {
+      assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { name, revision: chat.body.revision } })).status, 400);
+    }
+    chat = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { name: 'Tiana', revision: chat.body.revision } });
+    assert.equal(chat.status, 200); assert.equal(chat.body.data.name, 'Tiana');
+    assert.equal((await call('homepage-content.php')).body.chatbotName, 'Tiana');
+    const badLogo = new FormData(); badLogo.set('revision', chat.body.revision); badLogo.set('logo', new Blob(['<?php echo 1; ?>'], { type: 'image/png' }), 'bad.png');
+    assert.equal((await call('chatbot-settings.php', { method: 'POST', authenticated: true, body: badLogo })).status, 400);
+    const logoForm = new FormData(); logoForm.set('revision', chat.body.revision); logoForm.set('logo', new Blob([readFileSync(join(serverDir, 'public/assets/company/logo-funbike-720-a3ab2dc4.png'))], { type: 'image/png' }), 'logo.png');
+    const noAuthCookie = cookie;
+    assert.equal((await call('chatbot-settings.php', { method: 'POST', body: logoForm })).status, 401);
+    cookie = noAuthCookie;
+    const uploadedChatLogo = await call('chatbot-settings.php', { method: 'POST', authenticated: true, body: logoForm });
+    assert.equal(uploadedChatLogo.status, 200, JSON.stringify(uploadedChatLogo.body));
+    const logoUrl = uploadedChatLogo.body.data.logo;
+    assert.match(logoUrl, /^\/server\/uploads\/chatbot\/logo-[a-f0-9]{32}\.png$/);
+    assert.equal((await call('homepage-content.php')).body.chatbotLogo, logoUrl);
+    assert.equal((await fetch(`http://127.0.0.1:${port}${logoUrl}`)).status, 200);
+    assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: false, revision: chat.body.revision } })).status, 409);
+    chat = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: false, revision: uploadedChatLogo.body.revision } });
+    assert.deepEqual(chat.body.data, { enabled: false, name: 'Tiana', logo: logoUrl });
+    chat = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { resetLogo: true, revision: chat.body.revision } });
+    assert.equal(chat.body.data.logo, null); assert.equal(chat.body.data.name, 'Tiana'); assert.equal(chat.body.data.enabled, false);
+    assert.equal(existsSync(join(dir, logoUrl)), true, 'ancien logo conservé');
+    writeFileSync(chatbotFile, '{"enabled":true}');
 
     // Thème global : défaut sans écriture, validation, conflits, et retour au thème initial.
     const themeFile = join(serverDir, 'storage/data/site-theme.json');

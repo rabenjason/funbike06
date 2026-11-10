@@ -95,7 +95,7 @@ if ($method === 'GET') {
     $banner = funbikeShercoBannerRead();
     $chatbot = funbikeChatbotRead();
     if ($chatbot === null) funbikeJsonResponse(500, ['error' => 'Réglage du chatbot indisponible.']);
-    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null && !($banner['legacy'] ?? false), 'shercoBannerImage' => funbikeShercoBannerSelected($banner), 'siteTheme' => (funbikeSiteThemeRead()['theme'] ?? 'funbike'), 'chatbotEnabled' => $chatbot['enabled']]);
+    funbikeJsonResponse(200, ['data' => $current, 'revision' => $revision, 'shercoBannerConfigured' => $banner !== null && !($banner['legacy'] ?? false), 'shercoBannerImage' => funbikeShercoBannerSelected($banner), 'siteTheme' => (funbikeSiteThemeRead()['theme'] ?? 'funbike'), 'chatbotEnabled' => $chatbot['enabled'], 'chatbotName' => $chatbot['name'], 'chatbotLogo' => $chatbot['logo']]);
 }
 if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 65536) funbikeJsonResponse(413, ['error' => 'Contenu trop volumineux.']);
 $raw = file_get_contents('php://input', false, null, 0, 65537);
