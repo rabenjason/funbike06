@@ -50,12 +50,12 @@ export function PromotionBadge({ product }: { product: Product }) {
   return <span className="pointer-events-none absolute right-3 top-3 z-10 bg-[#ffd100] px-3 py-1.5 text-sm font-extrabold tracking-tight text-[#171816] shadow-sm" aria-label={`Réduction de ${item.discountPercent} %`}>−{item.discountPercent} %</span>;
 }
 
-export function PromotionPrice({ product, card = false }: { product: Product; card?: boolean }) {
+export function PromotionPrice({ product, card = false, align = "left" }: { product: Product; card?: boolean; align?: "left" | "right" }) {
   const item = usePromotions().offer(product);
   if (!item) return <>Sur devis</>;
   try {
     const { finalPrice } = calculatePromotionPrice(item.originalPrice, item.discountPercent);
-    if (card) return <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 normal-case tracking-normal"><del className="min-w-0 text-xs font-medium text-black/50 [overflow-wrap:anywhere] dark:text-white/55"><span className="sr-only">Prix original : </span>{formatAriary(item.originalPrice)}</del><strong className="min-w-0 text-base font-extrabold text-[#171816] [overflow-wrap:anywhere] dark:text-[#ffd100]"><span className="sr-only">Prix promotionnel : </span>{formatAriary(finalPrice)}</strong></span>;
+    if (card) return <span className={"inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 normal-case tracking-normal " + (align === "right" ? "justify-end" : "")}><del className="min-w-0 text-xs font-medium text-black/50 [overflow-wrap:anywhere] dark:text-white/55"><span className="sr-only">Prix original : </span>{formatAriary(item.originalPrice)}</del><strong className="min-w-0 text-base font-extrabold text-[#171816] [overflow-wrap:anywhere] dark:text-[#ffd100]"><span className="sr-only">Prix promotionnel : </span>{formatAriary(finalPrice)}</strong></span>;
     return <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1"><del>{formatAriary(item.originalPrice)}</del><strong>{formatAriary(finalPrice)}</strong><span className="bg-[#ffd100] px-1.5 py-0.5 font-bold text-[#171816]">−{item.discountPercent} %</span></span>;
   } catch { return <>Sur devis</>; }
 }
