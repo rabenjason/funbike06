@@ -127,3 +127,50 @@ test('page Contact : nom personnalisé et aucun renvoi à la bulle lorsqu’elle
   assert.equal(hidden.queryByText(/Ouvrez la bulle de discussion/), null); hidden.unmount();
   globalThis.fetch = async () => ok({ data: defaults }); await homepage.loadHomepageData();
 });
+
+test('gestion des logos : aperçu, confirmation, erreurs et protection du logo actif', async () => {
+  setup();
+  const { ConfirmationProvider } = await server.ssrLoadModule('/src/components/ConfirmationModal.tsx');
+  const active = '/server/uploads/chatbot/logo-' + 'a'.repeat(32) + '.png';
+  const old = '/server/uploads/chatbot/logo-' + 'b'.repeat(32) + '.jpg';
+  logo = active; let logos = [active, old]; let failDelete = false; let deleteCalls = 0;
+  const baseFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options = {}) => {
+    if (!String(url).endsWith('/chatbot-logos.php')) return baseFetch(url, options);
+    if (options.method === 'DELETE') {
+      deleteCalls++;
+      const body = JSON.parse(options.body); assert.equal(body.url, old);
+      if (failDelete) return { ok: false, json: async () => ({ error: 'Impossible de supprimer ce logo.' }) };
+      logos = logos.filter((item) => item !== body.url);
+    }
+    return ok({ logos, current: logo });
+  };
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(HomepageManager, { catalog, onToggle: async () => {}, onSavingChange: value => saveCallback.push(value) })));
+  fireEvent.click(view.getByRole('button', { name: 'Chatbot' }));
+  await waitFor(() => view.getByRole('button', { name: 'Gérer les logos ajoutés' }));
+  fireEvent.click(view.getByRole('button', { name: 'Gérer les logos ajoutés' }));
+  await waitFor(() => view.getByAltText('Logo ajouté 2'));
+  assert.equal(view.getByText('Logo actuel').textContent, 'Logo actuel');
+  assert.ok(view.queryByRole('button', { name: 'Supprimer définitivement le logo ajouté 1' }) === null);
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 2' }));
+  assert.match(view.getByRole('alertdialog').textContent, /sauvegarde.*cache/);
+  fireEvent.click(view.getByRole('button', { name: 'Annuler' }));
+  assert.equal(deleteCalls, 0);
+  failDelete = true;
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 2' }));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Impossible/));
+  assert.ok(view.getByAltText('Logo ajouté 2')); assert.equal(logo, active);
+  fireEvent.click(view.getByRole('button', { name: 'Recharger les logos' }));
+  await waitFor(() => view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 2' }));
+  failDelete = false;
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 2' }));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer définitivement' }));
+  await waitFor(() => assert.ok(view.queryByAltText('Logo ajouté 2') === null));
+  assert.equal(logo, active); assert.deepEqual(logos, [active]); assert.equal(deleteCalls, 2);
+  assert.match(view.getByRole('status').textContent, /cache/);
+  assert.deepEqual(saveCallback, [true, false, true, false]);
+  fireEvent.click(view.getByRole('button', { name: 'Rétablir le logo d’origine' }));
+  await waitFor(() => view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 1' }));
+  assert.equal(logo, null); assert.equal(enabled, true); assert.equal(name, 'Piston');
+});

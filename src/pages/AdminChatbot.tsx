@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { json, request } from "../lib/adminApi";
 import { CatFace } from "../components/CatFace";
+import { AdminChatbotLogos } from "./AdminChatbotLogos";
 
 const secondary = "rounded-md border border-black/20 px-3 py-2 text-sm font-semibold hover:bg-black/5 disabled:opacity-50";
 const primary = "rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b] disabled:opacity-50";
@@ -23,6 +24,7 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [showLogos, setShowLogos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     let active = true;
@@ -80,6 +82,9 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
           <label className="mt-3 block text-sm font-semibold">Choisir une image<input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className={`${input} cursor-pointer`} disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024 || file.size === 0) { setError("Choisissez une image JPEG, PNG ou WebP de 2 Mo maximum."); event.currentTarget.value = ""; return; } void save({ file }); }} /></label>
           <p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP, 2 Mo maximum. Le logo est enregistré dès sa sélection ; une image carrée est conseillée.</p>
           {settings.logo && <button type="button" className={`${secondary} mt-3`} disabled={busy} onClick={() => void save({ resetLogo: true })}>Rétablir le logo d’origine</button>}
+          <div className="mt-5 border-t border-black/10 pt-4"><button type="button" disabled={busy} aria-expanded={showLogos} onClick={() => setShowLogos((value) => !value)} className={secondary}>{showLogos ? "Masquer les logos ajoutés" : "Gérer les logos ajoutés"}</button>
+            {showLogos && <AdminChatbotLogos selectedLogo={settings.logo} busy={busy} onSavingChange={(saving) => { setBusy(saving); onSavingChange?.(saving); }} />}
+          </div>
         </div></>}
       {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
       {error && <button type="button" disabled={busy} className={`${secondary} mt-3`} onClick={() => setAttempt((n) => n + 1)}>Recharger le réglage</button>}

@@ -111,6 +111,27 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const logoUrl = uploadedChatLogo.body.data.logo;
     assert.match(logoUrl, /^\/server\/uploads\/chatbot\/logo-[a-f0-9]{32}\.png$/);
     assert.equal((await call('homepage-content.php')).body.chatbotLogo, logoUrl);
+    const oldLogoUrl = '/server/uploads/chatbot/logo-' + 'b'.repeat(32) + '.jpg';
+    const linkedLogoUrl = '/server/uploads/chatbot/logo-' + 'c'.repeat(32) + '.png';
+    writeFileSync(join(dir, oldLogoUrl), 'ancien logo');
+    symlinkSync(join(dir, logoUrl), join(dir, linkedLogoUrl));
+    const logosCookie = cookie;
+    assert.equal((await call('chatbot-logos.php')).status, 401);
+    assert.equal((await call('chatbot-logos.php', { method: 'DELETE', body: { url: oldLogoUrl } })).status, 401);
+    cookie = logosCookie;
+    let logos = await call('chatbot-logos.php', { authenticated: true });
+    assert.equal(logos.status, 200); assert.equal(logos.body.current, logoUrl);
+    assert.deepEqual(new Set(logos.body.logos), new Set([logoUrl, oldLogoUrl]));
+    assert.equal((await call('chatbot-logos.php', { method: 'DELETE', authenticated: true, body: { url: logoUrl } })).status, 409);
+    assert.equal((await call('chatbot-logos.php', { method: 'DELETE', authenticated: true, body: { url: linkedLogoUrl } })).status, 404);
+    assert.equal((await call('chatbot-logos.php', { method: 'DELETE', authenticated: true, body: { url: '/server/uploads/chatbot/../autre.png' } })).status, 400);
+    const crossOriginDelete = await fetch(base + 'chatbot-logos.php', { method: 'DELETE', headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify({ url: oldLogoUrl }) });
+    assert.equal(crossOriginDelete.status, 403);
+    assert.equal(existsSync(join(dir, oldLogoUrl)), true);
+    logos = await call('chatbot-logos.php', { method: 'DELETE', authenticated: true, body: { url: oldLogoUrl } });
+    assert.equal(logos.status, 200); assert.deepEqual(logos.body.logos, [logoUrl]);
+    assert.equal(existsSync(join(dir, oldLogoUrl)), false); assert.equal(existsSync(join(dir, logoUrl)), true);
+    assert.equal((await call('homepage-content.php')).body.chatbotLogo, logoUrl);
     assert.equal((await fetch(`http://127.0.0.1:${port}${logoUrl}`)).status, 200);
     assert.equal((await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: false, revision: chat.body.revision } })).status, 409);
     chat = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { enabled: false, revision: uploadedChatLogo.body.revision } });
@@ -118,6 +139,10 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     chat = await call('chatbot-settings.php', { method: 'PUT', authenticated: true, body: { resetLogo: true, revision: chat.body.revision } });
     assert.equal(chat.body.data.logo, null); assert.equal(chat.body.data.name, 'Tiana'); assert.equal(chat.body.data.enabled, false);
     assert.equal(existsSync(join(dir, logoUrl)), true, 'ancien logo conservé');
+    logos = await call('chatbot-logos.php', { method: 'DELETE', authenticated: true, body: { url: logoUrl } });
+    assert.equal(logos.status, 200); assert.equal(logos.body.current, null);
+    assert.equal(existsSync(join(dir, logoUrl)), false);
+    assert.deepEqual((await call('chatbot-settings.php', { authenticated: true })).body.data, chat.body.data);
     writeFileSync(chatbotFile, '{"enabled":true}');
 
     // Thème global : défaut sans écriture, validation, conflits, et retour au thème initial.
