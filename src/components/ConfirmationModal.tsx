@@ -44,7 +44,7 @@ function ConfirmationDialog({ options, onClose }: { options: ConfirmationOptions
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(false); }}>
+    <div className="fb-admin-confirmation fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4" onClick={(event) => { if (event.target === event.currentTarget) onClose(false); }}>
       <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white text-[#171816] shadow-xl">
         <div className="border-b border-black/10 px-5 py-4 sm:px-6"><h2 id={titleId} className="break-words text-lg font-bold leading-snug">{options.title}</h2></div>
         <div className="px-5 py-5 sm:px-6">

@@ -1,0 +1,34 @@
+/* Le choix du dashboard est local et indépendant du thème du site public. */
+html[data-admin-theme="light"] :is(.fb-admin, .fb-admin-confirmation) { color-scheme: light; }
+.fb-admin .admin-theme-toggle { border-color: currentColor; }
+.fb-admin .admin-theme-toggle:focus-visible,
+.fb-admin-confirmation button:focus-visible { outline: 2px solid #d5a900; outline-offset: 2px; }
+
+/* Priorité renforcée face aux affinages du thème clair public, sans modifier celui-ci. */
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) {
+  color-scheme: dark;
+  color: #f2f0ea;
+}
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] .fb-admin main.bg-\[\#f5f3eb\] { background-color: #141513; color: #f2f0ea; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-white:not(:has(> img)) { background-color: #242622; color: #f2f0ea; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-\[\#faf9f5\] { background-color: #292b26; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(input, select, textarea).bg-white { background-color: #191b18; color: #f2f0ea; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(input, select, textarea)::placeholder { color: #aaa99f; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(input[type="checkbox"], input[type="radio"]) { accent-color: #ffd100; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .text-\[\#171816\]:not(.bg-\[\#ffd100\]):not(.bg-white:has(> img)) { color: #f2f0ea; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.text-black\/40, .text-black\/45, .text-black\/50, .text-black\/55, .text-black\/60, .text-black\/65) { color: #c1c0b8; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .text-\[\#98741b\] { color: #e4c35d; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.border-black\/10, .border-black\/15, .border-black\/20, .border-black\/25) { border-color: #55574e; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .divide-black\/10 > :not(:last-child) { border-color: #55574e; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.bg-black\/5, .bg-black\/\[0\.03\]) { background-color: #34362f; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.hover\:bg-black\/5:hover, .hover\:bg-black\/10:hover, .hover\:bg-\[\#fff9df\]:hover) { background-color: #3b3d35; }
+/* Les alertes et badges gardent un contraste adapté en mode nuit. */
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-red-50 { background-color: #482222; color: #ffb4ad; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-emerald-50 { background-color: #183c2c; color: #a8e8c6; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.bg-amber-50, .bg-amber-50\/60) { background-color: #44371d; color: #f5db9b; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-sky-50 { background-color: #1d364b; color: #b2dcff; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .text-red-700 { color: #ffb4ad; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.text-emerald-700, .text-emerald-800) { color: #a8e8c6; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) :is(.text-amber-800, .text-amber-900) { color: #f5db9b; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .text-sky-800 { color: #b2dcff; }
+html[data-admin-theme="dark"][data-admin-theme="dark"][data-admin-theme="dark"] :is(.fb-admin, .fb-admin-confirmation) .bg-\[\#ffd100\] { color: #171816; }

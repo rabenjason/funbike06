@@ -31,7 +31,7 @@ export default function AdminSiteTheme({ onSavingChange }: { onSavingChange: (sa
   }
   return <form onSubmit={save} className="max-w-3xl rounded-xl border border-black/10 bg-white p-6">
     <h2 className="text-xl font-bold">Thème du site</h2>
-    <p className="mt-2 text-sm text-black/65">Ce choix s’applique au site pour tous les visiteurs. Chaque visiteur conserve son choix jour ou nuit. Le dashboard ne change pas.</p>
+    <p className="mt-2 text-sm text-black/65">Ce choix s’applique au site pour tous les visiteurs. Chaque visiteur conserve son choix jour ou nuit. Le mode jour ou nuit du dashboard se règle séparément, sur cet appareil.</p>
     <fieldset disabled={busy || !revision} className="mt-5 space-y-3"><legend className="mb-2 text-sm font-semibold">Choisir un thème</legend>
       {([{ id: "funbike", label: "Funbike — thème actuel", colors: ["#ffd100", "#171816", "#ffffff"] }, { id: "tvs", label: "TVS Motor", colors: ["#183883", "#e62d38", "#ffffff", "#2c2c2c"] }] as const).map((theme) => <label key={theme.id} className="flex cursor-pointer flex-wrap items-center gap-3 rounded-lg border border-black/15 p-4"><input type="radio" name="site-theme" value={theme.id} checked={selected === theme.id} onChange={() => { setSelected(theme.id); setNotice(""); }} /><span className="flex-1 font-semibold">{theme.label}{saved === theme.id ? " · Actif" : ""}</span><span aria-hidden="true" className="flex gap-1">{theme.colors.map((color) => <span key={color} className="h-6 w-6 rounded-full border border-black/15" style={{ backgroundColor: color }} />)}</span></label>)}
     </fieldset>
