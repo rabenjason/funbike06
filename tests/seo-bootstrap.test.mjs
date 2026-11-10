@@ -27,7 +27,7 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   globalThis.fetch = async (url) => {
     if (blocked) return { ok: false, status: 403 };
     const path = String(url).replace('/server/api/', '');
-    if (path === 'homepage-content.php') return { ok: true, json: async () => ({ data: JSON.parse(readFileSync('server/api/_lib/homepage-defaults.json', 'utf8')) }) };
+    if (path === 'homepage-content.php') return { ok: true, json: async () => ({ data: JSON.parse(readFileSync('server/api/_lib/homepage-defaults.json', 'utf8')), siteTheme: 'tvs' }) };
     const [file, key] = files[path] ?? [];
     if (!file) return { ok: false, status: 404 };
     const value = JSON.parse(readFileSync(`server/storage/data/${file}`, 'utf8'))[key];
@@ -44,6 +44,7 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   // L'import à froid de l'application par Vite peut dépasser le délai par défaut.
   await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
   assert.equal(document.documentElement.classList.contains('fb-booting'), false);
+  assert.equal(document.documentElement.dataset.siteTheme, 'tvs', 'thème public appliqué avant la fin du démarrage');
   assert.equal(document.querySelector('#root [aria-label="Chargement du site"]'), null, 'aucun second écran de chargement React');
   assert.match(document.getElementById('root').textContent, /TVS HLX Plus/, 'la fiche directe est prête avant la disparition du chargement');
   assert.doesNotMatch(document.getElementById('root').textContent, /Chargement de la page/);

@@ -68,6 +68,30 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: initialPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
 
+    // Thème global : défaut sans écriture, validation, conflits, et retour au thème initial.
+    const themeFile = join(serverDir, 'storage/data/site-theme.json');
+    assert.equal(existsSync(themeFile), false);
+    assert.equal((await call('homepage-content.php')).body.siteTheme, 'funbike');
+    const themeCookie = cookie;
+    assert.equal((await call('site-theme.php')).status, 401);
+    assert.equal((await call('site-theme.php', { method: 'PUT', body: { theme: 'tvs', revision: 'x' } })).status, 401);
+    cookie = themeCookie;
+    const themeInitial = await call('site-theme.php', { authenticated: true });
+    assert.equal(themeInitial.body.data.theme, 'funbike');
+    assert.equal(existsSync(themeFile), false);
+    assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'autre', revision: themeInitial.body.revision } })).status, 400);
+    const themeTvs = await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'tvs', revision: themeInitial.body.revision } });
+    assert.equal(themeTvs.status, 200);
+    assert.equal((await call('homepage-content.php')).body.siteTheme, 'tvs');
+    assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', revision: themeInitial.body.revision } })).status, 409);
+    assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', revision: themeTvs.body.revision } })).status, 200);
+    assert.equal((await call('homepage-content.php')).body.siteTheme, 'funbike');
+    writeFileSync(themeFile, '{invalid');
+    assert.equal((await call('site-theme.php', { authenticated: true })).status, 500);
+    assert.equal((await call('homepage-content.php')).body.siteTheme, 'funbike');
+    assert.equal(readFileSync(themeFile, 'utf8'), '{invalid');
+    writeFileSync(themeFile, '{"theme":"funbike"}');
+
     // Les campagnes référencent les fiches sans réécrire le catalogue.
     const promoFile = join(serverDir, 'storage/data/products/motorcycles.json');
     const originalCatalog = readFileSync(promoFile, 'utf8');
@@ -415,7 +439,30 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('auth/users.php', { authenticated: true })).status, 403);
     assert.equal((await call('auth/change-password.php', { method: 'POST', authenticated: true, body: { currentPassword: createdUser.body.temporaryPassword, newPassword: nextPassword, newPasswordConfirmation: nextPassword } })).status, 200);
     assert.equal((await call('auth/users.php', { authenticated: true })).status, 403);
+    // Un admin ne peut pas renommer même avec le mot de passe du superadmin.
+    assert.equal((await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: createdUser.body.user.id, username: 'editor-new', currentPassword: nextPassword } })).status, 403);
+    const editorCookie = cookie;
+    // Une seconde connexion superadmin permet de vérifier la révocation des autres sessions.
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: nextPassword } })).status, 200);
+    const otherSuperCookie = cookie;
     cookie = superCookie;
+    const superUser = (await call('auth/me.php', { authenticated: true })).body.user;
+    assert.equal((await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: createdUser.body.user.id, username: 'editor-new', currentPassword: 'incorrect' } })).status, 403);
+    assert.equal((await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: createdUser.body.user.id, username: '!!', currentPassword: nextPassword } })).status, 400);
+    assert.equal((await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: createdUser.body.user.id, username: superUser.username, currentPassword: nextPassword } })).status, 409);
+    const renamed = await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: createdUser.body.user.id, username: 'Editor-New', currentPassword: nextPassword } });
+    assert.equal(renamed.status, 200); assert.equal(renamed.body.user.username, 'editor-new'); assert.equal(renamed.body.user.role, 'admin');
+    cookie = editorCookie;
+    assert.equal((await call('auth/me.php', { authenticated: true })).status, 401, 'sessions de l’admin renommé révoquées');
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'editor-new', password: nextPassword } })).status, 200, 'mot de passe conservé');
+    cookie = superCookie;
+    const selfRename = await call('auth/username.php', { method: 'PUT', authenticated: true, body: { id: superUser.id, username: 'boss-new', currentPassword: nextPassword } });
+    assert.equal(selfRename.status, 200); assert.equal(selfRename.body.user.username, 'boss-new');
+    assert.equal((await call('auth/me.php', { authenticated: true })).body.user.username, 'boss-new', 'session courante maintenue');
+    cookie = otherSuperCookie;
+    assert.equal((await call('auth/me.php', { authenticated: true })).status, 401, 'autre session superadmin révoquée');
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: nextPassword } })).status, 401, 'ancien nom invalide');
+    assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'boss-new', password: nextPassword } })).status, 200, 'le superadmin se reconnecte avec le nouveau nom');
     assert.equal((await call(`auth/users.php?id=${createdUser.body.user.id}`, { method: 'DELETE', authenticated: true })).status, 200);
     const family = await call('families.php', { method: 'POST', authenticated: true, body: { name: 'Famille test', categoryId: 'motos' } });
     assert.equal(family.status, 201);

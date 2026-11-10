@@ -18,6 +18,7 @@ export type HomepageData = { content: HomepageContent; links: HomepageLink[]; ex
 
 // Valeurs d'installation uniquement : les données publiées viennent de l'API.
 const initial = defaults as HomepageData;
+export let siteTheme: "funbike" | "tvs" = "funbike";
 export let homepageContent: HomepageContent = initial.content;
 export let homepageCategories: HomepageLink[] = initial.links;
 export let homepageExclusiveBrands: HomepageData["exclusiveBrands"] = initial.exclusiveBrands;
@@ -52,13 +53,15 @@ export async function loadHomepageData(signal?: AbortSignal) {
   if (!res.ok) throw new Error("Impossible de charger le contenu de l’accueil.");
   const value: unknown = await res.json();
   if (!value || typeof value !== "object" || !validHomepage((value as { data?: unknown }).data)) throw new Error("Données de l’accueil invalides.");
-  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown };
+  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown };
   let image = "https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg" as string | null;
   if (response.shercoBannerConfigured === true) {
     if (response.shercoBannerImage !== null && (typeof response.shercoBannerImage !== "string" || !/^\/server\/uploads\/homepage\/sherco-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.shercoBannerImage))) throw new Error("Image de bannière invalide.");
     image = response.shercoBannerImage as string | null;
   } else if (response.shercoBannerConfigured !== undefined && response.shercoBannerConfigured !== false) throw new Error("Configuration de bannière invalide.");
   if (signal?.aborted) throw new Error("Chargement annulé.");
+  if (response.siteTheme !== undefined && response.siteTheme !== "funbike" && response.siteTheme !== "tvs") throw new Error("Thème du site invalide.");
   setHomepage(response.data);
+  siteTheme = response.siteTheme === "tvs" ? "tvs" : "funbike";
   shercoBannerImage = image;
 }
