@@ -3,7 +3,7 @@ export { CatFace } from "./CatFace";
 import { getProductFamily, categories, families, models, productTypes, productDetailPage, products } from "../catalog";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_WHATSAPP } from "../catalog/contact";
 import { DEALERS } from "../catalog/dealers";
-import { loadServerData } from "../catalog/loadServerData";
+import { refreshAssistantData } from "../catalog/refreshAssistantData";
 import { loadAssistantPromotions } from "../lib/assistant-promotions";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
@@ -505,7 +505,7 @@ export default function CatChat({
     const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
       // Les réponses ne reposent jamais sur un catalogue dont la mise à jour a échoué.
-      await loadServerData(controller.signal);
+      await refreshAssistantData(controller.signal);
       if (version !== requestVersion.current) return;
       if (catalogVersion() !== currentCatalog) {
         timers.current.forEach((timer) => window.clearTimeout(timer)); timers.current = []; pending.current = 0;

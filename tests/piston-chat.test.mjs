@@ -4,6 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { seedCatalog } from './helpers/catalog.mjs';
 
 let dom, server, CatChat, render, cleanup, fireEvent, screen, waitFor, act, originalFetch;
@@ -18,6 +19,7 @@ let calls = 0;
 const mockFetch = async (url) => {
   calls++;
   const path = String(url).replace('/server/api/', '');
+  if (path === 'public-data-version.php') return { ok: true, json: async () => ({ version: createHash('sha256').update(JSON.stringify(data)).digest('hex') }) };
   const value = structuredClone(data[path]);
   const key = path.startsWith('products/') ? 'data' : fixtures[path]?.[1];
   return { ok: true, json: async () => ({ [key]: value }) };
@@ -43,7 +45,7 @@ test('rafraîchissement, cartes accessoires, échec réseau et annulation', asyn
   fireEvent.click(screen.getByLabelText(/^Ouvrir la discussion/));
   send('casques');
   await waitFor(() => assert.ok(screen.getByText(/Voici les produits trouvés/)), { timeout: 5000 });
-  assert.equal(calls, 11);
+  assert.equal(calls, 13, "première question : vérification avant et après la lecture complète");
   fireEvent.click(screen.getAllByText('Voir la fiche')[0]);
   assert.equal(navigations.at(-1)?.[0], 'accessory');
   // Un ajout est détecté sans recharger la page et invalide les anciennes réponses.
@@ -52,6 +54,11 @@ test('rafraîchissement, cartes accessoires, échec réseau et annulation', asyn
   await waitFor(() => assert.ok(screen.getByText(/Le catalogue a changé/)), { timeout: 5000 });
   await waitFor(() => assert.ok(screen.getByText('Casque UniqueEssai')), { timeout: 5000 });
   assert.equal(screen.queryAllByText(/Voici les produits trouvés/).length, 1);
+  assert.equal(calls, 26, 'données modifiées : lecture complète et deux vérifications');
+  const beforeUnchanged = calls;
+  send('casque UniqueEssai');
+  await waitFor(() => assert.equal(screen.getAllByText('Casque UniqueEssai').length, 2), { timeout: 5000 });
+  assert.equal(calls - beforeUnchanged, 1, 'données identiques : une seule vérification');
   // Une panne ne doit pas déclencher une réponse sur les anciennes données.
   globalThis.fetch = async () => { throw new Error('réseau'); };
   send('prix TVS HLX 125');
@@ -113,7 +120,11 @@ test('dialogue : revendeur dynamique, lien direct et promotion vérifiée', asyn
   data['dealers.php'] = [...oldDealers, { key: 'rider-essai', city: 'Antananarivo', name: 'Rider Zone Essai', kind: 'Magasin', address: 'Adresse test Rider', hours: 'Lundi 9h', phone: '034 11', email: 'rider@test.mg', services: ['Atelier'], desc: '', lat: -18.9, lon: 47.5 }];
   const originalMock = globalThis.fetch;
   const target = data['products/motorcycles.php'][0];
-  globalThis.fetch = async (url, options) => String(url).endsWith('promotions.php') ? { ok: true, json: async () => ({ serverTime: '2026-11-15T09:00:00Z', campaigns: [{ id: 'test', name: 'Essai', startDate: '2026-11-01', endDate: '2026-11-30', enabled: true, published: true, products: [{ productId: target.id, categoryId: target.categoryId, originalPrice: 100000, discountPercent: 20 }] }] }) } : mockFetch(url, options);
+  let promoCalls = 0, discount = 20;
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith('promotions.php')) { promoCalls++; return { ok: true, json: async () => ({ serverTime: '2026-11-15T09:00:00Z', campaigns: [{ id: 'test', name: 'Essai', startDate: '2026-11-01', endDate: '2026-11-30', enabled: true, published: true, products: [{ productId: target.id, categoryId: target.categoryId, originalPrice: 100000, discountPercent: discount }] }] }) }; }
+    return mockFetch(url, options);
+  };
   const navigations = [];
   const view = render(React.createElement(CatChat, { go: (...args) => navigations.push(args) }));
   try {
@@ -125,9 +136,11 @@ test('dialogue : revendeur dynamique, lien direct et promotion vérifiée', asyn
     send('promotions motos');
     await waitFor(() => assert.ok(screen.getByText(/Produits en promotion vérifiés le 15\/11\/2026/)), { timeout: 6000 });
     assert.ok(screen.getByRole('button', { name: /Voir les promotions/ }));
+    discount = 30;
     send(`prix ${target.name}`);
     await waitFor(() => assert.ok(screen.getByText(/Prix promotionnel de/)), { timeout: 6000 });
-    assert.match(screen.getByText(/Prix promotionnel de/).parentElement.textContent, /80\s?000 Ar/);
+    assert.match(screen.getByText(/Prix promotionnel de/).parentElement.textContent, /70\s?000 Ar/);
+    assert.equal(promoCalls, 2, 'promotions vérifiées séparément à chaque question concernée');
   } finally { view.unmount(); data['dealers.php'] = oldDealers; globalThis.fetch = originalMock; }
 });
 
