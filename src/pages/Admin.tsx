@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { Product } from "../types/product";
 import { prepareProductPhotos, type EditablePhoto } from "../lib/productPhotos";
 import { ProductList, type AdminCatalog, type HomepageField, type BulkDeleteResult } from "./AdminCatalog";
@@ -10,6 +10,7 @@ import { useUnreadMessages } from "../lib/useUnreadMessages";
 import { AdminHomepage } from "./AdminHomepage";
 import AdminPromotions from "./AdminPromotions";
 import AdminSiteTheme from "./AdminSiteTheme";
+import "../styles/admin-theme.css";
 
 type User = { id: string; username: string; role: string; mustChangePassword: boolean };
 type Category = { id: string; name: string };
@@ -21,10 +22,10 @@ const secondary = "rounded-md border border-black/20 px-3 py-2 text-sm font-semi
 
 function Label({ children, title }: { children: React.ReactNode; title: string }) { return <label className="block text-xs font-semibold text-black/65">{title}{children}</label>; }
 
-function Login({ onLogin }: { onLogin: (user: User) => void }) {
+function Login({ onLogin, themeButton }: { onLogin: (user: User) => void; themeButton: React.ReactNode }) {
   const [username, setUsername] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function submit(e: FormEvent) { e.preventDefault(); setBusy(true); setError(""); try { const res = await request("auth/login.php", json("POST", { username, password })); setPassword(""); onLogin(res.user); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }
-  return <main className="grid min-h-screen place-items-center bg-[#171816] p-5"><form onSubmit={submit} className="w-full max-w-md rounded-xl bg-white p-7 shadow-2xl sm:p-10"><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Funbike / Administration</p><h1 className="mt-3 text-3xl font-bold text-[#171816]">Connexion</h1><p className="mt-2 text-sm text-black/55">Accès réservé à l’équipe Funbike.</p><div className="mt-7 space-y-4"><Label title="Nom d’utilisateur"><input required autoComplete="username" className={control} value={username} onChange={(e) => setUsername(e.target.value)} /></Label><Label title="Mot de passe"><input required type="password" autoComplete="current-password" className={control} value={password} onChange={(e) => setPassword(e.target.value)} /></Label></div>{error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}<button disabled={busy} className={`${primary} mt-6 w-full`}>{busy ? "Connexion…" : "Se connecter"}</button><a href="/" className="mt-5 block text-center text-xs text-black/55 underline">Retour au site</a></form></main>;
+  return <main className="grid min-h-screen place-items-center bg-[#171816] p-5"><form onSubmit={submit} className="w-full max-w-md rounded-xl bg-white p-7 text-[#171816] shadow-2xl sm:p-10"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Funbike / Administration</p>{themeButton}</div><h1 className="mt-3 text-3xl font-bold text-[#171816]">Connexion</h1><p className="mt-2 text-sm text-black/55">Accès réservé à l’équipe Funbike.</p><div className="mt-7 space-y-4"><Label title="Nom d’utilisateur"><input required autoComplete="username" className={control} value={username} onChange={(e) => setUsername(e.target.value)} /></Label><Label title="Mot de passe"><input required type="password" autoComplete="current-password" className={control} value={password} onChange={(e) => setPassword(e.target.value)} /></Label></div>{error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}<button disabled={busy} className={`${primary} mt-6 w-full`}>{busy ? "Connexion…" : "Se connecter"}</button><a href="/" className="mt-5 block text-center text-xs text-black/55 underline">Retour au site</a></form></main>;
 }
 function PasswordForm({ onDone, mandatory }: { onDone: (u: User) => void; mandatory: boolean }) {
   const [currentPassword, setCurrent] = useState(""); const [newPassword, setNew] = useState(""); const [newPasswordConfirmation, setConfirmation] = useState(""); const [message, setMessage] = useState("");
@@ -195,11 +196,23 @@ function UserManager({ user, onUserChanged }: { user: User; onUserChanged: (user
     {renaming?.id === u.id && <form onSubmit={rename} className="mt-4 space-y-3 rounded-md bg-black/[0.03] p-4"><Label title="Nouveau nom d’utilisateur"><input autoComplete="off" required maxLength={32} className={control} value={newUsername} onChange={(e) => setNewUsername(e.target.value)} /></Label><p className="text-xs text-black/60">3 à 32 caractères : lettres, chiffres, point, tiret ou underscore. Les lettres sont enregistrées en minuscules.</p><Label title="Votre mot de passe superadmin"><input type="password" autoComplete="current-password" required className={control} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></Label><p className="text-xs text-black/60">Le mot de passe du compte reste inchangé. Ses autres sessions seront déconnectées ; communiquez le nouvel identifiant à la personne concernée.</p><div className="flex gap-2"><button disabled={busy || newUsername.trim().toLowerCase() === u.username} className={primary}>{busy ? "Enregistrement…" : "Enregistrer le nom"}</button><button type="button" disabled={busy} className={secondary} onClick={() => { setRenaming(null); setCurrentPassword(""); setError(""); }}>Annuler</button></div></form>}</div>)}</div></div>;
 }
 
-export default function Admin() {
-  return <ConfirmationProvider><AdminContent /></ConfirmationProvider>;
+const ADMIN_THEME_KEY = "fb-admin-theme";
+function readAdminTheme(): boolean {
+  try { return window.localStorage.getItem(ADMIN_THEME_KEY) === "dark"; } catch { return false; }
 }
 
-function AdminContent() {
+export default function Admin() {
+  const [dark, setDark] = useState(readAdminTheme);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.adminTheme = dark ? "dark" : "light";
+    try { window.localStorage.setItem(ADMIN_THEME_KEY, dark ? "dark" : "light"); } catch { /* Le choix reste actif pour la session. */ }
+    return () => { delete document.documentElement.dataset.adminTheme; };
+  }, [dark]);
+  const themeButton = <button type="button" aria-label={dark ? "Activer le mode jour du dashboard" : "Activer le mode nuit du dashboard"} onClick={() => setDark((value) => !value)} className="admin-theme-toggle rounded-md border px-3 py-2 text-sm font-semibold">{dark ? "☀ Mode jour" : "☾ Mode nuit"}</button>;
+  return <div className="fb-admin"><ConfirmationProvider><AdminContent themeButton={themeButton} /></ConfirmationProvider></div>;
+}
+
+function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
   const confirm = useConfirmation();
   const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "promotions" | "home" | "settings" | "users" | "theme" | "password" | "dealers" | "contact" | "messages">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
   const unread = useUnreadMessages(user && !user.mustChangePassword ? user.id : null);
@@ -262,9 +275,9 @@ function AdminContent() {
     setCatalog((previous) => ({ ...previous, products: previous.products.map((p) => p.id === product.id && p.categoryId === product.categoryId ? result.data : p) }));
   }
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#171816] text-white">Vérification de la session…</main>;
-  if (!user) return <Login onLogin={setUser} />;
+  if (!user) return <Login onLogin={setUser} themeButton={themeButton} />;
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
-    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex gap-3"><a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut || homeSaving || promotionsSaving || themeSaving} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
+    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex flex-wrap gap-3">{themeButton}<a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut || homeSaving || promotionsSaving || themeSaving} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">{error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
       <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "promotions", name: "Promotions" }, { id: "home", name: "Accueil" }, { id: "theme", name: "Thème du site" }, { id: "settings", name: "Marques et classement" }, { id: "dealers", name: "Revendeurs" }, { id: "contact", name: "Contact" }, { id: "messages", name: "Messages" }, ...(user.role === "superadmin" ? [{ id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy || homeSaving || promotionsSaving || themeSaving} aria-describedby={tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) ? "unread-messages-description" : undefined} title={tab.id === "messages" && unread.failed ? "Compteur indisponible : réessayez dans quelques instants." : undefined} onClick={() => void changeSection(tab.id)} className={section === tab.id ? primary : secondary}>{tab.name}{tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) && <><span aria-hidden="true" className={`ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ${unread.failed ? "bg-neutral-600" : "bg-red-700"}`}>{unread.failed ? "!" : unread.count! > 99 ? "99+" : unread.count}</span></>}</button>)}{(unread.failed || (unread.count !== null && unread.count > 0)) && <span id="unread-messages-description" className="sr-only">{unread.failed ? "Compteur de messages non lus indisponible" : `${unread.count} message${unread.count === 1 ? "" : "s"} non lu${unread.count === 1 ? "" : "s"}`}</span>}</nav>
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
