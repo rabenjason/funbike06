@@ -30,6 +30,15 @@ test('horaires multilignes et coordonnées apparaissent sur les pages publiques'
   assert.ok(!page.includes('https://wa.me/'));
 });
 
+test('un revendeur sans coordonnées reste visible sans carte ni fausse action', () => {
+  DEALERS.splice(0, DEALERS.length, { key: 'nosy-be', city: 'Nosy Be', name: 'Hell Ville Dépannage', kind: '', address: '', hours: '', phone: '', email: '', desc: '', lat: null, lon: null, services: [] });
+  const html = renderToStaticMarkup(React.createElement(Dealers, { go() {} }));
+  assert.match(html, /Hell Ville Dépannage/); assert.match(html, /Nosy Be/);
+  assert.match(html, /Localisation à renseigner/); assert.match(html, /Non renseigné/);
+  assert.doesNotMatch(html, /<iframe|maps\/dir|href="tel:|href="mailto:|Explorer la carte/);
+  assert.doesNotMatch(html, /NaN|undefined|marker=0/);
+});
+
 test('liens optionnels seulement s’ils sont renseignés et sans protocole dangereux', () => {
   setContactInfo({ ...contact, whatsapp: '+261 34 12 345 67', socialLinks: [{ label: 'Facebook', url: 'https://facebook.com/funbike' }, { label: 'Instagram', url: 'https://instagram.com/funbike' }, { label: 'Autre nom', url: 'https://fb.me/funbike' }, { label: 'Indésirable', url: 'javascript:alert(1)' }] });
   const page = renderToStaticMarkup(React.createElement(Contact));

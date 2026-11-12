@@ -62,6 +62,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
   const [sliderAtStart, setSliderAtStart] = useState(true);
   const [sliderAtEnd, setSliderAtEnd] = useState(false);
   const dealer = DEALERS.find((d) => d.key === activeKey)!;
+  const coords = typeof dealer.lat === "number" && Number.isFinite(dealer.lat) && Math.abs(dealer.lat) <= 90 && typeof dealer.lon === "number" && Number.isFinite(dealer.lon) && Math.abs(dealer.lon) <= 180 ? { lat: dealer.lat, lon: dealer.lon } : null;
   const cities = groupCities(DEALERS);
   const activeCity = normalize(dealer.city);
   const selectedCity = cities.find((city) => city.id === activeCity)!;
@@ -175,7 +176,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
               {query && <button type="button" onClick={() => setQuery("")} className="min-h-11 text-xs font-semibold underline">Effacer</button>}
             </div>
             {terms.length > 0 && <div className="absolute inset-x-0 top-full z-30 max-h-64 overflow-y-auto border border-black/15 bg-white shadow-lg dark:border-white/15 dark:bg-[#1b1c19]">
-              {results.length ? <ul aria-label="Résultats de recherche des revendeurs">{results.map((item) => <li key={item.key}><button type="button" onClick={() => select(item.key)} className="block w-full border-b border-black/10 px-3 py-3 text-left text-sm hover:bg-black/5 focus-visible:bg-black/5 dark:border-white/10 dark:hover:bg-white/10 dark:focus-visible:bg-white/10"><span className="block font-semibold">{item.name}</span><span className="block text-xs text-black/60 dark:text-white/60">{item.city} · {item.address}</span></button></li>)}</ul> : <p role="status" className="p-3 text-sm">Aucun revendeur trouvé.</p>}
+              {results.length ? <ul aria-label="Résultats de recherche des revendeurs">{results.map((item) => <li key={item.key}><button type="button" onClick={() => select(item.key)} className="block w-full border-b border-black/10 px-3 py-3 text-left text-sm hover:bg-black/5 focus-visible:bg-black/5 dark:border-white/10 dark:hover:bg-white/10 dark:focus-visible:bg-white/10"><span className="block font-semibold">{item.name}</span><span className="block text-xs text-black/60 dark:text-white/60">{item.city}{item.address && ` · ${item.address}`}</span></button></li>)}</ul> : <p role="status" className="p-3 text-sm">Aucun revendeur trouvé.</p>}
             </div>}
           </div>
 
@@ -217,7 +218,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
           <div className="hidden sm:mb-4 sm:block" />
           {selectedCity.dealers.length > 1 && <label className="mb-4 block max-w-xl text-sm font-semibold">Revendeur à {selectedCity.name}
             <select value={activeKey} onChange={(event) => select(event.target.value)} className="mt-2 block min-h-11 w-full border border-black/20 bg-white px-3 text-sm dark:border-white/20 dark:bg-[#1b1c19]">
-              {selectedCity.dealers.map((item) => <option key={item.key} value={item.key}>{item.name} — {item.address}</option>)}
+              {selectedCity.dealers.map((item) => <option key={item.key} value={item.key}>{item.name}{item.address && ` — ${item.address}`}</option>)}
             </select>
           </label>}
 
@@ -229,11 +230,12 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
             className="grid overflow-hidden border border-black/10 bg-white lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] dark:border-white/10 dark:bg-[#1b1c19]"
           >
             <div className="relative aspect-[16/10] bg-[#e4e7dc] sm:aspect-auto sm:h-[320px] md:h-[340px] lg:h-full lg:min-h-[400px] dark:bg-[#232722]">
+              {coords ? <>
               {!mapReady && <div className="skeleton absolute inset-0" aria-hidden="true" />}
               <iframe
                 key={`${dealer.key}-${zoom}`}
                 title={`Carte OpenStreetMap de ${dealer.city}`}
-                src={osmEmbed(dealer.lat, dealer.lon, ZOOMS[zoom])}
+                src={osmEmbed(coords.lat, coords.lon, ZOOMS[zoom])}
                 loading="lazy"
                 onLoad={() => setMapReady(true)}
                 className="absolute inset-0 h-full w-full border-0 transition-opacity duration-300 dark:[filter:invert(0.9)_hue-rotate(180deg)_saturate(0.4)]"
@@ -280,6 +282,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                   <FontAwesomeIcon icon={faMinus} />
                 </button>
               </div>
+              </> : <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-black/60 dark:text-white/60">Localisation à renseigner</div>}
             </div>
 
             <AnimatePresence mode="wait" initial={false}>
@@ -291,25 +294,25 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                 transition={{ duration: 0.22, ease: "easeOut" }}
                 className="flex min-w-0 flex-col border-t border-black/10 p-4 sm:p-6 lg:border-l lg:border-t-0 lg:p-7 dark:border-white/10"
               >
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#876914] dark:text-[#ffd100]">{dealer.kind}</p>
+                {dealer.kind && <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#876914] dark:text-[#ffd100]">{dealer.kind}</p>}
                 <h2 className="mt-1.5 font-display text-[clamp(1.4rem,1.15rem+1.4vw,2.6rem)] font-semibold leading-[1.08] tracking-[-0.05em]">
                   {dealer.name}
                 </h2>
-                <p className="mt-2 text-[14px] leading-6 text-black/60 dark:text-white/60">{dealer.desc}</p>
+                {dealer.desc && <p className="mt-2 text-[14px] leading-6 text-black/60 dark:text-white/60">{dealer.desc}</p>}
 
                 <dl className="mt-4 divide-y divide-black/10 border-y border-black/10 text-[14px] dark:divide-white/10 dark:border-white/10">
                   <div className="flex gap-3 py-3">
                     <FontAwesomeIcon icon={faLocationDot} className={"mt-1 " + ICON} />
                     <div className="min-w-0">
                       <dt className={LABEL}>Adresse</dt>
-                      <dd className="break-words">{dealer.address}</dd>
+                      <dd className="break-words">{dealer.address || "Non renseignée"}</dd>
                     </div>
                   </div>
                   <div className="flex gap-3 py-3">
                     <FontAwesomeIcon icon={faClock} className={"mt-1 " + ICON} />
                     <div className="min-w-0">
                       <dt className={LABEL}>Horaires</dt>
-                      <dd className="whitespace-pre-line break-words">{dealer.hours}</dd>
+                      <dd className="whitespace-pre-line break-words">{dealer.hours || "Non renseignés"}</dd>
                     </div>
                   </div>
                   <div className="flex gap-3 py-3">
@@ -317,13 +320,13 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                     <div className="min-w-0">
                       <dt className={LABEL}>Téléphone</dt>
                       <dd>
-                        <a href={telHref(dealer.phone)} className="hover:underline">{dealer.phone}</a>
+                        {dealer.phone.trim() ? <a href={telHref(dealer.phone)} className="hover:underline">{dealer.phone}</a> : "Non renseigné"}
                       </dd>
                     </div>
                   </div>
                 </dl>
 
-                <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Services">
+                {dealer.services.length > 0 && <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Services">
                   {dealer.services.map((s) => (
                     <li
                       key={s}
@@ -332,43 +335,43 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                       {s}
                     </li>
                   ))}
-                </ul>
+                </ul>}
 
                 {/* Phones: primary action full width + two equal 48px buttons.
                     ≥640px: compact inline actions. */}
                 <div className="mt-auto grid grid-cols-2 gap-2 pt-5 sm:flex sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-3">
-                  <a
+                  {coords && <a
                     href={directionsLink(dealer)}
                     target="_blank"
                     rel="noreferrer"
                     className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 bg-[#ffd100] px-4 text-[12px] font-bold uppercase tracking-[0.08em] text-[#171816] transition active:scale-[0.98] hover:bg-[#ffe36b] sm:min-h-11 sm:text-[11px]"
                   >
                     Itinéraire <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
-                  </a>
-                  <a
+                  </a>}
+                  {dealer.phone.trim() && <a
                     href={telHref(dealer.phone)}
                     className="inline-flex min-h-12 items-center justify-center gap-2 border border-black/15 text-[12px] font-bold uppercase tracking-[0.08em] transition active:scale-[0.98] sm:min-h-11 sm:border-0 sm:border-b sm:border-black/30 sm:text-[11px] dark:border-white/20"
                   >
                     <FontAwesomeIcon icon={faPhone} /> Appeler
-                  </a>
-                  <a
+                  </a>}
+                  {dealer.email.trim() && <a
                     href={`mailto:${dealer.email}`}
                     className="inline-flex min-h-12 items-center justify-center gap-2 border border-black/15 text-[12px] font-bold uppercase tracking-[0.08em] transition active:scale-[0.98] sm:min-h-11 sm:border-0 sm:border-b sm:border-black/30 sm:text-[11px] dark:border-white/20"
                   >
                     <FontAwesomeIcon icon={faEnvelope} /> Écrire
-                  </a>
+                  </a>}
                 </div>
               </motion.div>
             </AnimatePresence>
           </div>
 
-          <p className="mt-2 text-[10px] leading-4 text-black/40 dark:text-white/40">
+          {coords && <p className="mt-2 text-[10px] leading-4 text-black/40 dark:text-white/40">
             Carte ©{" "}
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className="underline">
               OpenStreetMap
             </a>{" "}
             et ses contributeurs. Confirmez l'adresse exacte avant de vous déplacer.
-          </p>
+          </p>}
         </div>
 
         {/* ---------------- Directory ---------------- */}
@@ -379,7 +382,7 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
             </h2>
             {/* Flèches du slider de fiches (voir plus bas) */}
             <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <p className="text-[13px] text-black/50 sm:text-sm dark:text-white/50">Touchez une adresse pour la situer sur la carte.</p>
+              <p className="text-[13px] text-black/50 sm:text-sm dark:text-white/50">Touchez une fiche pour voir le revendeur.</p>
               <div className="flex shrink-0 items-center border border-black/10 bg-white shadow-md dark:border-white/10 dark:bg-[#171816]">
                 <button
                   type="button"
@@ -434,10 +437,10 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
                       </span>
                     </span>
                     <span className="mt-0.5 block w-full truncate text-[12px] text-black/50 sm:hidden dark:text-white/50">
-                      {d.name} · {d.address}
+                      {d.name}{d.address && ` · ${d.address}`}
                     </span>
                     <span className="hidden w-full truncate text-sm text-black/60 sm:block dark:text-white/60">{d.name}</span>
-                    <span className="hidden w-full truncate text-sm text-black/45 sm:block dark:text-white/45">{d.kind}</span>
+                    {d.kind && <span className="hidden w-full truncate text-sm text-black/45 sm:block dark:text-white/45">{d.kind}</span>}
                   </button>
                 </li>
               );

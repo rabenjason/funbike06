@@ -115,3 +115,21 @@ test('recherche et regroupement de 17 revendeurs, sans distinction des accents o
   view.unmount();
   DEALERS.splice(0);
 });
+
+test('sélection entre fiche complète et fiche sans coordonnées, sans carte ni liens vides', async () => {
+  DEALERS.splice(0, DEALERS.length, fixtures[0], { key: 'nosy', city: 'Nosy Be', name: 'Hell Ville Dépannage', kind: '', address: '', hours: '', phone: '', email: '', desc: '', lat: null, lon: null, services: [] });
+  const view = render(React.createElement(Dealers, { go() {} }));
+  assert.ok(view.getByTitle('Carte OpenStreetMap de Antananarivo'));
+  assert.ok(view.getByRole('link', { name: /Itinéraire/ }));
+  fireEvent.click(view.getByRole('tab', { name: 'Nosy Be' }));
+  assert.ok(view.getByText('Localisation à renseigner'));
+  assert.equal(view.queryByTitle(/Carte OpenStreetMap/) === null, true);
+  await waitFor(() => assert.ok(view.getAllByText('Hell Ville Dépannage').length));
+  await waitFor(() => assert.equal(view.queryByRole('link', { name: /Itinéraire/ }) === null, true), { timeout: 3000 });
+  assert.equal(view.queryByRole('link', { name: /Appeler/ }) === null, true);
+  assert.equal(view.queryByRole('link', { name: /Écrire/ }) === null, true);
+  fireEvent.click(view.getByRole('tab', { name: 'Antananarivo' }));
+  assert.ok(view.getByTitle('Carte OpenStreetMap de Antananarivo'));
+  await waitFor(() => assert.ok(view.getByRole('link', { name: /Itinéraire/ })));
+  view.unmount(); DEALERS.splice(0);
+});
