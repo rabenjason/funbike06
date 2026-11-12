@@ -88,6 +88,27 @@ test('revendeurs : création complète puis suppression seulement après confirm
   assert.ok(view.getByRole('button', { name: 'Modifier Showroom' }));
 });
 
+test('revendeur incomplet : nom et ville seuls, coordonnées par paire et modification ultérieure', async () => {
+  const view = await open('Revendeurs'); await waitFor(() => assert.ok(view.getByRole('button', { name: '+ Ajouter un revendeur' })));
+  fireEvent.click(view.getByRole('button', { name: '+ Ajouter un revendeur' }));
+  change(view, 'Nom', 'Hell Ville Dépannage'); change(view, 'Ville', 'Nosy Be');
+  assert.equal(view.getByLabelText('Nom').required, true); assert.equal(view.getByLabelText('Ville').required, true);
+  for (const label of ['Adresse', 'Téléphone', 'E-mail', 'Horaires d’ouverture', 'Description', 'Latitude', 'Longitude', 'Type de point de vente']) assert.equal(view.getByLabelText(label).required, false, label);
+  change(view, 'Latitude', '-13.4'); fireEvent.click(view.getByRole('button', { name: 'Enregistrer le revendeur' }));
+  assert.match(view.getByRole('alert').textContent, /longitude/); assert.equal(writes('dealers.php').length, 0);
+  change(view, 'Latitude', ''); fireEvent.click(view.getByRole('button', { name: 'Enregistrer le revendeur' }));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Modifier Hell Ville Dépannage' })));
+  const first = writes('dealers.php')[0].body;
+  assert.equal(first.lat, null); assert.equal(first.lon, null); assert.equal(first.phone, ''); assert.deepEqual(first.services, []);
+  fireEvent.click(view.getByRole('button', { name: 'Modifier Hell Ville Dépannage' }));
+  assert.equal(view.getByLabelText('Latitude').value, ''); assert.equal(view.getByLabelText('Longitude').value, '');
+  change(view, 'Téléphone', '034 12 345 67'); change(view, 'Latitude', '-13.4'); change(view, 'Longitude', '48.3');
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer le revendeur' }));
+  await waitFor(() => assert.equal(writes('dealers.php').length, 2));
+  const second = writes('dealers.php')[1].body; assert.equal(second.lat, -13.4); assert.equal(second.lon, 48.3); assert.equal(second.phone, '034 12 345 67');
+  assert.deepEqual(dealers[0], original, 'la fiche existante ne change pas');
+});
+
 test('revendeurs : erreur serveur conserve les données et le formulaire', async () => {
   const view = await open('Revendeurs'); await waitFor(() => assert.ok(view.getByRole('button', { name: 'Modifier Showroom' })));
   fireEvent.click(view.getByRole('button', { name: 'Modifier Showroom' })); change(view, 'Adresse', 'Nouvelle adresse');

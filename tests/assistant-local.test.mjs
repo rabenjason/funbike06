@@ -194,6 +194,11 @@ test('revendeurs : noms, ville, suivi et ambiguïtés à partir des fiches actue
     assert.match(ask('le deuxième', r.memory).reply.text, /Adresse autre/);
     assert.match(ask('revendeurs à villeinconnue').reply.text, /ne trouve pas/);
     assert.match(ask('revendeur introuvable').reply.text, /ne trouve pas/);
+    DEALERS.push(row('incomplet', 'Hell Ville Dépannage', 'Nosy Be', { address: '', hours: '', phone: '', email: '', services: [], lat: null, lon: null }));
+    const incomplete = ask('Hell Ville Dépannage').reply.text;
+    assert.match(incomplete, /Adresse : non renseigné/); assert.match(incomplete, /Téléphone : non renseigné/); assert.match(incomplete, /E-mail : non renseigné/);
+    assert.match(ask('revendeurs').reply.text, /Hell Ville Dépannage.*adresse non renseignée/);
+
     assert.match(ask('horaires du showroom', r.memory).reply.text, /Showroom Funbike/);
     DEALERS[0].address = 'Nouvelle adresse'; assert.match(ask('RIDER ZONE').reply.text, /Nouvelle adresse/);
     DEALERS.splice(0, 1); assert.doesNotMatch(ask('revendeurs').reply.text, /Rider zone/);

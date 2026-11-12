@@ -231,10 +231,10 @@ function dealerReply(t: string, mem: Memory): BotReply | null {
   if (found.length === 1) {
     const d = found[0];
     const field = (value: string | undefined) => value?.trim() || "non renseigné";
-    return { text: `**${d.name}** (${d.city})\n• Adresse : ${field(d.address)}\n• Horaires : ${field(d.hours)}\n• Téléphone : ${field(d.phone)}\n• E-mail : ${field(d.email)}\n• Services : ${d.services?.filter((v) => v.trim()).join(", ") || "non renseignés"}\nPour vérifier une disponibilité ou savoir si le point de vente est ouvert maintenant, contactez-le.`, actions: [dealerAction(d), CONTACT], quick: ["Adresse", "Horaires", "Revendeurs"] };
+    return { text: `**${d.name}** (${d.city})\n• Adresse : ${field(d.address)}\n• Horaires : ${field(d.hours)}\n• Téléphone : ${field(d.phone)}\n• E-mail : ${field(d.email)}\n• Services : ${d.services?.filter((v) => v.trim()).join(", ") || "non renseignés"}\nPour vérifier une disponibilité ou savoir si le point de vente est ouvert maintenant, contactez Funbike ou le revendeur si ses coordonnées sont renseignées.`, actions: [dealerAction(d), CONTACT], quick: ["Adresse", "Horaires", "Revendeurs"] };
   }
   if (!found.length) return { text: "Aucun point de vente n’est renseigné pour le moment.", actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
-  return { text: `${cities.length ? "Points de vente dans cette ville" : "Points de vente enregistrés"} :\n${found.map((d) => `• ${d.name} (${d.city}) — ${d.address}`).join("\n")}\nIndiquez le nom du revendeur pour consulter ses coordonnées.`, actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
+  return { text: `${cities.length ? "Points de vente dans cette ville" : "Points de vente enregistrés"} :\n${found.map((d) => `• ${d.name} (${d.city})${d.address.trim() ? ` — ${d.address}` : " — adresse non renseignée"}`).join("\n")}\nIndiquez le nom du revendeur pour consulter ses coordonnées.`, actions: [{ label: "Voir les revendeurs", page: "revendeurs", icon: "contact" }, CONTACT] };
 }
 
 export function respond(raw: string, previous: Memory, promotions?: PromotionSnapshot | null): { reply: BotReply; memory: Memory } {

@@ -8,8 +8,8 @@ export interface Dealer {
   phone: string;
   email: string;
   desc: string;
-  lat: number;
-  lon: number;
+  lat: number | null;
+  lon: number | null;
   services: string[];
   /** Fiche de démonstration (informations fictives) : ne pas présenter comme un revendeur officiel. */
   isDemo?: boolean;

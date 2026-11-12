@@ -510,7 +510,13 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('dealers.php', { method: 'POST', body: { city: 'Test' } })).status, 401);
     assert.equal((await call('contacts.php', { method: 'PUT', body: { address: 'Intrusion' } })).status, 401);
     cookie = authenticatedCookie;
+    const dealerDataFile = join(serverDir, 'storage/data/dealers.json');
+    const existingRaw = JSON.parse(readFileSync(dealerDataFile, 'utf8'));
+    existingRaw.customMetadata = { keep: 'original' };
+    existingRaw.dealers[0].privateExtra = 'preserve but do not publish';
+    writeFileSync(dealerDataFile, JSON.stringify(existingRaw));
     const existingDealers = (await call('dealers.php')).body.dealers;
+    assert.equal(existingDealers[0].privateExtra, undefined);
     const existingContact = (await call('contacts.php')).body.contact;
     const dealer = { city: 'Testville', name: 'Essai A', kind: 'Atelier', address: 'Rue test', hours: 'Lundi : 9h – 17h\nDimanche : fermé', phone: '+261 34 12 345 67', email: 'test@example.com', desc: 'Description test', lat: -18.9, lon: 47.5, services: ['Motos', 'Atelier'] };
     const one = await call('dealers.php', { method: 'POST', authenticated: true, body: dealer });
@@ -526,6 +532,43 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       const demoEdit = await call(`dealers.php?key=${demoKey}`, { method: 'PUT', authenticated: true, body: oldClientBody });
       assert.equal(demoEdit.status, 200); assert.equal(demoEdit.body.dealer.isDemo, true);
     }
+    // Création minimale, complétion ultérieure et préservation des autres fiches.
+    const minimal = await call('dealers.php', { method: 'POST', authenticated: true, body: { city: 'Nosy Be', name: 'Hell Ville Dépannage' } });
+    assert.equal(minimal.status, 201);
+    const minimalKey = minimal.body.dealer.key;
+    assert.equal(minimal.body.dealer.phone, ''); assert.equal(minimal.body.dealer.email, '');
+    assert.equal(minimal.body.dealer.lat, null); assert.equal(minimal.body.dealer.lon, null);
+    assert.deepEqual(minimal.body.dealer.services, []);
+    let afterMinimal = (await call('dealers.php')).body.dealers;
+    assert.deepEqual(afterMinimal.find(d => d.key === minimalKey), minimal.body.dealer);
+    const storedAfterMinimal = JSON.parse(readFileSync(dealerDataFile, 'utf8'));
+    assert.deepEqual(storedAfterMinimal.customMetadata, existingRaw.customMetadata);
+    for (const original of existingRaw.dealers) assert.deepEqual(storedAfterMinimal.dealers.find(d => d.key === original.key), original);
+
+    for (const previous of existingDealers) assert.deepEqual(afterMinimal.find(d => d.key === previous.key), previous);
+    for (const invalid of [
+      { city: '', name: 'Test' }, { city: 'Nosy Be', name: '' },
+      { city: 'Nosy Be', name: 'Test', lat: -18 },
+      { city: 'Nosy Be', name: 'Test', lat: null, lon: 47 },
+      { city: 'Nosy Be', name: 'Test', lat: 'abc', lon: 47 },
+      { city: 'Nosy Be', name: 'Test', phone: [] },
+      { city: 'Nosy Be', name: 'Test', services: [''] },
+    ]) assert.equal((await call('dealers.php', { method: 'POST', authenticated: true, body: invalid })).status, 400);
+    assert.deepEqual((await call('dealers.php')).body.dealers, afterMinimal, 'les refus ne modifient pas les données');
+    const completed = await call(`dealers.php?key=${minimalKey}`, { method: 'PUT', authenticated: true, body: { phone: '034 12 345 67', address: 'Rue connue', lat: -13.4, lon: 48.3 } });
+    assert.equal(completed.status, 200); assert.equal(completed.body.dealer.name, 'Hell Ville Dépannage');
+    assert.equal(completed.body.dealer.phone, '034 12 345 67'); assert.equal(completed.body.dealer.lat, -13.4);
+    assert.equal((await call(`dealers.php?key=${minimalKey}`, { method: 'PUT', authenticated: true, body: { lat: null } })).status, 400);
+    const cleared = await call(`dealers.php?key=${minimalKey}`, { method: 'PUT', authenticated: true, body: { lat: null, lon: null } });
+    assert.equal(cleared.status, 200); assert.equal(cleared.body.dealer.lat, null); assert.equal(cleared.body.dealer.address, 'Rue connue');
+    assert.equal((await call(`dealers.php?key=${minimalKey}`, { method: 'DELETE', authenticated: true })).status, 200);
+    // Une fiche illisible ne doit pas disparaître silencieusement à la prochaine écriture.
+    const validRaw = readFileSync(dealerDataFile, 'utf8');
+    const malformed = JSON.parse(validRaw); malformed.dealers.push({ key: 'incomplet-corrompu' });
+    writeFileSync(dealerDataFile, JSON.stringify(malformed));
+    assert.equal((await call('dealers.php', { method: 'POST', authenticated: true, body: { city: 'Ville', name: 'Test' } })).status, 500);
+    assert.deepEqual(JSON.parse(readFileSync(dealerDataFile, 'utf8')), malformed);
+    writeFileSync(dealerDataFile, validRaw);
     const invalidGps = await call('dealers.php', { method: 'POST', authenticated: true, body: { ...dealer, lat: 500 } });
     assert.equal(invalidGps.status, 400);
     assert.equal((await call(`dealers.php?key=${one.body.dealer.key}`, { method: 'DELETE', authenticated: true })).status, 200);
