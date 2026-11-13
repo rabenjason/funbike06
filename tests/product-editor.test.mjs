@@ -69,7 +69,7 @@ test('retirer la principale impose un nouveau choix, puis une ancienne photo peu
   const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {} }));
   const first = view.getByAltText('premiere').closest('div').parentElement;
   fireEvent.click([...first.querySelectorAll('button')].find((button) => button.textContent.includes('Retirer')));
-  assert.match(view.getByRole('alertdialog').textContent, /définitive et immédiate/);
+  assert.match(view.getByRole('alertdialog').textContent, /définitif et immédiat/);
   fireEvent.click(view.getByRole('button', { name: 'Non' }));
   await waitFor(() => assert.equal(view.queryByRole('alertdialog'), null));
   assert.equal(calls.length, 0); assert.ok(view.getByAltText('premiere'));
@@ -144,6 +144,29 @@ test('suppression refusée ou fichier conservé : avertissement visible et formu
   failure = false;
   fireEvent.click([...first.querySelectorAll('button')].find(button => button.textContent.includes('Retirer')));
   fireEvent.click(view.getByRole('button', { name: 'Oui' }));
-  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Fichier encore sur le serveur.*premiere.jpg/));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Fichier encore sur le serveur/));
   assert.equal(view.queryByAltText('premiere'), null);
+});
+
+test('retraits successifs : les identifiants recalculés sont utilisés sans perdre les modifications en cours', async () => {
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const body = JSON.parse(options.body);
+    if (body.url === '/premiere.jpg') return { ok: true, json: async () => ({ deleted: false, fileStatus: 'shared', message: 'Photo retirée de cette fiche. Le fichier reste utilisé ailleurs.', renumbered: [{ oldId: 'autre', url: '/autre.jpg', id: 'moto-test-image-1', position: 0 }] }) };
+    assert.equal(body.imageId, 'moto-test-image-1');
+    return { ok: true, json: async () => ({ deleted: false, fileStatus: 'missing', message: 'Photo retirée : fichier déjà absent.', renumbered: [] }) };
+  };
+  const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {} }));
+  fireEvent.change(view.getByLabelText('Nom'), { target: { value: 'Nom modifié' } });
+  const first = view.getByAltText('premiere').closest('div').parentElement;
+  fireEvent.click([...first.querySelectorAll('button')].find(button => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.ok(view.getByText(/reste utilisé ailleurs/)));
+  assert.equal(view.getByLabelText('Nom').value, 'Nom modifié');
+  const second = view.getByAltText('autre').closest('div').parentElement;
+  fireEvent.click([...second.querySelectorAll('button')].find(button => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.ok(view.getByText(/fichier déjà absent/)));
+  assert.equal(calls.length, 2); assert.equal(view.queryByAltText('autre'), null);
+  assert.equal(view.getByLabelText('Nom').value, 'Nom modifié');
 });

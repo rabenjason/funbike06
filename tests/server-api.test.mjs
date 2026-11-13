@@ -720,18 +720,27 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       assert.ok(changed.body.data.images.some((image) => image.url === originalMain.url));
       assert.ok(changed.body.data.images.some((image) => image.url === galleryImage.url));
       assert.equal(new Set(changed.body.data.images.map((image) => image.id)).size, 3);
-      // Suppression explicite, authentifiée, sans toucher aux photos partagées ou aux chemins arbitraires.
+      // Retrait, sans effacer un fichier partagé ou dont les usages sont invérifiables.
       const payload = { categoryId, productId: created.body.data.id, url: galleryImage.url };
-      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: '/server/uploads/products/' + path + '/../../other.png' } })).status, 409);
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: '/server/uploads/products/' + path + '/../../other.png' } })).status, 404);
+      const restoreImages = async (images = changed.body.data.images) => {
+        const form = new FormData(); form.set('_method', 'PUT'); form.set('product', JSON.stringify({ images }));
+        const r = await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: form });
+        assert.equal(r.status, 200, JSON.stringify(r.body)); return r.body.data.images;
+      };
       const referenceFile = join(serverDir, 'storage/data/photo-reference-test.json');
       writeFileSync(referenceFile, JSON.stringify({ autreUtilisation: galleryImage.url }));
       const shared = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
-      assert.equal(shared.status, 409, JSON.stringify(shared.body));
+      assert.equal(shared.status, 200, JSON.stringify(shared.body)); assert.equal(shared.body.fileStatus, 'shared');
       assert.ok(existsSync(join(dir, galleryImage.url)));
+      const sharedProduct = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
+      assert.equal(sharedProduct.body.data.images.some(image => image.url === galleryImage.url), false);
+      await restoreImages();
       writeFileSync(referenceFile, '{invalid');
       const unverifiable = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
-      assert.equal(unverifiable.status, 500); assert.ok(existsSync(join(dir, galleryImage.url)));
+      assert.equal(unverifiable.status, 200); assert.equal(unverifiable.body.fileStatus, 'unverified'); assert.ok(existsSync(join(dir, galleryImage.url)));
       rmSync(referenceFile);
+      await restoreImages();
       const removed = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
       assert.equal(removed.status, 200, JSON.stringify(removed.body)); assert.equal(removed.body.deleted, true);
       assert.equal(existsSync(join(dir, galleryImage.url)), false);
@@ -740,7 +749,27 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       assert.equal(afterRemoval.body.data.images.length, 2);
       assert.equal(afterRemoval.body.data.images.some(image => image.url === galleryImage.url), false);
       assert.equal(afterRemoval.body.data.images.filter(image => image.isMain).length, 1);
-      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload })).status, 409);
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload })).status, 404);
+      // Une référence vers un fichier vraiment absent peut être retirée sans toucher aux autres.
+      await restoreImages();
+      const missing = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
+      assert.equal(missing.status, 200); assert.equal(missing.body.fileStatus, 'missing');
+      assert.ok(existsSync(join(dir, originalMain.url)));
+      // Un lien symbolique n'est jamais suivi ni effacé, même s'il est présent dans la fiche.
+      symlinkSync(join(dir, originalMain.url), join(dir, galleryImage.url));
+      await restoreImages();
+      const symlinkRemoval = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
+      assert.equal(symlinkRemoval.body.fileStatus, 'unverified');
+      assert.ok(existsSync(join(dir, originalMain.url))); assert.ok(existsSync(join(dir, galleryImage.url)));
+      rmSync(join(dir, galleryImage.url));
+      // Deux entrées de la même photo : retirer l'entrée visée, sans supprimer le fichier partagé.
+      const duplicated = await restoreImages([...afterRemoval.body.data.images, { ...originalMain, altText: 'Duplicata à retirer', isMain: false, position: 2 }]);
+      const duplicate = duplicated.find(image => image.altText === 'Duplicata à retirer');
+      const duplicateRemoval = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: duplicate.url, imageId: duplicate.id } });
+      assert.equal(duplicateRemoval.body.fileStatus, 'shared'); assert.ok(existsSync(join(dir, originalMain.url)));
+      const afterDuplicate = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
+      assert.equal(afterDuplicate.body.data.images.length, 2);
+      assert.equal(afterDuplicate.body.data.images.some(image => image.altText === 'Duplicata à retirer'), false);
       const publish = new FormData(); publish.set('_method', 'PUT'); publish.set('product', JSON.stringify({ status: 'PUBLISHED' }));
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: publish })).status, 200);
       if (path === 'helmets') assert.ok((await call('homepage-equipment.php')).body.data.length <= 4);
