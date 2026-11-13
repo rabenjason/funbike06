@@ -89,3 +89,30 @@ test('création depuis une promotion : la fiche et la photo sont envoyées une s
   assert.equal(calls[0].options.body.get('mainImage').name, 'nouvelle.png');
   assert.equal(received.id, 'produit-nouveau'); assert.equal(failed, false);
 });
+
+test('optimisation indisponible : l’original est conservé, le statut est visible et l’envoi attend la fin', async () => {
+  const changes = [];
+  const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {}, onBusyChange: (busy) => changes.push(busy) }));
+  const original = new dom.window.File([new Uint8Array(150 * 1024)], 'image.jpg', { type: 'image/jpeg' });
+  fireEvent.change(view.getByLabelText('Ajouter des photos (JPG, PNG ou WebP)'), { target: { files: [original] } });
+  assert.match(view.container.textContent, /Optimisation des photos en cours/);
+  assert.equal(view.getByRole('button', { name: 'Optimisation…' }).disabled, true);
+  fireEvent.submit(view.container.querySelector('form'));
+  assert.equal(calls.length, 0, 'aucun envoi pendant le traitement');
+  await waitFor(() => assert.match(view.container.textContent, /Optimisation impossible, original conservé/));
+  assert.deepEqual(changes, [true, false]);
+  const card = view.getByAltText('image.jpg').closest('div').parentElement;
+  fireEvent.click([...card.querySelectorAll('button')].find((button) => button.textContent.includes('Définir comme principale')));
+  fireEvent.submit(view.container.querySelector('form'));
+  await waitFor(() => assert.equal(calls.length, 1));
+  assert.equal(calls[0].options.body.get('mainImage').name, 'image.jpg');
+  assert.deepEqual(JSON.parse(calls[0].options.body.get('product')).images.map((p) => p.url), ['/premiere.jpg', '/autre.jpg']);
+});
+
+test('fermeture pendant l’optimisation : pas d’envoi et libération de l’aperçu', () => {
+  const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {} }));
+  const original = new dom.window.File([new Uint8Array(150 * 1024)], 'image-longue.jpg', { type: 'image/jpeg' });
+  fireEvent.change(view.getByLabelText('Ajouter des photos (JPG, PNG ou WebP)'), { target: { files: [original] } });
+  view.unmount();
+  assert.equal(calls.length, 0); assert.ok(revoked.includes('blob:image-longue.jpg'));
+});

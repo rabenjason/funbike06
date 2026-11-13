@@ -688,17 +688,21 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: update })).status, 200);
     assert.ok((await call('products/motorcycles.php')).body.data.some((p) => p.id === id));
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    // WebP généré par le navigateur : transport accepté par les quatre API produits.
+    const webp = Buffer.from('UklGRioCAABXRUJQVlA4WAoAAAAwAAAAAQAAAQAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZBTFBIBQAAAAAAAAD/AFZQOCAuAAAAkAEAnQEqAgACAAFAJiWgAnS6AAOYAP76os//ps3/02b/6bN/6bN+1KIKStgAAA==', 'base64');
     for (const [path, categoryId, productTypeId] of [['motorcycles', 'motos', 'urbain'], ['helmets', 'casques', 'casque'], ['riding-gear', 'equipements', 'gants'], ['spare-parts', 'pieces-detachees', 'pneus']]) {
       const input = new FormData();
       input.set('product', JSON.stringify({ name: `Test ${path}`, brandId: 'tvs', categoryId, productTypeId, description: '', images: [], specifications: [], isEquipementAccueil: path === 'helmets' }));
       input.set('mainImage', new Blob([png], { type: 'image/png' }), 'test.png');
-      input.append('gallery[]', new Blob([png], { type: 'image/png' }), 'galerie.png');
+      input.append('gallery[]', new Blob([webp], { type: 'image/webp' }), 'galerie.webp');
       const created = await call(`products/${path}.php`, { method: 'POST', authenticated: true, body: input });
       assert.equal(created.status, 201, JSON.stringify(created.body));
       assert.equal(created.body.data.status, 'DRAFT');
       assert.ok(created.body.data.images[0].url.startsWith('/server/uploads/'));
       assert.equal(created.body.data.images.length, 2);
       const [originalMain, galleryImage] = created.body.data.images;
+      assert.match(galleryImage.url, /\.webp$/);
+      assert.deepEqual(readFileSync(join(dir, galleryImage.url)), webp, 'la photo WebP est conservée sans modification');
       const chooseExisting = new FormData(); chooseExisting.set('_method', 'PUT');
       chooseExisting.set('product', JSON.stringify({ images: [{ ...galleryImage, isMain: true, position: 0 }, { ...originalMain, isMain: false, position: 1 }] }));
       const chosen = await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: chooseExisting });
