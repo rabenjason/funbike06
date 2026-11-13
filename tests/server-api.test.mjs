@@ -44,6 +44,8 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(untrusted.status, 403);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1')).status, 401);
     assert.equal((await call('products/photo.php', { method: 'DELETE', body: {} })).status, 401);
+    assert.equal((await call('products/photo-cleanup.php?categoryId=motos&productId=tvs-125-hlx-5g')).status, 401);
+    assert.equal((await call('products/photo-cleanup.php', { method: 'POST', body: {} })).status, 401);
     assert.equal((await call('brands.php?includeDrafts=1')).status, 401);
     assert.equal((await call('models.php?includeDrafts=1')).status, 401);
     assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
@@ -729,7 +731,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
         assert.equal(r.status, 200, JSON.stringify(r.body)); return r.body.data.images;
       };
       const referenceFile = join(serverDir, 'storage/data/photo-reference-test.json');
-      writeFileSync(referenceFile, JSON.stringify({ autreUtilisation: galleryImage.url }));
+      writeFileSync(referenceFile, JSON.stringify({ autreUtilisation: galleryImage.url.slice(1).replace('uploads/', 'uploads%2F').toUpperCase() }));
       const shared = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
       assert.equal(shared.status, 200, JSON.stringify(shared.body)); assert.equal(shared.body.fileStatus, 'shared');
       assert.ok(existsSync(join(dir, galleryImage.url)));
@@ -780,6 +782,34 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: originalMain.url } })).body.deleted, true);
       const empty = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
       assert.equal(empty.body.data.images.length, 0);
+      // Les anciennes photos retirées restent sur disque : vérification explicite et purge limitée à ce produit.
+      const productFolder = join(dir, 'server/uploads/products', path, created.body.data.id);
+      const oldName = 'main-0123456789abcdef.webp'; const oldPath = join(productFolder, oldName);
+      const oldUrl = `/server/uploads/products/${path}/${created.body.data.id}/${oldName}`;
+      const protectedName = 'image-99.webp'; const protectedPath = join(productFolder, protectedName);
+      const other = join(productFolder, 'autre-fichier.png');
+      writeFileSync(oldPath, webp); writeFileSync(other, png); symlinkSync(oldPath, protectedPath);
+      const cleanupPath = `products/photo-cleanup.php?categoryId=${categoryId}&productId=${created.body.data.id}`;
+      const cleanupBody = { categoryId, productId: created.body.data.id, files: [oldName] };
+      const listed = await call(cleanupPath, { authenticated: true });
+      assert.equal(listed.status, 200, JSON.stringify(listed.body));
+      assert.deepEqual(listed.body.removable.map(file => file.name), [oldName]); assert.ok(listed.body.ignored >= 2);
+      assert.equal((await call('products/photo-cleanup.php', { method: 'POST', authenticated: true, body: { ...cleanupBody, files: ['../../' + oldName] } })).status, 409);
+      const refFile = join(serverDir, 'storage/data/photo-reference-test.json');
+      writeFileSync(refFile, JSON.stringify({ otherProduct: oldUrl.slice(1).replace('uploads/', 'uploads%2F').toUpperCase() }));
+      const nowReferenced = await call(cleanupPath, { authenticated: true });
+      assert.equal(nowReferenced.body.referenced[0].name, oldName); assert.equal(nowReferenced.body.removable.length, 0);
+      assert.equal((await call('products/photo-cleanup.php', { method: 'POST', authenticated: true, body: cleanupBody })).status, 409);
+      assert.ok(existsSync(oldPath));
+      writeFileSync(refFile, '{invalid');
+      assert.equal((await call('products/photo-cleanup.php', { method: 'POST', authenticated: true, body: cleanupBody })).status, 500);
+      assert.ok(existsSync(oldPath)); rmSync(refFile);
+      const purged = await call('products/photo-cleanup.php', { method: 'POST', authenticated: true, body: cleanupBody });
+      assert.equal(purged.status, 200, JSON.stringify(purged.body)); assert.deepEqual(purged.body.deleted, [oldName]);
+      assert.equal(existsSync(oldPath), false); assert.ok(existsSync(other));
+      const afterCleanup = await call(cleanupPath, { authenticated: true });
+      assert.equal(afterCleanup.body.removable.length, 0);
+      rmSync(protectedPath); rmSync(other);
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'DELETE', authenticated: true })).status, 200);
     }
     assert.equal((await call('auth/logout.php', { method: 'POST', authenticated: true })).status, 200);
