@@ -193,6 +193,8 @@ test('nettoyage des photos retirées : aperçu, confirmation et suppression cibl
   fireEvent.click(view.getByRole('button', { name: 'Oui' }));
   await waitFor(() => assert.match(view.container.textContent, /1 fichier\(s\) supprimé\(s\) définitivement/));
   assert.equal(calls.length, 2);
+  assert.match(calls[0].url, /products\/photo\.php\?action=cleanup&/);
+  assert.match(calls[1].url, /products\/photo\.php\?action=cleanup$/);
   assert.deepEqual(JSON.parse(calls[1].options.body).files, ['main-0123456789abcdef.webp']);
   assert.equal(closed, false);
 });
