@@ -48,6 +48,7 @@ function defaultProduct(categoryId: string): Product {
   return { id: "", name: "", brandId: "", categoryId, productTypeId: "", description: "", images: [], specifications: [], status: "DRAFT", price: "Sur devis", isNewArrival: false, isHomepageHero: false, isMotoAccueil: false, isEquipementAccueil: false };
 }
 export function ProductEditor({ catalog, current, close, refresh, onSaved, onBusyChange }: { catalog: Catalog; current?: Product; close: () => void; refresh: () => Promise<void>; onSaved?: (product: Product, refreshFailed?: boolean) => void; onBusyChange?: (busy: boolean) => void }) {
+  const confirm = useConfirmation();
   const [item, setItem] = useState<Product>(() => current ? { ...current } : defaultProduct("motos"));
   const [familyId, setFamilyId] = useState(() => catalog.types.find((t) => t.id === current?.productTypeId)?.familyId ?? "");
   const [photos, setPhotos] = useState<EditablePhoto[]>(() => (current?.images ?? []).map((image, index) => ({ key: `saved-${index}`, preview: image.url, image })));
@@ -55,7 +56,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
   const photoCounter = useRef(0);
   const previewUrls = useRef(new Set<string>());
   const optimizationController = useRef<AbortController | null>(null);
-  const [message, setMessage] = useState(""); const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(""); const [photoMessage, setPhotoMessage] = useState(""); const [busy, setBusy] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   useEffect(() => { const urls = previewUrls.current; return () => { optimizationController.current?.abort(); for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }; }, []);
   function addPhotos(files: FileList | null) {
@@ -92,7 +93,21 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
       }
     })();
   }
-  function removePhoto(photo: EditablePhoto) {
+  async function removePhoto(photo: EditablePhoto) {
+    const saved = !!photo.image && !!current;
+    if (!await confirm({ title: "Supprimer cette photo ?", description: saved ? "La suppression est définitive et immédiate, même si vous fermez la fiche sans l’enregistrer. Vérifiez votre sauvegarde et les autres utilisations de cette photo. Des copies en cache peuvent subsister." : "Cette photo sera retirée de la sélection. Le fichier original sur votre appareil ne sera pas supprimé.", confirmLabel: "Oui", cancelLabel: "Non", destructive: true })) return;
+    if (saved) {
+      setPhotoMessage(""); setBusy(true); onBusyChange?.(true);
+      try {
+        const result = await request("products/photo.php", json("DELETE", { categoryId: current!.categoryId, productId: current!.id, url: photo.image!.url }));
+        setPhotos((previous) => previous.filter((item) => item.key !== photo.key));
+        if (mainKey === photo.key) setMainKey(null);
+        if (!result.deleted) setPhotoMessage(`${result.message || "Photo retirée, mais fichier encore présent sur le serveur."} ${photo.image!.url}`);
+        try { await refresh(); } catch { setPhotoMessage((result.deleted ? "Photo supprimée. " : result.message + " " + photo.image!.url + " ") + "Impossible d’actualiser la liste des produits."); }
+      } catch (err) { setPhotoMessage((err as Error).message + " Si la connexion a été interrompue, rechargez la fiche pour vérifier le résultat."); }
+      finally { setBusy(false); onBusyChange?.(false); }
+      return;
+    }
     if (photo.file) { URL.revokeObjectURL(photo.preview); previewUrls.current.delete(photo.preview); }
     setPhotos((previous) => previous.filter((item) => item.key !== photo.key));
     if (mainKey === photo.key) setMainKey(null);
@@ -124,8 +139,9 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
     <div className="sm:col-span-2"><Label title="Description"><textarea rows={3} className={control} value={item.description} onChange={(e) => set("description", e.target.value)} /></Label></div>
     <fieldset className="sm:col-span-2 rounded-lg border border-black/10 p-4">
       <legend className="px-1 text-sm font-bold">Photos du produit</legend>
-      <p className="text-xs leading-5 text-black/60">Ajoutez une ou plusieurs photos, puis choisissez celle qui sera affichée en premier sur le site. Les nouvelles photos sont optimisées sur cet appareil avant l’envoi. Votre fichier original et les photos déjà enregistrées ne sont pas modifiés par cette optimisation. Les modifications seront appliquées après enregistrement.</p>
+      <p className="text-xs leading-5 text-black/60">Ajoutez une ou plusieurs photos, puis choisissez celle qui sera affichée en premier sur le site. Les nouvelles photos sont optimisées sur cet appareil avant l’envoi. Votre fichier original et les photos déjà enregistrées ne sont pas modifiés par cette optimisation. Les autres modifications seront appliquées après enregistrement. La suppression d’une photo enregistrée est immédiate après confirmation.</p>
       <Label title="Ajouter des photos (JPG, PNG ou WebP)"><input type="file" multiple disabled={busy || optimizing} accept="image/jpeg,image/png,image/webp" className={control} onChange={(e) => { addPhotos(e.target.files); e.currentTarget.value = ""; }} /></Label>
+      {photoMessage && <p role="alert" className="mt-3 text-sm text-red-700">{photoMessage}</p>}
       {optimizing && <p role="status" className="mt-3 text-xs text-black/60">Optimisation des photos en cours…</p>}
       {photos.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{photos.map((image) => <div key={image.key} className={`rounded-lg border p-2 ${mainKey === image.key ? "border-[#b58b16] bg-amber-50" : "border-black/10 bg-white"}`}>
         <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded bg-white"><img src={image.preview} alt={image.image?.altText || image.originalName || image.file?.name || "Photo du produit"} className="h-full w-full object-contain" /></div>

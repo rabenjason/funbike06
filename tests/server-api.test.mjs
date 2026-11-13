@@ -43,6 +43,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const untrusted = await fetch(base + 'auth/login.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify({ username: 'test-admin', password: initialPassword }) });
     assert.equal(untrusted.status, 403);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1')).status, 401);
+    assert.equal((await call('products/photo.php', { method: 'DELETE', body: {} })).status, 401);
     assert.equal((await call('brands.php?includeDrafts=1')).status, 401);
     assert.equal((await call('models.php?includeDrafts=1')).status, 401);
     assert.equal((await call('homepage-selections.php', { method: 'PUT', body: { id: 'tvs-125-hlx-5g', categoryId: 'motos', field: 'isNewArrival', value: true } })).status, 401);
@@ -719,9 +720,37 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       assert.ok(changed.body.data.images.some((image) => image.url === originalMain.url));
       assert.ok(changed.body.data.images.some((image) => image.url === galleryImage.url));
       assert.equal(new Set(changed.body.data.images.map((image) => image.id)).size, 3);
+      // Suppression explicite, authentifiée, sans toucher aux photos partagées ou aux chemins arbitraires.
+      const payload = { categoryId, productId: created.body.data.id, url: galleryImage.url };
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: '/server/uploads/products/' + path + '/../../other.png' } })).status, 409);
+      const referenceFile = join(serverDir, 'storage/data/photo-reference-test.json');
+      writeFileSync(referenceFile, JSON.stringify({ autreUtilisation: galleryImage.url }));
+      const shared = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
+      assert.equal(shared.status, 409, JSON.stringify(shared.body));
+      assert.ok(existsSync(join(dir, galleryImage.url)));
+      writeFileSync(referenceFile, '{invalid');
+      const unverifiable = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
+      assert.equal(unverifiable.status, 500); assert.ok(existsSync(join(dir, galleryImage.url)));
+      rmSync(referenceFile);
+      const removed = await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload });
+      assert.equal(removed.status, 200, JSON.stringify(removed.body)); assert.equal(removed.body.deleted, true);
+      assert.equal(existsSync(join(dir, galleryImage.url)), false);
+      assert.ok(existsSync(join(dir, originalMain.url)));
+      const afterRemoval = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
+      assert.equal(afterRemoval.body.data.images.length, 2);
+      assert.equal(afterRemoval.body.data.images.some(image => image.url === galleryImage.url), false);
+      assert.equal(afterRemoval.body.data.images.filter(image => image.isMain).length, 1);
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: payload })).status, 409);
       const publish = new FormData(); publish.set('_method', 'PUT'); publish.set('product', JSON.stringify({ status: 'PUBLISHED' }));
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'POST', authenticated: true, body: publish })).status, 200);
       if (path === 'helmets') assert.ok((await call('homepage-equipment.php')).body.data.length <= 4);
+      const mainPayload = { ...payload, url: changed.body.data.images[0].url };
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: mainPayload })).body.deleted, true);
+      const last = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
+      assert.equal(last.body.data.images.length, 1); assert.equal(last.body.data.images[0].isMain, true);
+      assert.equal((await call('products/photo.php', { method: 'DELETE', authenticated: true, body: { ...payload, url: originalMain.url } })).body.deleted, true);
+      const empty = await call(`products/${path}.php?id=${created.body.data.id}&includeDrafts=1`, { authenticated: true });
+      assert.equal(empty.body.data.images.length, 0);
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'DELETE', authenticated: true })).status, 200);
     }
     assert.equal((await call('auth/logout.php', { method: 'POST', authenticated: true })).status, 200);
