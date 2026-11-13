@@ -56,7 +56,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
   const photoCounter = useRef(0);
   const previewUrls = useRef(new Set<string>());
   const optimizationController = useRef<AbortController | null>(null);
-  const [message, setMessage] = useState(""); const [photoMessage, setPhotoMessage] = useState(""); const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(""); const [photoMessage, setPhotoMessage] = useState(""); const [photoMessageInfo, setPhotoMessageInfo] = useState(false); const [busy, setBusy] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
   useEffect(() => { const urls = previewUrls.current; return () => { optimizationController.current?.abort(); for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }; }, []);
   function addPhotos(files: FileList | null) {
@@ -95,16 +95,23 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
   }
   async function removePhoto(photo: EditablePhoto) {
     const saved = !!photo.image && !!current;
-    if (!await confirm({ title: "Supprimer cette photo ?", description: saved ? "La suppression est définitive et immédiate, même si vous fermez la fiche sans l’enregistrer. Vérifiez votre sauvegarde et les autres utilisations de cette photo. Des copies en cache peuvent subsister." : "Cette photo sera retirée de la sélection. Le fichier original sur votre appareil ne sera pas supprimé.", confirmLabel: "Oui", cancelLabel: "Non", destructive: true })) return;
+    if (!await confirm({ title: "Supprimer cette photo ?", description: saved ? "Le retrait de cette fiche est définitif et immédiat, même si vous fermez sans enregistrer. Le fichier sera supprimé s’il n’est pas utilisé ailleurs et si les vérifications le permettent ; sinon il sera conservé. Vérifiez votre sauvegarde : des copies en cache peuvent subsister." : "Cette photo sera retirée de la sélection. Le fichier original sur votre appareil ne sera pas supprimé.", confirmLabel: "Oui", cancelLabel: "Non", destructive: true })) return;
     if (saved) {
-      setPhotoMessage(""); setBusy(true); onBusyChange?.(true);
+      setPhotoMessage(""); setPhotoMessageInfo(false); setBusy(true); onBusyChange?.(true);
       try {
-        const result = await request("products/photo.php", json("DELETE", { categoryId: current!.categoryId, productId: current!.id, url: photo.image!.url }));
-        setPhotos((previous) => previous.filter((item) => item.key !== photo.key));
+        const result = await request("products/photo.php", json("DELETE", { categoryId: current!.categoryId, productId: current!.id, url: photo.image!.url, imageId: photo.image!.id }));
+        setPhotos((previous) => previous.filter((item) => item.key !== photo.key).map((item) => {
+          if (!item.image || !Array.isArray(result.renumbered)) return item;
+          const entry = result.renumbered.find((r: { oldId: string; url: string }) => r.oldId === item.image!.id && r.url === item.image!.url);
+          return entry ? { ...item, image: { ...item.image, id: entry.id, position: entry.position } } : item;
+        }));
         if (mainKey === photo.key) setMainKey(null);
-        if (!result.deleted) setPhotoMessage(`${result.message || "Photo retirée, mais fichier encore présent sur le serveur."} ${photo.image!.url}`);
-        try { await refresh(); } catch { setPhotoMessage((result.deleted ? "Photo supprimée. " : result.message + " " + photo.image!.url + " ") + "Impossible d’actualiser la liste des produits."); }
-      } catch (err) { setPhotoMessage((err as Error).message + " Si la connexion a été interrompue, rechargez la fiche pour vérifier le résultat."); }
+        if (!result.deleted) {
+          setPhotoMessageInfo(["missing", "shared", "external"].includes(result.fileStatus));
+          setPhotoMessage((result.message || "Photo retirée, mais fichier encore présent sur le serveur.") + (["failed", "unverified"].includes(result.fileStatus) ? ` ${photo.image!.url}` : ""));
+        }
+        try { await refresh(); } catch { setPhotoMessageInfo(false); setPhotoMessage((result.deleted ? "Photo supprimée. " : (result.message || "Photo retirée. ") + " ") + "Impossible d’actualiser la liste des produits."); }
+      } catch (err) { setPhotoMessageInfo(false); setPhotoMessage((err as Error).message + " Rechargez la fiche si le résultat est incertain."); }
       finally { setBusy(false); onBusyChange?.(false); }
       return;
     }
@@ -141,7 +148,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
       <legend className="px-1 text-sm font-bold">Photos du produit</legend>
       <p className="text-xs leading-5 text-black/60">Ajoutez une ou plusieurs photos, puis choisissez celle qui sera affichée en premier sur le site. Les nouvelles photos sont optimisées sur cet appareil avant l’envoi. Votre fichier original et les photos déjà enregistrées ne sont pas modifiés par cette optimisation. Les autres modifications seront appliquées après enregistrement. La suppression d’une photo enregistrée est immédiate après confirmation.</p>
       <Label title="Ajouter des photos (JPG, PNG ou WebP)"><input type="file" multiple disabled={busy || optimizing} accept="image/jpeg,image/png,image/webp" className={control} onChange={(e) => { addPhotos(e.target.files); e.currentTarget.value = ""; }} /></Label>
-      {photoMessage && <p role="alert" className="mt-3 text-sm text-red-700">{photoMessage}</p>}
+      {photoMessage && <p role={photoMessageInfo ? "status" : "alert"} className={`mt-3 text-sm ${photoMessageInfo ? "text-black/70" : "text-red-700"}`}>{photoMessage}</p>}
       {optimizing && <p role="status" className="mt-3 text-xs text-black/60">Optimisation des photos en cours…</p>}
       {photos.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{photos.map((image) => <div key={image.key} className={`rounded-lg border p-2 ${mainKey === image.key ? "border-[#b58b16] bg-amber-50" : "border-black/10 bg-white"}`}>
         <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded bg-white"><img src={image.preview} alt={image.image?.altText || image.originalName || image.file?.name || "Photo du produit"} className="h-full w-full object-contain" /></div>
