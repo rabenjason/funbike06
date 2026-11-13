@@ -1,3 +1,4 @@
+import type { PhotoOptimization } from "./optimizeProductImage";
 import type { ProductImage } from "../types/product";
 
 export type EditablePhoto = {
@@ -5,6 +6,9 @@ export type EditablePhoto = {
   preview: string;
   image?: ProductImage;
   file?: File;
+  originalName?: string;
+  originalSize?: number;
+  optimization?: PhotoOptimization | "processing";
 };
 
 /** Prépare une photo principale et conserve les autres photos pour l'API. */
