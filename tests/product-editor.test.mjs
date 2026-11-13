@@ -4,7 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
-let server, ProductEditor, render, fireEvent, waitFor, cleanup, dom, calls, revoked, originalFetch, originalFormData, originalURL;
+let server, ProductEditor, ConfirmationProvider, render, fireEvent, waitFor, cleanup, dom, calls, revoked, originalFetch, originalFormData, originalURL;
 const catalog = { brands: [{ id: 'tvs', name: 'TVS' }], categories: [{ id: 'motos', name: 'Motos' }], families: [{ id: 'urbain', name: 'Urbain', categoryId: 'motos' }], types: [{ id: 'urbain', name: 'Urbain', categoryId: 'motos', familyId: 'urbain' }], models: [], products: [] };
 const image = (id, isMain, position) => ({ id, url: '/' + id + '.jpg', altText: id, isMain, position });
 const current = { id: 'moto-test', name: 'Moto test', brandId: 'tvs', categoryId: 'motos', productTypeId: 'urbain', description: '', price: '', status: 'DRAFT', isNewArrival: false, images: [image('premiere', true, 0), image('autre', false, 1)], specifications: [] };
@@ -20,8 +20,10 @@ before(async () => {
   ({ render, fireEvent, waitFor, cleanup } = await import('@testing-library/react'));
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   ({ ProductEditor } = await server.ssrLoadModule('/src/pages/Admin.tsx'));
+  ({ ConfirmationProvider } = await server.ssrLoadModule('/src/components/ConfirmationModal.tsx'));
+  const realRender = render; render = (element) => realRender(React.createElement(ConfirmationProvider, null, element));
 });
-beforeEach(() => { calls = []; revoked = []; globalThis.fetch = async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => ({}) }; }; });
+beforeEach(() => { calls = []; revoked = []; globalThis.fetch = async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => ({ deleted: true }) }; }; });
 afterEach(() => { cleanup(); });
 after(async () => {
   globalThis.fetch = originalFetch; globalThis.FormData = originalFormData;
@@ -55,6 +57,8 @@ test('ajouter : plusieurs photos, nouvelle principale et retrait avant enregistr
   const second = view.getByAltText('deux.png').closest('div').parentElement;
   fireEvent.click([...second.querySelectorAll('button')].find((button) => button.textContent.includes('Définir comme principale')));
   fireEvent.click([...first.querySelectorAll('button')].find((button) => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.ok(revoked.includes('blob:une.png')));
   assert.ok(revoked.includes('blob:une.png')); assert.equal(view.queryByAltText('une.png'), null);
   fireEvent.submit(view.container.querySelector('form'));
   await waitFor(() => assert.equal(calls.length, 1));
@@ -65,6 +69,17 @@ test('retirer la principale impose un nouveau choix, puis une ancienne photo peu
   const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {} }));
   const first = view.getByAltText('premiere').closest('div').parentElement;
   fireEvent.click([...first.querySelectorAll('button')].find((button) => button.textContent.includes('Retirer')));
+  assert.match(view.getByRole('alertdialog').textContent, /définitive et immédiate/);
+  fireEvent.click(view.getByRole('button', { name: 'Non' }));
+  await waitFor(() => assert.equal(view.queryByRole('alertdialog'), null));
+  assert.equal(calls.length, 0); assert.ok(view.getByAltText('premiere'));
+  fireEvent.click([...first.querySelectorAll('button')].find((button) => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.match(view.container.textContent, /Choisissez une nouvelle photo principale/));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.method, 'DELETE');
+  assert.equal(JSON.parse(calls[0].options.body).url, '/premiere.jpg');
+  calls.length = 0;
   assert.match(view.container.textContent, /Choisissez une nouvelle photo principale/);
   fireEvent.submit(view.container.querySelector('form'));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /Choisissez une photo principale/));
@@ -115,4 +130,20 @@ test('fermeture pendant l’optimisation : pas d’envoi et libération de l’a
   fireEvent.change(view.getByLabelText('Ajouter des photos (JPG, PNG ou WebP)'), { target: { files: [original] } });
   view.unmount();
   assert.equal(calls.length, 0); assert.ok(revoked.includes('blob:image-longue.jpg'));
+});
+
+test('suppression refusée ou fichier conservé : avertissement visible et formulaire non fermé', async () => {
+  let failure = true;
+  globalThis.fetch = async (url, options) => { calls.push({ url, options }); return failure ? { ok: false, json: async () => ({ message: 'Photo partagée.' }) } : { ok: true, json: async () => ({ deleted: false, message: 'Fichier encore sur le serveur.' }) }; };
+  const view = render(React.createElement(ProductEditor, { catalog, current, close() { throw new Error('ne doit pas fermer'); }, refresh: async () => {} }));
+  const first = view.getByAltText('premiere').closest('div').parentElement;
+  fireEvent.click([...first.querySelectorAll('button')].find(button => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Photo partagée/));
+  assert.ok(view.getByAltText('premiere'));
+  failure = false;
+  fireEvent.click([...first.querySelectorAll('button')].find(button => button.textContent.includes('Retirer')));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Fichier encore sur le serveur.*premiere.jpg/));
+  assert.equal(view.queryByAltText('premiere'), null);
 });
