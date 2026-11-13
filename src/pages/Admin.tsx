@@ -131,7 +131,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
     setPhotoMessage(""); setPhotoMessageInfo(false); setBusy(true); onBusyChange?.(true);
     try {
       const params = new URLSearchParams({ categoryId: current.categoryId, productId: current.id });
-      const result = await request(`products/photo-cleanup.php?${params}`);
+      const result = await request(`products/photo.php?action=cleanup&${params}`);
       setCleanup({ removable: result.removable, referenced: result.referenced, ignored: result.ignored });
     } catch (err) { setCleanup(null); setPhotoMessage((err as Error).message); }
     finally { setBusy(false); onBusyChange?.(false); }
@@ -142,7 +142,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
     if (!await confirm({ title: `Supprimer définitivement ${selected.length} fichier${selected.length > 1 ? "s" : ""} ?`, description: "Ces photos retirées seront effacées immédiatement du serveur, sans possibilité d’annulation. Vérifiez votre sauvegarde et leurs autres utilisations : les liens externes ne sont pas détectables et des copies en cache peuvent subsister.", confirmLabel: "Oui", cancelLabel: "Non", destructive: true })) return;
     setPhotoMessage(""); setPhotoMessageInfo(false); setBusy(true); onBusyChange?.(true);
     try {
-      const result = await request("products/photo-cleanup.php", json("POST", { categoryId: current.categoryId, productId: current.id, files: selected.map((file) => file.name) }));
+      const result = await request("products/photo.php?action=cleanup", json("POST", { categoryId: current.categoryId, productId: current.id, files: selected.map((file) => file.name) }));
       setCleanup(null);
       if (result.failed.length) setPhotoMessage(`${result.deleted.length} fichier(s) supprimé(s). Impossible de supprimer : ${result.failed.join(", ")}. Vérifiez les permissions puis relancez la vérification.`);
       else { setPhotoMessageInfo(true); setPhotoMessage(`${result.deleted.length} fichier(s) supprimé(s) définitivement. Vérifiez à nouveau pour voir les fichiers restants.`); }
