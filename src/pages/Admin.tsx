@@ -47,6 +47,8 @@ async function readCatalog(): Promise<Catalog> {
 function defaultProduct(categoryId: string): Product {
   return { id: "", name: "", brandId: "", categoryId, productTypeId: "", description: "", images: [], specifications: [], status: "DRAFT", price: "Sur devis", isNewArrival: false, isHomepageHero: false, isMotoAccueil: false, isEquipementAccueil: false };
 }
+type ProductCleanupFile = { name: string; url: string; size: number };
+type ProductCleanupList = { removable: ProductCleanupFile[]; referenced: ProductCleanupFile[]; ignored: number };
 export function ProductEditor({ catalog, current, close, refresh, onSaved, onBusyChange }: { catalog: Catalog; current?: Product; close: () => void; refresh: () => Promise<void>; onSaved?: (product: Product, refreshFailed?: boolean) => void; onBusyChange?: (busy: boolean) => void }) {
   const confirm = useConfirmation();
   const [item, setItem] = useState<Product>(() => current ? { ...current } : defaultProduct("motos"));
@@ -58,6 +60,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
   const optimizationController = useRef<AbortController | null>(null);
   const [message, setMessage] = useState(""); const [photoMessage, setPhotoMessage] = useState(""); const [photoMessageInfo, setPhotoMessageInfo] = useState(false); const [busy, setBusy] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [cleanup, setCleanup] = useState<ProductCleanupList | null>(null);
   useEffect(() => { const urls = previewUrls.current; return () => { optimizationController.current?.abort(); for (const url of urls) URL.revokeObjectURL(url); urls.clear(); }; }, []);
   function addPhotos(files: FileList | null) {
     if (!files?.length || optimizationController.current || busy) return;
@@ -106,6 +109,7 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
           return entry ? { ...item, image: { ...item.image, id: entry.id, position: entry.position } } : item;
         }));
         if (mainKey === photo.key) setMainKey(null);
+        setCleanup(null);
         if (!result.deleted) {
           setPhotoMessageInfo(["missing", "shared", "external"].includes(result.fileStatus));
           setPhotoMessage((result.message || "Photo retirée, mais fichier encore présent sur le serveur.") + (["failed", "unverified"].includes(result.fileStatus) ? ` ${photo.image!.url}` : ""));
@@ -118,6 +122,29 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
     if (photo.file) { URL.revokeObjectURL(photo.preview); previewUrls.current.delete(photo.preview); }
     setPhotos((previous) => previous.filter((item) => item.key !== photo.key));
     if (mainKey === photo.key) setMainKey(null);
+  }
+  async function checkCleanup() {
+    if (!current) return;
+    setPhotoMessage(""); setPhotoMessageInfo(false); setBusy(true); onBusyChange?.(true);
+    try {
+      const params = new URLSearchParams({ categoryId: current.categoryId, productId: current.id });
+      const result = await request(`products/photo-cleanup.php?${params}`);
+      setCleanup({ removable: result.removable, referenced: result.referenced, ignored: result.ignored });
+    } catch (err) { setCleanup(null); setPhotoMessage((err as Error).message); }
+    finally { setBusy(false); onBusyChange?.(false); }
+  }
+  async function cleanRetired() {
+    if (!current || !cleanup?.removable.length) return;
+    const selected = cleanup.removable.slice(0, 500);
+    if (!await confirm({ title: `Supprimer définitivement ${selected.length} fichier${selected.length > 1 ? "s" : ""} ?`, description: "Ces photos retirées seront effacées immédiatement du serveur, sans possibilité d’annulation. Vérifiez votre sauvegarde et leurs autres utilisations : les liens externes ne sont pas détectables et des copies en cache peuvent subsister.", confirmLabel: "Oui", cancelLabel: "Non", destructive: true })) return;
+    setPhotoMessage(""); setPhotoMessageInfo(false); setBusy(true); onBusyChange?.(true);
+    try {
+      const result = await request("products/photo-cleanup.php", json("POST", { categoryId: current.categoryId, productId: current.id, files: selected.map((file) => file.name) }));
+      setCleanup(null);
+      if (result.failed.length) setPhotoMessage(`${result.deleted.length} fichier(s) supprimé(s). Impossible de supprimer : ${result.failed.join(", ")}. Vérifiez les permissions puis relancez la vérification.`);
+      else { setPhotoMessageInfo(true); setPhotoMessage(`${result.deleted.length} fichier(s) supprimé(s) définitivement. Vérifiez à nouveau pour voir les fichiers restants.`); }
+    } catch (err) { setCleanup(null); setPhotoMessage((err as Error).message + " Vérifiez à nouveau la liste avant de réessayer."); }
+    finally { setBusy(false); onBusyChange?.(false); }
   }
   const types = catalog.types.filter((t) => t.categoryId === item.categoryId && (item.categoryId !== "motos" || t.familyId === familyId));
   const set = <K extends keyof Product>(key: K, value: Product[K]) => setItem((p) => ({ ...p, [key]: value }));
@@ -158,6 +185,15 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
         <button type="button" disabled={busy || optimizing} className="mt-2 block text-xs text-red-700 underline disabled:opacity-50" onClick={() => removePhoto(image)}>Retirer</button>
       </div>)}</div> : <p className="mt-3 text-xs text-black/50">Aucune photo sélectionnée.</p>}
       {photos.length > 0 && !mainKey && <p role="status" className="mt-3 text-xs font-semibold text-amber-800">Choisissez une nouvelle photo principale avant d’enregistrer.</p>}
+      {current && <div className="mt-4 border-t border-black/10 pt-4">
+        <p className="text-xs leading-5 text-black/60">Des fichiers retirés auparavant peuvent encore se trouver sur le serveur utilisé par cette page. Vous pouvez les vérifier et les supprimer définitivement.</p>
+        <button type="button" disabled={busy || optimizing} className={`${secondary} mt-2`} onClick={checkCleanup}>Vérifier les photos retirées</button>
+        {cleanup && <div className="mt-3" aria-label="Photos retirées du produit">
+          {cleanup.removable.length ? <><p className="text-xs font-semibold">{cleanup.removable.length} fichier(s) sans référence détectée :</p><div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{cleanup.removable.map((file) => <div key={file.name} className="rounded-lg border border-black/10 p-2"><img src={file.url} alt={`Photo retirée ${file.name}`} className="aspect-[4/3] w-full rounded bg-white object-contain" /><p className="mt-1 break-all text-xs">{file.name} · {photoFileSize(file.size)}</p></div>)}</div><button type="button" disabled={busy || optimizing} className="mt-3 rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" onClick={cleanRetired}>Supprimer définitivement {Math.min(cleanup.removable.length, 500)} fichier(s)</button></> : <p className="text-xs">Aucune photo retirée sans référence détectée.</p>}
+          {cleanup.referenced.length > 0 && <div className="mt-2 text-xs text-amber-800"><p>{cleanup.referenced.length} fichier(s) encore référencé(s) dans les données du site sont conservés :</p><ul className="mt-1 list-inside list-disc break-all">{cleanup.referenced.map((file) => <li key={file.name}>{file.name}</li>)}</ul></div>}
+          {cleanup.ignored > 0 && <p className="mt-2 text-xs text-amber-800">{cleanup.ignored} élément(s) non reconnus ou non accessibles sont conservés.</p>}
+        </div>}
+      </div>}
     </fieldset>
     <fieldset className="sm:col-span-2"><legend className="text-xs font-semibold text-black/65">Caractéristiques</legend><div className="mt-2 space-y-2">{item.specifications.map((spec, index) => <div key={index} className="flex flex-wrap gap-2"><input aria-label={`Nom de la caractéristique ${index + 1}`} placeholder="Ex. Cylindrée" value={spec.key} onChange={(e) => set("specifications", item.specifications.map((v, i) => i === index ? { ...v, key: e.target.value } : v))} className="min-w-36 flex-1 rounded-md border border-black/15 px-3 py-2 text-sm" /><input aria-label={`Valeur de la caractéristique ${index + 1}`} placeholder="Ex. 125 cc" value={spec.value} onChange={(e) => set("specifications", item.specifications.map((v, i) => i === index ? { ...v, value: e.target.value } : v))} className="min-w-36 flex-1 rounded-md border border-black/15 px-3 py-2 text-sm" /><button type="button" className={secondary} onClick={() => set("specifications", item.specifications.filter((_, i) => i !== index))}>Retirer</button></div>)}</div><button type="button" className={`${secondary} mt-2`} onClick={() => set("specifications", [...item.specifications, { key: "", value: "" }])}>+ Ajouter une caractéristique</button></fieldset>
     {item.categoryId === "pieces-detachees" && <fieldset className="sm:col-span-2"><legend className="text-xs font-semibold text-black/65">Marques compatibles</legend><div className="mt-2 flex flex-wrap gap-3">{catalog.brands.filter((b) => b.id !== "unknown-brand").map((b) => <label key={b.id} className="text-sm"><input type="checkbox" checked={(item.compatibleBrandIds ?? []).includes(b.id)} onChange={(e) => set("compatibleBrandIds", e.target.checked ? [...(item.compatibleBrandIds ?? []), b.id] : (item.compatibleBrandIds ?? []).filter((id) => id !== b.id))} /> {b.name}</label>)}</div></fieldset>}

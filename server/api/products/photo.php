@@ -50,9 +50,13 @@ unset($product);
 if (!$found) funbikeJsonResponse(404, ['message' => 'Photo non trouvée sur cette fiche. Rechargez la page.']);
 
 function photoContainsReference($value, $url) {
-    if (is_string($value)) return strpos($value, $url) !== false;
+    if (is_string($value)) {
+        // Les URL absolues ou relatives, encodées ou de casse différente peuvent désigner le même fichier.
+        $value = str_replace('\\', '/', rawurldecode(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        return stripos($value, ltrim($url, '/')) !== false;
+    }
     if (!is_array($value)) return false;
-    foreach ($value as $key => $item) if ((is_string($key) && strpos($key, $url) !== false) || photoContainsReference($item, $url)) return true;
+    foreach ($value as $key => $item) if ((is_string($key) && photoContainsReference($key, $url)) || photoContainsReference($item, $url)) return true;
     return false;
 }
 // Si le chemin n'appartient pas au produit ou ne peut être vérifié, on ne touche pas au fichier.

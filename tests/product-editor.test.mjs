@@ -170,3 +170,41 @@ test('retraits successifs : les identifiants recalculés sont utilisés sans per
   assert.equal(calls.length, 2); assert.equal(view.queryByAltText('autre'), null);
   assert.equal(view.getByLabelText('Nom').value, 'Nom modifié');
 });
+
+test('nettoyage des photos retirées : aperçu, confirmation et suppression ciblée', async () => {
+  let closed = false;
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'POST') return { ok: true, json: async () => ({ deleted: ['main-0123456789abcdef.webp'], failed: [] }) };
+    return { ok: true, json: async () => ({ removable: [{ name: 'main-0123456789abcdef.webp', url: '/server/uploads/products/motorcycles/moto-test/main-0123456789abcdef.webp', size: 1234 }], referenced: [{ name: 'main.jpg' }], ignored: 1 }) };
+  };
+  const view = render(React.createElement(ProductEditor, { catalog, current: { ...current, images: [] }, close() { closed = true; }, refresh: async () => {} }));
+  fireEvent.click(view.getByText('Vérifier les photos retirées'));
+  await waitFor(() => assert.ok(view.getByAltText(/Photo retirée main-0123456789abcdef.webp/)));
+  assert.match(view.container.textContent, /1 fichier\(s\) encore référencé/);
+  assert.match(view.container.textContent, /1 élément\(s\) non reconnus/);
+  fireEvent.click(view.getByText('Supprimer définitivement 1 fichier(s)'));
+  assert.match(view.getByRole('alertdialog').textContent, /effacées immédiatement.*sauvegarde/);
+  fireEvent.click(view.getByRole('button', { name: 'Non' }));
+  await waitFor(() => assert.equal(view.queryByRole('alertdialog'), null));
+  assert.equal(calls.length, 1);
+  fireEvent.click(view.getByText('Supprimer définitivement 1 fichier(s)'));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.match(view.container.textContent, /1 fichier\(s\) supprimé\(s\) définitivement/));
+  assert.equal(calls.length, 2);
+  assert.deepEqual(JSON.parse(calls[1].options.body).files, ['main-0123456789abcdef.webp']);
+  assert.equal(closed, false);
+});
+
+test('nettoyage incomplet : le message précise les fichiers non supprimés', async () => {
+  globalThis.fetch = async (_url, options) => options.method === 'POST'
+    ? { ok: true, json: async () => ({ deleted: ['main.jpg'], failed: ['image-2.png'] }) }
+    : { ok: true, json: async () => ({ removable: [{ name: 'main.jpg', url: '/main.jpg', size: 100 }, { name: 'image-2.png', url: '/image-2.png', size: 100 }], referenced: [], ignored: 0 }) };
+  const view = render(React.createElement(ProductEditor, { catalog, current, close() {}, refresh: async () => {} }));
+  fireEvent.click(view.getByText('Vérifier les photos retirées'));
+  await waitFor(() => assert.ok(view.getByText('Supprimer définitivement 2 fichier(s)')));
+  fireEvent.click(view.getByText('Supprimer définitivement 2 fichier(s)'));
+  fireEvent.click(view.getByRole('button', { name: 'Oui' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Impossible de supprimer : image-2.png/));
+  assert.equal(view.queryByText('Supprimer définitivement 2 fichier(s)'), null);
+});
