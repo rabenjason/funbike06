@@ -76,6 +76,7 @@ test('retirer la principale impose un nouveau choix, puis une ancienne photo peu
   fireEvent.click([...first.querySelectorAll('button')].find((button) => button.textContent.includes('Retirer')));
   fireEvent.click(view.getByRole('button', { name: 'Oui' }));
   await waitFor(() => assert.match(view.container.textContent, /Choisissez une nouvelle photo principale/));
+  assert.ok(view.getByText('Photo retirée et fichier supprimé définitivement.'));
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.method, 'DELETE');
   assert.equal(JSON.parse(calls[0].options.body).url, '/premiere.jpg');
