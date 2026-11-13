@@ -691,6 +691,13 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'POST', authenticated: true, body: update })).status, 200);
     assert.ok((await call('products/motorcycles.php')).body.data.some((p) => p.id === id));
     assert.equal((await call(`products/motorcycles.php?id=${id}`, { method: 'DELETE', authenticated: true })).status, 200);
+    // Simule les chemins de fichier équivalents mais écrits différemment (comme / et \\ sous Windows).
+    // La copie du serveur de test reste isolée du dépôt et des données réelles.
+    const photoApiFile = join(serverDir, 'api/products/photo.php');
+    const photoApiOriginal = readFileSync(photoApiFile, 'utf8');
+    const photoApiAlternatePath = photoApiOriginal.replace("$dataDir . '/products/' . $name . '.json'", "$dataDir . '/products/../products/' . $name . '.json'");
+    assert.notEqual(photoApiAlternatePath, photoApiOriginal);
+    writeFileSync(photoApiFile, photoApiAlternatePath);
     // WebP généré par le navigateur : transport accepté par les quatre API produits.
     const webp = Buffer.from('UklGRioCAABXRUJQVlA4WAoAAAAwAAAAAQAAAQAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZBTFBIBQAAAAAAAAD/AFZQOCAuAAAAkAEAnQEqAgACAAFAJiWgAnS6AAOYAP76os//ps3/02b/6bN/6bN+1KIKStgAAA==', 'base64');
     for (const [path, categoryId, productTypeId] of [['motorcycles', 'motos', 'urbain'], ['helmets', 'casques', 'casque'], ['riding-gear', 'equipements', 'gants'], ['spare-parts', 'pieces-detachees', 'pneus']]) {
@@ -812,6 +819,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
       rmSync(protectedPath); rmSync(other);
       assert.equal((await call(`products/${path}.php?id=${created.body.data.id}`, { method: 'DELETE', authenticated: true })).status, 200);
     }
+    writeFileSync(photoApiFile, photoApiOriginal);
     assert.equal((await call('auth/logout.php', { method: 'POST', authenticated: true })).status, 200);
     assert.equal((await call('products/motorcycles.php?includeDrafts=1', { authenticated: true })).status, 401);
     for (let i = 0; i < 5; i++) assert.equal((await call('auth/login.php', { method: 'POST', body: { username: 'test-admin', password: 'incorrect' } })).status, 401);

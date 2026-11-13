@@ -88,11 +88,18 @@ if ($fileStatus === 'candidate') {
     // Vérifier l'ensemble des données avant tout effacement. Un doute conserve le fichier.
     try {
         if (is_link($dataDir)) throw new RuntimeException();
+        $productDataPath = realpath($jsonFile);
+        if ($productDataPath === false) throw new RuntimeException();
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dataDir, FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
             if ($file->isLink()) throw new RuntimeException();
             if (!$file->isFile() || strtolower($file->getExtension()) !== 'json') continue;
-            if ($file->getPathname() === $jsonFile) $decoded = $data;
+            $filePath = $file->getRealPath();
+            if ($filePath === false) throw new RuntimeException();
+            // L'itérateur utilise des séparateurs natifs (\ sous Windows),
+            // tandis que $jsonFile peut mélanger / et \. Comparer les chemins réels.
+            $sameFile = PHP_OS_FAMILY === 'Windows' ? strcasecmp($filePath, $productDataPath) === 0 : $filePath === $productDataPath;
+            if ($sameFile) $decoded = $data;
             else {
                 $content = @file_get_contents($file->getPathname());
                 if ($content === false) throw new RuntimeException();

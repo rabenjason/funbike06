@@ -110,7 +110,10 @@ export function ProductEditor({ catalog, current, close, refresh, onSaved, onBus
         }));
         if (mainKey === photo.key) setMainKey(null);
         setCleanup(null);
-        if (!result.deleted) {
+        if (result.deleted) {
+          setPhotoMessageInfo(true);
+          setPhotoMessage(result.message || "Photo retirée et fichier supprimé définitivement.");
+        } else {
           setPhotoMessageInfo(["missing", "shared", "external"].includes(result.fileStatus));
           setPhotoMessage((result.message || "Photo retirée, mais fichier encore présent sur le serveur.") + (["failed", "unverified"].includes(result.fileStatus) ? ` ${photo.image!.url}` : ""));
         }
