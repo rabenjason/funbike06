@@ -12,6 +12,8 @@
 }
 
 :root {
+  /* Hauteur de l'en-tête, bordure comprise ; utilisée aussi pour centrer l'attente. */
+  --site-header-height: 65px;
   color-scheme: light;
   font-family: "DM Sans", sans-serif;
   background: #ffffff;
@@ -19,6 +21,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (min-width: 40rem) {
+  :root { --site-header-height: 69px; }
 }
 
 :root.dark {

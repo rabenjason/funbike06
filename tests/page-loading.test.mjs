@@ -14,10 +14,11 @@ test('attente de page : espace réservé, indicateur accessible et mouvement fac
   const document = new JSDOM(renderToStaticMarkup(React.createElement(PageLoading))).window.document;
   const status = document.querySelector('[role="status"]');
   assert.equal(status.textContent, 'Chargement de la page…');
-  assert.ok(status.classList.contains('min-h-[100svh]'));
+  assert.ok(status.classList.contains('min-h-[100dvh]'));
   assert.ok(status.classList.contains('place-items-center'));
   assert.ok(status.querySelector('.sr-only'));
   const spinner = status.querySelector('svg[aria-hidden="true"]');
   assert.ok(spinner.classList.contains('motion-safe:animate-spin'));
+  assert.ok(spinner.classList.contains('translate-y-[calc(-1*var(--site-header-height))]'));
   assert.equal(spinner.querySelectorAll('line').length, 12);
 });
