@@ -10,7 +10,7 @@ import { motorcycles, findProductById } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
 import { parseRoute, routePath } from "./lib/routes";
 import { updateSeo } from "./lib/seo";
-import { recordSiteOpening } from "./lib/openings";
+import { recordSiteOpening, updateAudienceConsent } from "./lib/openings";
 import { loadPublicPage, loadedPublicPage, publicPageKey } from "./lib/publicPages";
 
 function sameRoute(a: Route, b: Route) {
@@ -57,7 +57,15 @@ export default function App() {
   const [, pageLoaded] = useState(0);
 
   const route = history[history.length - 1];
-  useEffect(() => { if (history[0].page !== "not-found") recordSiteOpening(); }, []);
+  useEffect(() => {
+    if (history[0].page === "not-found") return;
+    recordSiteOpening();
+    updateAudienceConsent();
+    const update = () => updateAudienceConsent();
+    window.addEventListener("fb-consent-change", update);
+    window.addEventListener("storage", update);
+    return () => { window.removeEventListener("fb-consent-change", update); window.removeEventListener("storage", update); };
+  }, []);
   const pageKey = publicPageKey(route.page);
   const Page = pageKey ? loadedPublicPage(pageKey) : undefined;
   useEffect(() => {

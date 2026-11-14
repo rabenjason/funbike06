@@ -19,7 +19,7 @@ test('ouvertures : inactif par défaut, accès privé, agrégation et protection
   const password = `initial-${randomBytes(12).toString('hex')}`; const changed = `changed-${randomBytes(12).toString('hex')}`;
   const created = spawnSync(php, [join(root, 'scripts/create-admin.php'), 'test-admin'], { env: { ...process.env, FUNBIKE_TEMP_PASSWORD: password }, encoding: 'utf8' });
   assert.equal(created.status, 0, created.stderr);
-  const statsFile = join(root, 'storage/private/site-openings.json');
+  const statsFile = join(root, 'storage/private/site-audience.json');
   let child;
   async function stop() { if (!child) return; child.kill('SIGTERM'); await new Promise((r) => { if (child.exitCode !== null) r(); else { child.once('exit', r); setTimeout(r, 1000); } }); child = null; }
   async function start(enabled) {
@@ -36,7 +36,7 @@ test('ouvertures : inactif par défaut, accès privé, agrégation et protection
   }
   try {
     let base = await start(null);
-    assert.equal((await fetch(base + 'openings.php', { method: 'POST' })).status, 204);
+    assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
     assert.equal(existsSync(statsFile), false, 'aucun fichier de comptage si désactivé');
     assert.equal((await fetch(base + 'openings.php')).status, 401);
     let cookie = await login(base, password);
@@ -54,34 +54,54 @@ test('ouvertures : inactif par défaut, accès privé, agrégation et protection
     assert.equal((await fetch(base + 'openings.php', { method: 'PUT', headers: { Cookie: cookie } })).status, 405);
     const before = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.equal(before.enabled, true); assert.deepEqual(before.months, []);
-    for (let n = 0; n < 3; n++) assert.equal((await fetch(base + 'openings.php', { method: 'POST' })).status, 204);
+    for (let n = 0; n < 3; n++) assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
     let data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.deepEqual(data.months, [{ month: data.currentMonth, count: 3 }]);
+    assert.deepEqual(data.months, [{ month: data.currentMonth, count: 3, visitors: 0 }]);
     const stored = JSON.parse(readFileSync(statsFile, 'utf8'));
-    assert.deepEqual(Object.keys(stored).sort(), ['limit', 'months']); assert.equal(stored.months[data.currentMonth], 3);
+    assert.deepEqual(Object.keys(stored).sort(), ['limit', 'months']); assert.equal(stored.months[data.currentMonth].count, 3);
     assert.equal(readFileSync(statsFile, 'utf8').includes('127.0.0.1'), false);
-    assert.equal((await fetch(base.replace('/api/', '/storage/private/site-openings.json'))).status, 404);
-    const results = await Promise.all(Array.from({ length: 12 }, () => fetch(base + 'openings.php', { method: 'POST' })));
+    assert.equal((await fetch(base.replace('/api/', '/storage/private/site-audience.json'))).status, 404);
+    const results = await Promise.all(Array.from({ length: 12 }, () => fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })));
     assert.ok(results.every(response => response.status === 204));
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.equal(data.months[0].count, 15, 'aucune ouverture perdue lors des requêtes rapprochées');
+    const idA = 'a'.repeat(64), idB = 'b'.repeat(64);
+    for (const id of [idA, idA, idB]) {
+      const r = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id})});
+      assert.equal(r.status, 204);
+    }
+    data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
+    assert.equal(data.months[0].count, 15); assert.equal(data.months[0].visitors, 2);
+    assert.equal(data.years[0].visitors, 2);
+    assert.equal(readFileSync(statsFile, 'utf8').includes(idA), false);
+    assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id:'bad'})})).status, 400);
+    // La même empreinte sur deux mois ne doit être comptée qu'une fois sur l'année.
+    const addMonth = JSON.parse(readFileSync(statsFile, 'utf8'));
+    const currentYear = data.currentMonth.slice(0,4);
+    const previous = `${currentYear}-${data.currentMonth.slice(5) === '01' ? '02' : '01'}`;
+    if (previous < data.currentMonth) {
+      addMonth.months[previous] = {count: 4, visitors: [addMonth.months[data.currentMonth].visitors[0]]};
+      writeFileSync(statsFile, JSON.stringify(addMonth));
+      const annual = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
+      assert.equal(annual.years.find(y => y.year === currentYear).visitors, 2);
+    }
     const extended = JSON.parse(readFileSync(statsFile, 'utf8'));
-    extended.months['1990-01'] = 99; writeFileSync(statsFile, JSON.stringify(extended));
-    await fetch(base + 'openings.php', { method: 'POST' });
+    extended.months['1990-01'] = {count:99, visitors:[]}; writeFileSync(statsFile, JSON.stringify(extended));
+    await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) });
     const pruned = JSON.parse(readFileSync(statsFile, 'utf8'));
     assert.equal(pruned.months['1990-01'], undefined);
     if (Math.floor(Date.now() / 1000) % 60 < 58) {
-      const current = pruned.months[data.currentMonth]; pruned.limit = { minute: Math.floor(Date.now() / 60000), count: 120 };
+      const current = pruned.months[data.currentMonth].count; pruned.limit = { minute: Math.floor(Date.now() / 60000), count: 120 };
       writeFileSync(statsFile, JSON.stringify(pruned));
-      assert.equal((await fetch(base + 'openings.php', { method: 'POST' })).status, 204);
-      assert.equal(JSON.parse(readFileSync(statsFile, 'utf8')).months[data.currentMonth], current, 'limitation globale à 120 par minute');
+      assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
+      assert.equal(JSON.parse(readFileSync(statsFile, 'utf8')).months[data.currentMonth].count, current, 'limitation globale à 120 par minute');
     }
     const future = JSON.parse(readFileSync(statsFile, 'utf8'));
-    future.months['9999-12'] = 42; writeFileSync(statsFile, JSON.stringify(future));
-    assert.equal((await fetch(base + 'openings.php', { method: 'POST' })).status, 503);
-    assert.equal(JSON.parse(readFileSync(statsFile, 'utf8')).months['9999-12'], 42, 'ne pas effacer des données futures si l’horloge est incohérente');
+    future.months['9999-12'] = {count:42, visitors:[]}; writeFileSync(statsFile, JSON.stringify(future));
+    assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 503);
+    assert.equal(JSON.parse(readFileSync(statsFile, 'utf8')).months['9999-12'].count, 42, 'ne pas effacer des données futures si l’horloge est incohérente');
     writeFileSync(statsFile, '{invalid');
-    assert.equal((await fetch(base + 'openings.php', { method: 'POST' })).status, 503);
+    assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 503);
     assert.equal((await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).status, 503);
     assert.equal(readFileSync(statsFile, 'utf8'), '{invalid', 'ne pas écraser des données endommagées');
   } finally { await stop(); rmSync(dir, { recursive: true, force: true }); }
