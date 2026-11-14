@@ -1,5 +1,5 @@
 <?php
-// Mesure d'audience interne : adresses IP transformées en empreintes annuelles pseudonymes.
+// Mesure d'audience interne : IP et identifiants aléatoires, pseudonymisés chaque année.
 require_once __DIR__ . '/_lib/auth.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
@@ -16,7 +16,8 @@ else {
     $input = json_decode($rawInput, true);
     if (!is_array($input) || !in_array($input['kind'] ?? null, ['opening', 'visitor'], true) ||
         (isset($input['id']) && (!is_string($input['id']) || !preg_match('/^[a-f0-9]{64}$/D', $input['id']))) ||
-        ($input['kind'] === 'visitor' && !isset($input['id'])) || count(array_diff(array_keys($input), ['kind', 'id'])) !== 0) {
+        ($input['kind'] === 'visitor' && !isset($input['id'])) ||
+        (isset($input['browserId']) && (!is_string($input['browserId']) || !preg_match('/^[a-f0-9]{64}$/D', $input['browserId']))) || count(array_diff(array_keys($input), ['kind', 'id', 'browserId'])) !== 0) {
         funbikeJsonResponse(400, ['message' => 'Requête invalide.']);
     }
     // Anciennes pages encore en cache : ignorer leurs événements et identifiants visiteurs.
@@ -46,6 +47,11 @@ try {
         if (!is_string($key) || !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/D', $key) || $key > $month || !is_array($entry) || !is_int($entry['count'] ?? null) || $entry['count'] < 0 || !is_array($entry['visitors'] ?? null) || count($entry['visitors']) > 50000) throw new RuntimeException();
         foreach ($entry['visitors'] as $hash) if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) throw new RuntimeException();
         if (count(array_unique($entry['visitors'])) !== count($entry['visitors'])) throw new RuntimeException();
+        if (array_key_exists('browsers', $entry)) {
+            if (!is_array($entry['browsers']) || count($entry['browsers']) > 50000) throw new RuntimeException();
+            foreach ($entry['browsers'] as $hash) if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) throw new RuntimeException();
+            if (count(array_unique($entry['browsers'])) !== count($entry['browsers'])) throw new RuntimeException();
+        }
         if ($key >= $firstMonth) $months[$key] = $entry;
     }
     ksort($months);
@@ -75,6 +81,14 @@ try {
                 if (count($entry['visitors']) >= 50000) throw new RuntimeException();
                 $entry['visitors'][] = $hash;
             }
+            if (isset($input['browserId'])) {
+                $browserHash = hash_hmac('sha256', "browser:" . $input['browserId'], hex2bin($keyState['key']));
+                if (!isset($entry['browsers'])) $entry['browsers'] = [];
+                if (!in_array($browserHash, $entry['browsers'], true)) {
+                    if (count($entry['browsers']) >= 50000) throw new RuntimeException();
+                    $entry['browsers'][] = $browserHash;
+                }
+            }
             if ($input['kind'] === 'opening') {
                 if ($entry['count'] >= PHP_INT_MAX) throw new RuntimeException();
                 $entry['count']++;
@@ -92,10 +106,15 @@ flock($lock, LOCK_UN); fclose($lock);
 if ($method === 'POST') { http_response_code(204); exit; }
 $rows = []; $years = [];
 foreach ($months as $key => $entry) {
-    $rows[] = ['month' => $key, 'count' => $entry['count'], 'visitors' => count($entry['visitors'])];
+    $rows[] = ['month' => $key, 'count' => $entry['count'], 'visitors' => count($entry['visitors']), 'browsers' => isset($entry['browsers']) ? count($entry['browsers']) : null];
     $year = substr($key, 0, 4);
-    if (!isset($years[$year])) $years[$year] = [];
-    foreach ($entry['visitors'] as $hash) $years[$year][$hash] = true;
+    if (!isset($years[$year])) $years[$year] = ['visitors' => [], 'browsers' => null];
+    foreach ($entry['visitors'] as $hash) $years[$year]['visitors'][$hash] = true;
+    if (isset($entry['browsers'])) {
+        if ($years[$year]['browsers'] === null) $years[$year]['browsers'] = [];
+        foreach ($entry['browsers'] as $hash) $years[$year]['browsers'][$hash] = true;
+    }
 }
-$annual = []; foreach ($years as $year => $visitors) $annual[] = ['year' => (string)$year, 'visitors' => count($visitors)];
+$annual = [];
+foreach ($years as $year => $entries) $annual[] = ['year' => (string)$year, 'visitors' => count($entries['visitors']), 'browsers' => $entries['browsers'] === null ? null : count($entries['browsers'])];
 funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => $rows, 'years' => $annual]);
