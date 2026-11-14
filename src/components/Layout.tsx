@@ -70,7 +70,7 @@ export function Header({
   const nav = hasPromotions ? NAV.flatMap((item) => item.key === "spares" ? [{ ...item, label: "Pièces" }, { key: "promotions", label: "Promotions" }] : [item]) : NAV;
   return (
     <header className="glass-header sticky top-0 z-40 border-b border-black/10 dark:border-white/10">
-      <div className="mx-auto flex h-[64px] w-full max-w-(--container-site) items-center gap-4 px-4 sm:h-[68px] sm:px-7 lg:px-10">
+      <div className="mx-auto flex h-[calc(var(--site-header-height)-1px)] w-full max-w-(--container-site) items-center gap-4 px-4 sm:px-7 lg:px-10">
         <button onClick={() => go("home")} aria-label={`${content.site.nom}, ${content.navigation.accueil.toLowerCase()}`} className="shrink-0">
           <BrandMark />
         </button>
