@@ -4,7 +4,7 @@ import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
 import { chatbotEnabled } from "./content/homepage";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
-import { RouteProgress } from "./components/Loaders";
+import { PageLoading, RouteProgress } from "./components/Loaders";
 import { PromotionsProvider } from "./components/PromotionsContext";
 import { motorcycles, findProductById } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
@@ -142,7 +142,7 @@ export default function App() {
             >
               {route.page === "not-found" && <div className="p-8">Page introuvable. <button className="underline" onClick={() => go("home")}>Accueil</button></div>}
               {Page && <Page route={route} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />}
-              {pageKey && !Page && (pageLoadError === pageKey ? <div role="alert" className="p-8">Impossible de charger cette page. Vérifiez votre connexion puis <button className="underline" onClick={() => window.location.reload()}>actualisez la page</button>.</div> : <p role="status" className="p-8">Chargement de la page…</p>)}
+              {pageKey && !Page && (pageLoadError === pageKey ? <div role="alert" className="p-8">Impossible de charger cette page. Vérifiez votre connexion puis <button className="underline" onClick={() => window.location.reload()}>actualisez la page</button>.</div> : <PageLoading />)}
             </motion.div>
           </AnimatePresence>
         </main>
