@@ -30,7 +30,7 @@ after(async()=>{globalThis.FormData=originalFormData; URL.createObjectURL=origin
 function setup(){
   images=[];selected=null;version=1;requests=[];
   globalThis.fetch=async(url,options={})=>{
-    requests.push({url:String(url),method:options.method||'GET'});
+    requests.push({url:String(url),method:options.method||'GET',body:options.body});
     if(String(url)==='/server/api/homepage-content.php') return ok({data:structuredClone(defaults),siteLogo:selected ? images.find(i=>i.id===selected).url : original});
     if(String(url)!=='/server/api/site-logo.php') throw new Error('Unexpected: '+url);
     if(options.method==='POST'){
@@ -91,4 +91,51 @@ test('fichier refusé et conflit de révision : rien n’est supprimé ou activ�
   assert.equal(selected,null); assert.equal(images.length,1);
   fireEvent.click(view.getByRole('button',{name:'Recharger'}));
   await waitFor(()=>assert.equal(view.queryByRole('alert'),null));
+});
+
+test('optimisation indisponible : attend puis envoie l’original, sans modifier les logos existants', async()=>{
+  setup(); const id='d'.repeat(32); images=[{id,url:`/server/uploads/site-logo/logo-${id}.png`,name:'Ancien'}]; selected=id;
+  const view=render(React.createElement(ConfirmationProvider,null,React.createElement(AdminSiteLogo,{view:'settings'})));
+  await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
+  fireEvent.change(view.getByLabelText('Nom du logo'),{target:{value:'Nouveau'}});
+  const originalFile=new dom.window.File([new Uint8Array(150*1024)],'test.jpg',{type:'image/jpeg'});
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[originalFile]}});
+  assert.match(view.container.textContent,/Optimisation du logo en cours/);
+  assert.equal(view.getByRole('button',{name:'Optimisation…'}).disabled,true);
+  fireEvent.submit(view.getByLabelText('Nom du logo').closest('form'));
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
+  await waitFor(()=>assert.match(view.container.textContent,/Optimisation impossible, original conservé/));
+  fireEvent.click(view.getByRole('button',{name:'Ajouter à la bibliothèque'}));
+  await waitFor(()=>assert.equal(requests.filter(r=>r.method==='POST').length,1));
+  assert.equal(requests.find(r=>r.method==='POST').body.get('image'),originalFile);
+  assert.ok(images.find(i=>i.id===id)); assert.equal(selected,id); assert.equal(originalFile.name,'test.jpg');
+});
+
+test('un fichier trop lourd après optimisation est bloqué, puis une autre image peut être ajoutée', async()=>{
+  setup(); const view=render(React.createElement(ConfirmationProvider,null,React.createElement(AdminSiteLogo,{view:'settings'})));
+  await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
+  fireEvent.change(view.getByLabelText('Nom du logo'),{target:{value:'Logo'}});
+  const big=new dom.window.File([new Uint8Array(8*1024*1024+1)],'lourd.jpg',{type:'image/jpeg'});
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[big]}});
+  await waitFor(()=>assert.match(view.getByRole('alert').textContent,/dépasse 8 Mo après optimisation/));
+  assert.equal(view.getByRole('button',{name:'Ajouter à la bibliothèque'}).disabled,true);
+  const small=new dom.window.File(['a'],'leger.png',{type:'image/png'});
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[small]}});
+  await waitFor(()=>assert.equal(view.getByRole('button',{name:'Ajouter à la bibliothèque'}).disabled,false));
+  assert.equal(view.queryByRole('alert'),null); assert.match(view.container.textContent,/Original conservé/);
+  fireEvent.click(view.getByRole('button',{name:'Ajouter à la bibliothèque'}));
+  await waitFor(()=>assert.equal(requests.filter(r=>r.method==='POST').length,1));
+  assert.equal(requests.find(r=>r.method==='POST').body.get('image'),small);
+});
+
+test('changer de fichier ou quitter annule l’optimisation précédente sans envoyer', async()=>{
+  setup(); let dirty=false; const view=render(React.createElement(ConfirmationProvider,null,React.createElement(AdminSiteLogo,{view:'settings',onDirtyChange:v=>{dirty=v}})));
+  await waitFor(()=>assert.ok(view.getByLabelText('Choisir une image')));
+  const large=new dom.window.File([new Uint8Array(150*1024)],'premier.jpg',{type:'image/jpeg'});
+  const small=new dom.window.File(['x'],'suivant.png',{type:'image/png'});
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[large]}});
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[small]}});
+  await waitFor(()=>assert.match(view.container.textContent,/Original conservé/));
+  assert.equal(dirty,true); view.unmount();
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
 });

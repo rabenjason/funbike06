@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { LOGO } from "../catalog/brands";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { json, request } from "../lib/adminApi";
+import { optimizeProductImage, photoFileSize, type PhotoOptimization } from "../lib/optimizeProductImage";
 
 const primary = "rounded-md bg-[#ffd100] px-4 py-2.5 text-sm font-bold text-[#171816] hover:bg-[#ffe36b] disabled:opacity-50";
 const secondary = "rounded-md border border-black/20 px-3 py-2 text-sm font-semibold hover:bg-black/5 disabled:opacity-50";
@@ -31,6 +32,9 @@ export function AdminSiteLogo({ view, onViewChange, onSavingChange, onDirtyChang
   const [notice, setNotice] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [file, setFile] = useState<File | null>(null);
+  const [originalSize, setOriginalSize] = useState(0);
+  const [optimization, setOptimization] = useState<PhotoOptimization | "processing" | null>(null);
+  const optimizationController = useRef<AbortController | null>(null);
   const [name, setName] = useState("");
   const [preview, setPreview] = useState("");
   const [choice, setChoice] = useState("");
@@ -42,14 +46,36 @@ export function AdminSiteLogo({ view, onViewChange, onSavingChange, onDirtyChang
     request("site-logo.php").then((value) => { if (active) { const next = parse(value); setData(next); setChoice(next.selected ?? ""); } }).catch((err) => { if (active) { setData(null); setError((err as Error).message); } }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [attempt]);
+  useEffect(() => () => { optimizationController.current?.abort(); optimizationController.current = null; }, []);
   useEffect(() => {
     if (!file) { setPreview(""); return; }
     const url = URL.createObjectURL(file); setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
   const markDirty = (newFile: File | null, newText: string, rename: string | null) => onDirtyChange?.(!!newFile || !!newText.trim() || rename !== null);
+  function chooseFile(next: File | null) {
+    optimizationController.current?.abort(); optimizationController.current = null;
+    setError(""); setNotice("");
+    if (next && (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || next.size < 1)) {
+      setFile(null); setOriginalSize(0); setOptimization(null); markDirty(null, name, renaming);
+      if (fileInput.current) fileInput.current.value = "";
+      setError("Choisissez une image JPEG, PNG ou WebP valide."); return;
+    }
+    setFile(next); setOriginalSize(next?.size ?? 0); markDirty(next, name, renaming);
+    if (!next) { setOptimization(null); return; }
+    const controller = new AbortController(); optimizationController.current = controller;
+    setOptimization("processing");
+    void optimizeProductImage(next, controller.signal).then(result => {
+      if (controller.signal.aborted) return;
+      setFile(result.file); setOptimization(result.status);
+    }).catch(() => {
+      if (!controller.signal.aborted) setOptimization("failed");
+    }).finally(() => {
+      if (optimizationController.current === controller) optimizationController.current = null;
+    });
+  }
   async function update(method: "POST" | "PUT" | "DELETE", id?: string | null, rename?: string) {
-    if (!data || busy || (method === "POST" && (!file || !name.trim()))) return;
+    if (!data || busy || (method === "POST" && (!file || !name.trim() || optimizationController.current || file.size > 8 * 1024 * 1024))) return;
     const wasActive = method === "DELETE" && data.selected === id;
     if (method === "DELETE" && !await confirm({ title: "Supprimer définitivement ce logo ?", description: `${wasActive ? "Ce logo est affiché : le logo par défaut le remplacera automatiquement. " : ""}Le fichier sera supprimé du serveur. Les anciennes pages ou caches peuvent encore l’afficher temporairement.`, confirmLabel: "Oui, supprimer", cancelLabel: "Non", destructive: true })) return;
     setBusy(true); onSavingChange?.(true); setError(""); setNotice("");
@@ -63,7 +89,7 @@ export function AdminSiteLogo({ view, onViewChange, onSavingChange, onDirtyChang
       if (method === "DELETE" && (next.images.some((image) => image.id === id) || (wasActive && next.selected !== null))) throw new Error("Réponse inattendue. Rechargez pour vérifier la suppression.");
       if (rename !== undefined && next.images.find(image => image.id === id)?.name !== rename.trim()) throw new Error("Réponse inattendue. Rechargez pour vérifier le nom.");
       setData(next); setChoice(next.selected ?? "");
-      if (method === "POST") { setFile(null); setName(""); onDirtyChange?.(false); if (fileInput.current) fileInput.current.value = ""; }
+      if (method === "POST") { setFile(null); setOriginalSize(0); setOptimization(null); setName(""); onDirtyChange?.(false); if (fileInput.current) fileInput.current.value = ""; }
       if (rename !== undefined) { setRenaming(null); setNewName(""); onDirtyChange?.(false); }
       setNotice(method === "POST" ? "Logo ajouté. Choisissez-le pour l’afficher sur le site." : rename !== undefined ? "Nom du logo enregistré." : method === "PUT" ? "Logo choisi. Actualisez les pages déjà ouvertes." : result.fileStatus === "missing" ? (wasActive ? "Logo retiré : le fichier était déjà absent. Le logo par défaut est rétabli." : "Logo retiré : le fichier était déjà absent du serveur.") : wasActive ? "Logo supprimé définitivement. Le logo par défaut est rétabli." : "Logo supprimé définitivement de la bibliothèque et du serveur.");
     } catch (err) { setError((err as Error).message); }
@@ -89,7 +115,17 @@ export function AdminSiteLogo({ view, onViewChange, onSavingChange, onDirtyChang
     {data && (view === "settings" ? <div className="mt-5 grid gap-5 lg:grid-cols-2">
       <div className="space-y-4"><div className="rounded-lg border border-black/10 bg-[#faf9f5] p-4"><h2 className="font-bold">Logo par défaut</h2><div className="mt-3 flex h-28 items-center justify-center rounded-md bg-white p-3"><img src={LOGO} alt="Logo Funbike par défaut" className="max-h-full max-w-full object-contain" onError={() => setError("Le logo par défaut est indisponible. Vérifiez le serveur.")} /></div><p className="mt-2 text-xs text-black/60">Permanent et protégé contre la suppression.</p></div>
       <div className="rounded-lg border border-black/10 p-4"><h2 className="font-bold">Logo affiché sur le site</h2><div className="mt-3 flex h-28 items-center justify-center rounded-md bg-[#f9f8f4] p-3"><img src={active?.url ?? LOGO} alt="Logo actuellement affiché" className="max-h-full max-w-full object-contain" onError={() => setError("Le logo affiché est indisponible. Vérifiez le serveur.")} /></div><label className="mt-3 block text-sm font-semibold">Choisir un logo<select className={control} value={choice} disabled={busy} onChange={event => setChoice(event.target.value)}><option value="">Logo par défaut</option>{data.images.map((image, i) => <option key={image.id} value={image.id}>{label(image, i)}</option>)}</select></label><button type="button" className={`${primary} mt-3`} disabled={busy || choice === (data.selected ?? "")} onClick={() => void update("PUT", choice || null)}>Utiliser ce logo</button></div></div>
-      <form className="rounded-lg border border-black/10 p-4" onSubmit={event => { event.preventDefault(); void update("POST"); }}><h2 className="font-bold">Ajouter un logo</h2><p className="mt-1 text-sm text-black/60">Donnez-lui un nom pour le retrouver dans le tableau de bord. L’ajout ne change pas le logo affiché.</p><label className="mt-4 block text-sm font-semibold">Nom du logo<input required maxLength={60} className={control} placeholder="Ex. Logo Christmas" value={name} disabled={busy} onChange={event => { setName(event.target.value); markDirty(file, event.target.value, renaming); }} /></label><label className="mt-4 block text-sm font-semibold">Choisir une image<input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} className="mt-2 block w-full text-sm" onChange={event => { const next = event.target.files?.[0] ?? null; setError(""); setNotice(""); if (next && (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || next.size < 1 || next.size > 8 * 1024 * 1024)) { setFile(null); markDirty(null, name, renaming); event.currentTarget.value = ""; setError("Choisissez une image JPEG, PNG ou WebP de 8 Mo maximum."); return; } setFile(next); markDirty(next, name, renaming); }} /></label><p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP · 8 Mo maximum.</p>{preview && <div className="mt-4 flex h-32 items-center justify-center rounded-md bg-[#f9f8f4] p-3"><img src={preview} alt="Aperçu du logo à ajouter" className="max-h-full max-w-full object-contain" /></div>}<button type="submit" className={`${primary} mt-4`} disabled={!file || !name.trim() || busy}>{busy ? "Enregistrement…" : "Ajouter à la bibliothèque"}</button></form>
+      <form className="rounded-lg border border-black/10 p-4" onSubmit={event => { event.preventDefault(); void update("POST"); }}>
+        <h2 className="font-bold">Ajouter un logo</h2>
+        <p className="mt-1 text-sm text-black/60">Donnez-lui un nom pour le retrouver dans le tableau de bord. L’ajout ne change pas le logo affiché.</p>
+        <label className="mt-4 block text-sm font-semibold">Nom du logo<input required maxLength={60} className={control} placeholder="Ex. Logo Christmas" value={name} disabled={busy} onChange={event => { setName(event.target.value); markDirty(file, event.target.value, renaming); }} /></label>
+        <label className="mt-4 block text-sm font-semibold">Choisir une image<input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} className="mt-2 block w-full text-sm" onChange={event => chooseFile(event.target.files?.[0] ?? null)} /></label>
+        <p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP. L’image est optimisée sur cet appareil avant l’envoi ; le fichier original et les logos déjà enregistrés restent inchangés. Limites serveur : 8 Mo et 12 millions de pixels après optimisation.</p>
+        {preview && <div className="mt-4 flex h-32 items-center justify-center rounded-md bg-[#f9f8f4] p-3"><img src={preview} alt="Aperçu du logo à ajouter" className="max-h-full max-w-full object-contain" /></div>}
+        {file && <p role="status" className="mt-2 text-xs text-black/60">{optimization === "processing" ? "Optimisation du logo en cours…" : `${photoFileSize(originalSize)} → ${photoFileSize(file.size)} · ${optimization === "optimized" ? "Logo optimisé" : optimization === "animated" ? "Animation conservée, original envoyé" : optimization === "failed" ? "Optimisation impossible, original conservé" : "Original conservé"}`}</p>}
+        {file && optimization !== "processing" && file.size > 8 * 1024 * 1024 && <p role="alert" className="mt-2 text-sm text-red-700">Le fichier dépasse 8 Mo après optimisation. Choisissez une image plus légère ; la limite de votre serveur peut être inférieure.</p>}
+        <button type="submit" className={`${primary} mt-4`} disabled={!file || !name.trim() || busy || optimization === "processing" || !!file && file.size > 8 * 1024 * 1024}>{busy ? "Enregistrement…" : optimization === "processing" ? "Optimisation…" : "Ajouter à la bibliothèque"}</button>
+      </form>
     </div> : <div className="mt-5">{data.images.length === 0 ? <p className="rounded-lg bg-[#f9f8f4] p-4 text-sm text-black/60">Aucun logo ajouté pour le moment.</p> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{data.images.map((image, index) => <article key={image.id} className="rounded-lg border border-black/10 p-4"><div className="flex h-32 items-center justify-center rounded-md bg-[#f9f8f4] p-3"><img src={image.url} alt={`Aperçu ${label(image, index)}`} className="max-h-full max-w-full object-contain" onError={() => setError("Un fichier de logo est indisponible. Vérifiez le serveur et vos sauvegardes.")} /></div><h2 className="mt-3 break-words font-bold">{label(image, index)}</h2><p className="mt-1 text-xs text-black/60">{data.selected === image.id ? "Actuellement affiché" : "Disponible"}</p>{renaming === image.id ? <form className="mt-3" onSubmit={event => { event.preventDefault(); if (newName.trim()) void update("PUT", image.id, newName); }}><label className="block text-sm font-semibold">Nouveau nom<input className={control} required maxLength={60} value={newName} disabled={busy} onChange={event => setNewName(event.target.value)} /></label><div className="mt-2 flex flex-wrap gap-2"><button className={primary} disabled={busy || !newName.trim()}>Enregistrer</button><button type="button" className={secondary} disabled={busy} onClick={() => { setRenaming(null); setNewName(""); markDirty(file, name, null); }}>Annuler</button></div></form> : <div className="mt-3 flex flex-wrap gap-2">{data.selected !== image.id && <button type="button" className={secondary} disabled={busy || renaming !== null} onClick={() => void update("PUT", image.id)} aria-label={`Utiliser ${label(image, index)}`}>Utiliser</button>}<button type="button" className={secondary} disabled={busy || renaming !== null} onClick={() => { setRenaming(image.id); setNewName(image.name ?? ""); markDirty(file, name, image.id); }} aria-label={`Renommer ${label(image, index)}`}>Renommer</button><button type="button" className={secondary} disabled={busy || renaming !== null} onClick={() => void update("DELETE", image.id)} aria-label={`Supprimer ${label(image, index)}`}>Supprimer</button></div>}</article>)}</div>}</div>)}
   </section>;
 }
