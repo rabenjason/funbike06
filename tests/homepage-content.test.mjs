@@ -164,3 +164,27 @@ test('les usages animés administrés restent du texte et non du HTML', async ()
   assert.equal(view.container.querySelector('img'), null);
   assert.match(view.container.textContent, /<img/);
 });
+
+test('les logos sont dans Accueil, avec bibliothèque séparée et protection du brouillon', async () => {
+  setup();
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => String(url) === '/server/api/site-logo.php'
+    ? {ok:true, json:async()=>({data:{images:[],selected:null},defaultLogo:'/server/public/assets/company/logo-funbike-720-a3ab2dc4.png',revision:'1'.repeat(64)})}
+    : oldFetch(url,options);
+  function Example() {
+    const [isDirty, setIsDirty] = React.useState(false); const [isSaving, setIsSaving] = React.useState(false);
+    return React.createElement(ConfirmationProvider, null, React.createElement(AdminHomepage, {catalog:adminCatalog,onToggle:async()=>{},dirty:isDirty,saving:isSaving,onDirtyChange:setIsDirty,onSavingChange:setIsSaving}));
+  }
+  const view=render(React.createElement(Example));
+  fireEvent.click(view.getByRole('button',{name:'Logo du site'}));
+  await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
+  assert.equal(view.queryByRole('heading',{name:'Bibliothèque des logos'}),null);
+  fireEvent.change(view.getByLabelText('Nom du logo'),{target:{value:'Mon brouillon'}});
+  fireEvent.click(view.getByRole('button',{name:'Bibliothèque des logos'}));
+  assert.ok(view.getByRole('alertdialog'));
+  fireEvent.click(view.getByRole('button',{name:'Continuer à modifier'}));
+  await waitFor(()=>assert.equal(view.getByLabelText('Nom du logo').value,'Mon brouillon'));
+  fireEvent.click(view.getByRole('button',{name:'Bibliothèque des logos'})); fireEvent.click(view.getByRole('button',{name:'Abandonner'}));
+  await waitFor(()=>assert.ok(view.getByRole('heading',{name:'Bibliothèque des logos'})));
+  assert.equal(view.queryByLabelText('Nom du logo'),null);
+});
