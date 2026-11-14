@@ -51,13 +51,13 @@ test('statistiques mensuelles, annuelles, données manquantes et état désactiv
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: false, currentMonth: '2026-11', months: [{ month: '2026-01', count: 4, visitors: 2 }, { month: '2026-02', count: 7, visitors: 2 }, { month: '2025-12', count: 12, visitors: 1 }], years: [{year:'2026', visitors: 3}, {year:'2025', visitors:1}] }) });
   const view = render(React.createElement(AdminOpenings));
   await waitFor(() => assert.match(view.container.textContent, /Comptage désactivé/));
-  assert.match(view.container.textContent, /comptage des visiteurs uniques est suspendu/i);
-  assert.doesNotMatch(view.container.textContent, /Visiteurs uniques estimés sur l’année/);
+  assert.match(view.container.textContent, /Visiteurs estimés sur l’année :\s*3/);
+  assert.match(view.container.textContent, /pas des personnes/);
   assert.match(view.container.textContent, /Total des mois enregistrés :\s*11/);
-  assert.equal(view.getAllByText('—').length, 10);
+  assert.equal(view.getAllByText('—').length, 20);
   fireEvent.change(view.getByLabelText('Année des statistiques'), { target: { value: '2025' } });
   assert.match(view.container.textContent, /Total des mois enregistrés :\s*12/);
-  assert.equal(view.getAllByText('—').length, 11);
+  assert.equal(view.getAllByText('—').length, 22);
 });
 
 test('erreur serveur visible, sans inventer de nombres', async () => {

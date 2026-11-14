@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-export const openingsClientEnabled = import.meta.env.VITE_COUNT_SITE_OPENINGS === "1";
+export const openingsClientEnabled = import.meta.env.VITE_COUNT_SITE_OPENINGS !== "0";
 const OLD_AUDIENCE_ID = "fb_audience_id_v2";
 let attempted = false;
 

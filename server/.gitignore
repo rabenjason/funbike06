@@ -36,3 +36,6 @@
 /storage/private/site-openings.json
 
 /storage/private/site-audience.json
+
+/storage/private/site-ip-audience.json
+/storage/private/site-ip-audience-key.json
