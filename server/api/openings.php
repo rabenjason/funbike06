@@ -1,10 +1,10 @@
 <?php
-// Mesure d'audience interne. Désactivée tant que l'hébergement ne l'active pas.
+// Mesure d'audience interne : adresses IP transformées en empreintes annuelles pseudonymes.
 require_once __DIR__ . '/_lib/auth.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if (!in_array($method, ['GET', 'POST'], true)) funbikeJsonResponse(405, ['message' => 'Méthode non autorisée.']);
-$enabled = getenv('FUNBIKE_OPENINGS_ENABLED') === '1';
+$enabled = getenv('FUNBIKE_OPENINGS_ENABLED') !== '0';
 $input = null;
 if ($method === 'GET') funbikeRequireAdmin();
 else {
@@ -28,10 +28,11 @@ $month = $now->format('Y-m');
 $firstMonth = $now->modify('first day of this month')->modify('-35 months')->format('Y-m');
 $dir = dirname(__DIR__) . '/storage/private';
 // Nouvelle série : ne jamais supprimer ni mélanger les anciennes données d'ouvertures.
-$file = $dir . '/site-audience.json';
+$file = $dir . '/site-ip-audience.json';
+$keyFile = $dir . '/site-ip-audience-key.json';
 if ($method === 'GET' && !file_exists($file)) funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => [], 'years' => []]);
 if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) funbikeJsonResponse(503, ['message' => 'Statistiques indisponibles.']);
-$lock = @fopen($dir . '/site-audience.lock', 'c');
+$lock = @fopen($dir . '/site-ip-audience.lock', 'c');
 if (!$lock || !flock($lock, $method === 'POST' ? LOCK_EX : LOCK_SH)) funbikeJsonResponse(503, ['message' => 'Statistiques indisponibles.']);
 try {
     $state = ['months' => [], 'limit' => ['minute' => 0, 'count' => 0]];
@@ -52,7 +53,28 @@ try {
         $minute = intdiv(time(), 60);
         $limit = $state['limit']['minute'] === $minute ? $state['limit']['count'] : 0;
         if ($limit < 120) {
+            // Ne jamais faire confiance aux en-têtes X-Forwarded-For fournis par le client.
+            $ip = @inet_pton((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+            if ($ip === false) throw new RuntimeException();
+            $year = $now->format('Y');
+            $keyState = null;
+            if (file_exists($keyFile)) {
+                $keyState = json_decode((string)@file_get_contents($keyFile), true);
+                if (!is_array($keyState) || !is_string($keyState['year'] ?? null) || !preg_match('/^\d{4}$/D', $keyState['year']) || !is_string($keyState['key'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $keyState['key']) || $keyState['year'] > $year) throw new RuntimeException();
+            }
+            if (!$keyState || $keyState['year'] !== $year) {
+                // Une clé perdue pendant une année ne doit pas créer des doubles silencieux.
+                foreach ($months as $key => $value) if (substr($key, 0, 4) === $year && count($value['visitors']) > 0) throw new RuntimeException();
+                $keyState = ['year' => $year, 'key' => bin2hex(random_bytes(32))];
+                if (!funbikeAtomicWrite($keyFile, json_encode($keyState))) throw new RuntimeException();
+                @chmod($keyFile, 0600);
+            }
+            $hash = hash_hmac('sha256', $ip, hex2bin($keyState['key']));
             $entry = $months[$month] ?? ['count' => 0, 'visitors' => []];
+            if (!in_array($hash, $entry['visitors'], true)) {
+                if (count($entry['visitors']) >= 50000) throw new RuntimeException();
+                $entry['visitors'][] = $hash;
+            }
             if ($input['kind'] === 'opening') {
                 if ($entry['count'] >= PHP_INT_MAX) throw new RuntimeException();
                 $entry['count']++;
