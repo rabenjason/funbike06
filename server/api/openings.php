@@ -6,7 +6,10 @@ $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if (!in_array($method, ['GET', 'POST'], true)) funbikeJsonResponse(405, ['message' => 'Méthode non autorisée.']);
 $enabled = getenv('FUNBIKE_OPENINGS_ENABLED') !== '0';
 $input = null;
-if ($method === 'GET') funbikeRequireAdmin();
+if ($method === 'GET') {
+    $user = funbikeRequireAdmin();
+    if (($user['role'] ?? 'admin') !== 'superadmin') funbikeJsonResponse(403, ['code' => 'SUPERADMIN_REQUIRED', 'message' => 'Seul le superadministrateur peut consulter les statistiques.']);
+}
 else {
     funbikeRequireTrustedOrigin();
     if (!$enabled) { http_response_code(204); exit; }
