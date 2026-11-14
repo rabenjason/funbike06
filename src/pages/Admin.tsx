@@ -1,4 +1,3 @@
-import { AdminSiteLogo } from "./AdminSiteLogo";
 import { AdminOpenings } from "./AdminOpenings";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import type { Product } from "../types/product";
@@ -308,37 +307,35 @@ export default function Admin() {
 
 function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
   const confirm = useConfirmation();
-  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "promotions" | "home" | "settings" | "users" | "site-logo" | "theme" | "password" | "dealers" | "contact" | "messages" | "openings">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
+  const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "promotions" | "home" | "settings" | "users" | "theme" | "password" | "dealers" | "contact" | "messages" | "openings">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
   const unread = useUnreadMessages(user && !user.mustChangePassword ? user.id : null);
   const [homeDirty, setHomeDirty] = useState(false);
-  const [logoDirty, setLogoDirty] = useState(false);
   const [promotionsDirty, setPromotionsDirty] = useState(false);
   const [promotionsSaving, setPromotionsSaving] = useState(false);
   const [homeSaving, setHomeSaving] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
-  const [logoSaving, setLogoSaving] = useState(false);
   useEffect(() => {
-    if (!homeDirty && !promotionsDirty && !logoDirty) return;
+    if (!homeDirty && !promotionsDirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [homeDirty, promotionsDirty, logoDirty]);
+  }, [homeDirty, promotionsDirty]);
   async function changeSection(next: typeof section) {
-    if (next === section || homeSaving || promotionsSaving || themeSaving || logoSaving) return;
-    if ((homeDirty || promotionsDirty || logoDirty) && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
-    setHomeDirty(false); setLogoDirty(false); setSection(next); setError(""); setEditing(null);
+    if (next === section || homeSaving || promotionsSaving || themeSaving) return;
+    if ((homeDirty || promotionsDirty) && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
+    setHomeDirty(false); setSection(next); setError(""); setEditing(null);
   }
   useEffect(() => { request("auth/me.php").then((r) => setUser(r.user)).catch(() => setUser(null)).finally(() => setChecking(false)); }, []);
   const refresh = useCallback(async () => { const result = await readCatalog(); setCatalog(result); }, []);
   useEffect(() => { if (user && !user.mustChangePassword) { refresh().catch((err) => setError((err as Error).message)); } }, [user, refresh]);
   async function logout() {
-    if (logoutPending.current || homeSaving || promotionsSaving || themeSaving || logoSaving) return;
+    if (logoutPending.current || homeSaving || promotionsSaving || themeSaving) return;
     logoutPending.current = true;
     try {
-      if (!await confirm({ title: "Voulez-vous vous déconnecter ?", description: (homeDirty || promotionsDirty || logoDirty) ? "Les modifications non enregistrées seront perdues. Vous devrez vous reconnecter pour accéder à l’administration." : "Vous devrez vous reconnecter pour accéder à l’administration.", confirmLabel: "Oui", cancelLabel: "Non" })) return;
+      if (!await confirm({ title: "Voulez-vous vous déconnecter ?", description: (homeDirty || promotionsDirty) ? "Les modifications non enregistrées seront perdues. Vous devrez vous reconnecter pour accéder à l’administration." : "Vous devrez vous reconnecter pour accéder à l’administration.", confirmLabel: "Oui", cancelLabel: "Non" })) return;
       setLoggingOut(true); setError("");
       await request("auth/logout.php", json("POST"));
-      setUser(null); setCatalog(emptyCatalog); setEditing(null); setHomeDirty(false); setLogoDirty(false);
+      setUser(null); setCatalog(emptyCatalog); setEditing(null); setHomeDirty(false);
     } catch (err) { setError((err as Error).message); }
     finally { logoutPending.current = false; setLoggingOut(false); }
   }
@@ -373,12 +370,11 @@ function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#171816] text-white">Vérification de la session…</main>;
   if (!user) return <Login onLogin={setUser} themeButton={themeButton} />;
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
-    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex flex-wrap gap-3">{themeButton}<a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut || homeSaving || promotionsSaving || themeSaving || logoSaving} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
+    <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex flex-wrap gap-3">{themeButton}<a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut || homeSaving || promotionsSaving || themeSaving} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">{error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
-      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "promotions", name: "Promotions" }, { id: "home", name: "Accueil" }, { id: "theme", name: "Thème du site" }, { id: "site-logo", name: "Logo du site" }, { id: "settings", name: "Marques et classement" }, { id: "dealers", name: "Revendeurs" }, { id: "contact", name: "Contact" }, { id: "messages", name: "Messages" }, ...(user.role === "superadmin" ? [{ id: "openings" as const, name: "Statistiques" }, { id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy || homeSaving || promotionsSaving || themeSaving || logoSaving} aria-describedby={tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) ? "unread-messages-description" : undefined} title={tab.id === "messages" && unread.failed ? "Compteur indisponible : réessayez dans quelques instants." : undefined} onClick={() => void changeSection(tab.id)} className={section === tab.id ? primary : secondary}>{tab.name}{tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) && <><span aria-hidden="true" className={`ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ${unread.failed ? "bg-neutral-600" : "bg-red-700"}`}>{unread.failed ? "!" : unread.count! > 99 ? "99+" : unread.count}</span></>}</button>)}{(unread.failed || (unread.count !== null && unread.count > 0)) && <span id="unread-messages-description" className="sr-only">{unread.failed ? "Compteur de messages non lus indisponible" : `${unread.count} message${unread.count === 1 ? "" : "s"} non lu${unread.count === 1 ? "" : "s"}`}</span>}</nav>
+      <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "promotions", name: "Promotions" }, { id: "home", name: "Accueil" }, { id: "theme", name: "Thème du site" }, { id: "settings", name: "Marques et classement" }, { id: "dealers", name: "Revendeurs" }, { id: "contact", name: "Contact" }, { id: "messages", name: "Messages" }, ...(user.role === "superadmin" ? [{ id: "openings" as const, name: "Statistiques" }, { id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy || homeSaving || promotionsSaving || themeSaving} aria-describedby={tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) ? "unread-messages-description" : undefined} title={tab.id === "messages" && unread.failed ? "Compteur indisponible : réessayez dans quelques instants." : undefined} onClick={() => void changeSection(tab.id)} className={section === tab.id ? primary : secondary}>{tab.name}{tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) && <><span aria-hidden="true" className={`ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ${unread.failed ? "bg-neutral-600" : "bg-red-700"}`}>{unread.failed ? "!" : unread.count! > 99 ? "99+" : unread.count}</span></>}</button>)}{(unread.failed || (unread.count !== null && unread.count > 0)) && <span id="unread-messages-description" className="sr-only">{unread.failed ? "Compteur de messages non lus indisponible" : `${unread.count} message${unread.count === 1 ? "" : "s"} non lu${unread.count === 1 ? "" : "s"}`}</span>}</nav>
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
       {section === "users" && user.role === "superadmin" && <UserManager user={user} onUserChanged={setUser} />}
-      {section === "site-logo" && <AdminSiteLogo onSavingChange={setLogoSaving} onDirtyChange={setLogoDirty} />}
       {section === "theme" && <AdminSiteTheme onSavingChange={setThemeSaving} />}
       {section === "settings" && <CatalogSettings catalog={catalog} refresh={refresh} />}
       {section === "dealers" && <DealersManager />}

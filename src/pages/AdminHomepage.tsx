@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { HomepageManager, type AdminCatalog, type HomepageField } from "./AdminCatalog";
 import { AdminFeatureBanner } from "./AdminFeatureBanner";
+import { AdminSiteLogo } from "./AdminSiteLogo";
 import { json, request } from "../lib/adminApi";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { validHomepage, type HomepageContent, type HomepageData, type HomepageLink } from "../content/homepage";
@@ -31,9 +32,9 @@ const destinations: { value: HomepageLink["to"]; label: string }[] = [
 const icons: { value: HomepageLink["icon"]; label: string }[] = [{ value: "moto", label: "Moto" }, { value: "helmet", label: "Casque" }, { value: "parts", label: "Pièces" }, { value: "gear", label: "Équipement" }];
 
 export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange, onSavingChange }: { catalog: AdminCatalog; onToggle: (p: Product, field: HomepageField, value: boolean) => Promise<void>; dirty: boolean; saving: boolean; onDirtyChange: (value: boolean) => void; onSavingChange: (value: boolean) => void }) {
-  const [mode, setMode] = useState<"products" | "content" | "sherco">("products");
+  const [mode, setMode] = useState<"products" | "content" | "sherco" | "logo" | "logo-library">("products");
   const confirm = useConfirmation();
-  async function changeMode(next: "products" | "content" | "sherco") {
+  async function changeMode(next: "products" | "content" | "sherco" | "logo" | "logo-library") {
     if (mode === next || saving) return;
     if (dirty && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
     onDirtyChange(false); setMode(next);
@@ -43,8 +44,10 @@ export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange,
       <button type="button" className={mode === "products" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "products"} disabled={saving} onClick={() => void changeMode("products")}>Sélections de produits</button>
       <button type="button" className={mode === "content" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "content"} disabled={saving} onClick={() => void changeMode("content")}>Textes et liens</button>
       <button type="button" className={mode === "sherco" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "sherco"} disabled={saving} onClick={() => void changeMode("sherco")}>Bannière de mise en avant</button>
+      <button type="button" className={mode === "logo" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "logo"} disabled={saving} onClick={() => void changeMode("logo")}>Logo du site</button>
+      <button type="button" className={mode === "logo-library" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "logo-library"} disabled={saving} onClick={() => void changeMode("logo-library")}>Bibliothèque des logos</button>
     </div>
-    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} saving={saving} onSavingChange={onSavingChange} dirty={dirty} onDirtyChange={onDirtyChange} confirmLeave={() => confirm({ title: "Abandonner les modifications ?", description: "Le nom non enregistré sera perdu.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
+    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} saving={saving} onSavingChange={onSavingChange} dirty={dirty} onDirtyChange={onDirtyChange} confirmLeave={() => confirm({ title: "Abandonner les modifications ?", description: "Le nom non enregistré sera perdu.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "sherco" ? <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminSiteLogo key={mode} view={mode === "logo" ? "settings" : "library"} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
   </div>;
 }
 
