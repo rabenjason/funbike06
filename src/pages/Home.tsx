@@ -104,15 +104,18 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               onClick={() => go("catalogue")}
               className="fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 bg-[#ffd100] px-5 py-3 text-center font-bold uppercase text-[#171816] transition active:scale-[0.98] hover:bg-white sm:min-h-11 sm:w-auto"
             >
-              {homepageContent.hero.boutonCatalogue} <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+              <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">{homepageContent.hero.boutonCatalogue}</span>
+              <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0" />
             </button>
             {current && (
               <button
                 onClick={() => go("product", current.id)}
                 className="hero-secondary-cta glass-panel fluid-btn inline-flex min-h-12 w-full items-center justify-center gap-3 border-white/40 bg-white/10 px-5 py-3 text-center font-bold uppercase text-white transition active:scale-[0.98] hover:border-[#ffd100] hover:text-[#ffd100] sm:min-h-11 sm:w-auto"
               >
-                <span className="truncate">{current.name}</span>
-                <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+                <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
+                <span className="min-w-0 [overflow-wrap:anywhere] sm:truncate">{current.name}</span>
+                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0" />
               </button>
             )}
           </motion.div>

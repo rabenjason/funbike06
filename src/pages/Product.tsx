@@ -126,10 +126,11 @@ function ProductDetail({ bike, go, back, backLabel }: ProductPageProps & { bike:
                 whileHover={{ x: 3 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => go("contact")}
-                className="fluid-btn inline-flex min-h-12 w-full min-w-0 items-center justify-between gap-4 bg-[#ffd100] px-4 py-3 text-left font-bold uppercase text-[#171816] transition hover:bg-[#ffe36b] lg:min-w-[210px] lg:w-auto lg:px-5 sm:px-4"
+                className="fluid-btn inline-flex min-h-12 w-full min-w-0 items-center justify-center gap-4 bg-[#ffd100] px-4 py-3 text-center font-bold uppercase sm:justify-between sm:text-left text-[#171816] transition hover:bg-[#ffe36b] lg:min-w-[210px] lg:w-auto lg:px-5 sm:px-4"
               >
-                Demander un devis
-                <FontAwesomeIcon icon={faArrowRight} className="shrink-0" />
+                <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">Demander un devis</span>
+                <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0" />
               </motion.button>
             </div>
 

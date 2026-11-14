@@ -155,9 +155,11 @@ export function PartCard({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onEnquire(part); }}
-            className="mt-2.5 flex min-h-10 w-full items-center justify-between gap-1 border-t border-black/10 pt-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:text-[#171816] dark:border-white/10 dark:text-white/55 dark:hover:text-white"
+            className="mt-2.5 flex min-h-10 w-full items-center justify-center gap-1 border-t border-black/10 pt-2.5 text-center text-[10px] sm:justify-between sm:text-left font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:text-[#171816] dark:border-white/10 dark:text-white/55 dark:hover:text-white"
           >
-            Se renseigner <FontAwesomeIcon icon={faArrowRight} />
+            <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">Se renseigner</span>
+            <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0" />
           </button>
         )}
       </div>

@@ -230,18 +230,20 @@ export function Footer({ go, onCookies }: { go: (p: string, id?: string) => void
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => go("contact")}
-              className="group inline-flex min-h-12 w-full items-center justify-between gap-3 bg-[#ffd100] px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#171816] shadow-sm transition hover:bg-[#ffe36b] active:bg-[#ffd100] sm:w-auto sm:min-w-48 sm:justify-center"
+              className="group inline-flex min-h-12 w-full items-center justify-center gap-3 text-center bg-[#ffd100] px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#171816] shadow-sm transition hover:bg-[#ffe36b] active:bg-[#ffd100] sm:w-auto sm:min-w-48 sm:justify-center"
             >
-              <span className="truncate">{content.footer.demanderDevis}</span>
-              <FontAwesomeIcon icon={faArrowRight} className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+              <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
+              <span className="min-w-0 [overflow-wrap:anywhere] sm:truncate">{content.footer.demanderDevis}</span>
+              <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
             </motion.button>
             <motion.a
               whileTap={{ scale: 0.97 }}
               href={CONTACT_PHONE_HREF}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2.5 border border-white/20 bg-white/[0.03] px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:border-[#ffd100] hover:text-[#ffd100] active:bg-white/10 sm:w-auto"
             >
-              <FontAwesomeIcon icon={faPhone} className="shrink-0" />
-              <span className="truncate">{content.footer.appeler}</span>
+              <FontAwesomeIcon icon={faPhone} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0 text-center [overflow-wrap:anywhere] sm:truncate">{content.footer.appeler}</span>
+              <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faPhone} /></span>
             </motion.a>
           </div>
         </motion.div>
