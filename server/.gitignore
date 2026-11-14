@@ -31,3 +31,6 @@
 
 # Thème public choisi depuis le dashboard (donnée locale, jamais livrée).
 /storage/data/site-theme.json
+
+# Statistiques locales réelles : ne jamais livrer les données runtime.
+/storage/private/site-openings.json
