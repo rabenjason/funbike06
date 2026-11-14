@@ -85,11 +85,11 @@ test('erreur serveur visible, sans inventer de nombres', async () => {
 });
 
 
-test('l’onglet Statistiques est accessible dans l’administration sans collecte publique', async () => {
+test('l’onglet Statistiques est accessible au superadmin sans collecte publique', async () => {
   calls = [];
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url).replace('/server/api/', ''); calls.push({ path, method: options.method || 'GET' });
-    const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'admin', mustChangePassword: false } }, 'brands.php?includeDrafts=1': { brands: [] }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] }, 'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] }, 'openings.php': { enabled: false, currentMonth: '2026-11', months: [], years: [] }, 'messages.php?count=unread': { unreadCount: 0 } };
+    const fixed = { 'auth/me.php': { user: { id: 'admin', username: 'admin', role: 'superadmin', mustChangePassword: false } }, 'brands.php?includeDrafts=1': { brands: [] }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] }, 'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] }, 'openings.php': { enabled: false, currentMonth: '2026-11', months: [], years: [] }, 'messages.php?count=unread': { unreadCount: 0 } };
     return fixed[path] ? { ok: true, json: async () => fixed[path] } : { ok: false, json: async () => ({ message: 'Route inconnue' }) };
   };
   const view = render(React.createElement(Admin));
@@ -98,4 +98,19 @@ test('l’onglet Statistiques est accessible dans l’administration sans collec
   await waitFor(() => assert.match(view.container.textContent, /Comptage désactivé sur le serveur/));
   assert.ok(calls.some((call) => call.path === 'openings.php' && call.method === 'GET'));
   assert.ok(!calls.some((call) => call.path === 'openings.php' && call.method === 'POST'));
+});
+
+
+test('un administrateur simple ne voit pas l’onglet Statistiques et ne charge pas son API', async () => {
+  calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url).replace('/server/api/', ''); calls.push({ path, method: options.method || 'GET' });
+    const fixed = { 'auth/me.php': { user: { id:'editor', username:'editor', role:'admin', mustChangePassword:false } }, 'brands.php?includeDrafts=1': { brands: [] }, 'categories.php': { categories: [] }, 'families.php': { families: [] }, 'product-types.php': { productTypes: [] }, 'models.php?includeDrafts=1': { models: [] }, 'products/motorcycles.php?includeDrafts=1': { data: [] }, 'products/helmets.php?includeDrafts=1': { data: [] }, 'products/riding-gear.php?includeDrafts=1': { data: [] }, 'products/spare-parts.php?includeDrafts=1': { data: [] }, 'messages.php?count=unread': { unreadCount: 0 } };
+    return fixed[path] ? {ok:true, json:async()=>fixed[path]} : {ok:false, json:async()=>({message:'Route inconnue'})};
+  };
+  const view = render(React.createElement(Admin));
+  await waitFor(() => assert.ok(view.getByRole('button', {name:'Produits'})));
+  assert.equal(view.queryByRole('button', {name:'Statistiques'}), null);
+  assert.equal(view.queryByRole('button', {name:'Administrateurs'}), null);
+  assert.ok(!calls.some((call) => call.path === 'openings.php'));
 });

@@ -52,6 +52,20 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     assert.equal(badOrigin.status, 403); assert.equal(existsSync(statsFile), false);
     cookie = await login(base, changed);
     assert.equal((await fetch(base + 'openings.php', { method: 'PUT', headers: { Cookie: cookie } })).status, 405);
+    // Un véritable compte admin simple ne peut lire les statistiques, même via l'API directe.
+    const createdEditor = await fetch(base + 'auth/users.php', {method:'POST', headers:{Cookie:cookie, 'Content-Type':'application/json'}, body:JSON.stringify({username:'editor'})});
+    assert.equal(createdEditor.status, 201);
+    const editorInfo = await createdEditor.json();
+    const editorLogin = await fetch(base + 'auth/login.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:'editor', password:editorInfo.temporaryPassword})});
+    assert.equal(editorLogin.status, 200);
+    let editorCookie = editorLogin.headers.get('set-cookie').split(';')[0];
+    const editorPassword = `editor-${randomBytes(12).toString('hex')}`;
+    const editorChange = await fetch(base + 'auth/change-password.php', {method:'POST', headers:{Cookie:editorCookie, 'Content-Type':'application/json'}, body:JSON.stringify({currentPassword:editorInfo.temporaryPassword, newPassword:editorPassword, newPasswordConfirmation:editorPassword})});
+    assert.equal(editorChange.status, 200);
+    editorCookie = editorChange.headers.get('set-cookie').split(';')[0];
+    const forbidden = await fetch(base + 'openings.php', {headers:{Cookie:editorCookie}});
+    assert.equal(forbidden.status, 403);
+    assert.equal((await forbidden.json()).code, 'SUPERADMIN_REQUIRED');
     const before = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.equal(before.enabled, true); assert.deepEqual(before.months, []);
     for (let n = 0; n < 10; n++) assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
@@ -81,6 +95,9 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.deepEqual(data.months, [{month:data.currentMonth, count:16, visitors:2, browsers:2}]);
     assert.equal(data.years[0].visitors, 2);
+    const forbiddenWithData = await fetch(base + 'openings.php', {headers:{Cookie:editorCookie}});
+    assert.equal(forbiddenWithData.status, 403);
+    const deniedBody = await forbiddenWithData.json(); assert.equal(deniedBody.code, 'SUPERADMIN_REQUIRED'); assert.equal(deniedBody.months, undefined);
     const results = await Promise.all(Array.from({ length: 12 }, () => fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })));
     assert.ok(results.every(response => response.status === 204));
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
