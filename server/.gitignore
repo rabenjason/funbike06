@@ -39,3 +39,7 @@
 
 /storage/private/site-ip-audience.json
 /storage/private/site-ip-audience-key.json
+
+# Bibliothèque des logos du site : données et images runtime.
+/storage/data/site-logo.json
+/uploads/site-logo/

@@ -1,0 +1,81 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createServer as netServer } from 'node:net';
+import { randomBytes } from 'node:crypto';
+const wasm = resolve('node_modules/.bin/php-wasm-cli');
+const php = process.env.PHP_BINARY || (spawnSync('php', ['-v'], { stdio:'ignore' }).status === 0 ? 'php' : existsSync(wasm) ? wasm : null);
+
+test('bibliothèque serveur : original protégé, logos conservés, sélection, suppression et concurrence', {skip:!php && 'PHP non installé', timeout:90000}, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'funbike-site-logo-'));
+  cpSync(resolve('server'), join(dir, 'server'), {recursive:true});
+  const root = join(dir, 'server'), router = join(dir, 'router.php');
+  writeFileSync(router, `<?php\n$p=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);\nif(preg_match('#^/server/(storage|scripts|api/_lib)(/|$)#',$p)){http_response_code(404);exit;}\nreturn false;\n`);
+  const initial = `initial-${randomBytes(12).toString('hex')}`, next = `changed-${randomBytes(12).toString('hex')}`;
+  const created = spawnSync(php, [join(root,'scripts/create-admin.php'),'admin-test'], {env:{...process.env,FUNBIKE_TEMP_PASSWORD:initial}, encoding:'utf8'});
+  assert.equal(created.status, 0, created.stderr);
+  const listener = netServer(); await new Promise(r=>listener.listen(0,'127.0.0.1',r)); const port=listener.address().port; await new Promise(r=>listener.close(r));
+  const child = spawn(php,['-S',`127.0.0.1:${port}`,'-t',dir,router],{stdio:'ignore'});
+  const base = `http://127.0.0.1:${port}/server/api/`, original = '/server/public/assets/company/logo-funbike-720-a3ab2dc4.png';
+  let cookie = '';
+  async function call(path, method='GET', body, auth=true) {
+    const headers={}; if(auth && cookie) headers.Cookie=cookie; if(body && !(body instanceof FormData)) headers['Content-Type']='application/json';
+    const response=await fetch(base+path,{method,headers,body:body instanceof FormData?body:body?JSON.stringify(body):undefined});
+    const set=response.headers.get('set-cookie'); if(auth && set) cookie=set.split(';')[0];
+    return {status:response.status, body:await response.json()};
+  }
+  try {
+    let ready=false; for(let i=0;i<100;i++){try{if((await fetch(base+'brands.php')).ok){ready=true;break;}}catch{} await new Promise(r=>setTimeout(r,100));} assert.ok(ready);
+    assert.equal((await call('site-logo.php','GET',undefined,false)).status,401);
+    assert.equal((await call('site-logo.php','POST',{},false)).status,401);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
+    assert.equal((await call('auth/login.php','POST',{username:'admin-test',password:initial})).status,200);
+    assert.equal((await call('auth/change-password.php','POST',{currentPassword:initial,newPassword:next,newPasswordConfirmation:next})).status,200);
+    let library = await call('site-logo.php'); assert.equal(library.status,200);
+    assert.deepEqual(library.body.data,{images:[],selected:null}); assert.equal(library.body.defaultLogo,original);
+    const config = join(root,'storage/data/site-logo.json'); assert.equal(existsSync(config),false);
+    const imageBytes=readFileSync(join(dir,original));
+    async function upload(revision, bytes=imageBytes) { const form=new FormData(); form.set('revision',revision); form.set('image',new Blob([bytes],{type:'image/png'}),'logo.png'); return call('site-logo.php','POST',form); }
+    assert.equal((await upload(library.body.revision,Buffer.from('invalid'))).status,400);
+    const first=await upload(library.body.revision); assert.equal(first.status,201,JSON.stringify(first.body));
+    assert.equal(first.body.data.selected,null); assert.equal(first.body.data.images.length,1);
+    const one=first.body.data.images[0]; assert.match(one.url,/^\/server\/uploads\/site-logo\/logo-[a-f0-9]{32}\.png$/);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
+    assert.equal((await call('site-logo.php','PUT',{id:one.id,revision:library.body.revision})).status,409);
+    assert.equal((await call('site-logo.php','DELETE',{id:original,revision:first.body.revision})).status,400);
+    assert.equal(existsSync(join(dir,original)),true);
+    const selected=await call('site-logo.php','PUT',{id:one.id,revision:first.body.revision}); assert.equal(selected.status,200);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,one.url);
+    assert.equal((await call('site-logo.php','DELETE',{id:one.id,revision:selected.body.revision})).status,409);
+    assert.equal(existsSync(join(dir,one.url)),true);
+    const second=await upload(selected.body.revision); assert.equal(second.status,201); const two=second.body.data.images[1];
+    assert.equal(second.body.data.selected,one.id); assert.equal(existsSync(join(dir,one.url)),true);
+    const selectedTwo=await call('site-logo.php','PUT',{id:two.id,revision:second.body.revision}); assert.equal(selectedTwo.status,200);
+    const cross = await fetch(base + 'site-logo.php', {method:'DELETE',headers:{Cookie:cookie,'Content-Type':'application/json',Origin:'https://evil.invalid'},body:JSON.stringify({id:one.id,revision:selectedTwo.body.revision})});
+    assert.equal(cross.status,403); assert.equal(existsSync(join(dir,one.url)),true);
+    const reference = join(root,'storage/data/site-logo-test-reference.json');
+    writeFileSync(reference, JSON.stringify({image:one.url}));
+    assert.equal((await call('site-logo.php','DELETE',{id:one.id,revision:selectedTwo.body.revision})).status,409);
+    assert.equal(existsSync(join(dir,one.url)),true);
+    writeFileSync(reference, '{invalid');
+    assert.equal((await call('site-logo.php','DELETE',{id:one.id,revision:selectedTwo.body.revision})).status,500);
+    assert.equal(existsSync(join(dir,one.url)),true);
+    rmSync(reference);
+    const removed=await call('site-logo.php','DELETE',{id:one.id,revision:selectedTwo.body.revision}); assert.equal(removed.status,200);
+    assert.equal(existsSync(join(dir,one.url)),false); assert.equal(existsSync(join(dir,two.url)),true);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,two.url);
+    const reset=await call('site-logo.php','PUT',{id:null,revision:removed.body.revision}); assert.equal(reset.status,200);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
+    assert.equal((await call('site-logo.php','PUT',{revision:reset.body.revision})).status,400);
+    const deleted=await call('site-logo.php','DELETE',{id:two.id,revision:reset.body.revision}); assert.equal(deleted.status,200);
+    assert.equal(existsSync(join(dir,two.url)),false); assert.equal(existsSync(join(dir,original)),true);
+    assert.deepEqual(readFileSync(join(dir,original)), imageBytes, 'le logo permanent reste intact');
+    writeFileSync(config,'{invalid');
+    assert.equal((await call('site-logo.php')).status,500);
+    assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
+    assert.equal(readFileSync(config,'utf8'),'{invalid');
+  } finally { child.kill('SIGTERM'); await new Promise(r=>{if(child.exitCode!==null)r();else {child.once('exit',r);setTimeout(r,1000);}}); rmSync(dir,{recursive:true,force:true}); }
+});

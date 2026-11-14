@@ -69,7 +69,8 @@ test('statistiques mensuelles, annuelles, données manquantes et état désactiv
   const view = render(React.createElement(AdminOpenings));
   await waitFor(() => assert.match(view.container.textContent, /Comptage désactivé/));
   assert.match(view.container.textContent, /Visiteurs estimés sur l’année :\s*4/);
-  assert.match(view.container.textContent, /pas des personnes/);
+  assert.match(view.container.textContent, /Les visiteurs et les IP sont estimés/);
+  assert.doesNotMatch(view.container.textContent, /Les visiteurs estimés représentent des navigateurs/);
   assert.match(view.container.textContent, /Total des mois enregistrés :\s*11/);
   assert.equal(view.getAllByText('—').length, 30);
   fireEvent.change(view.getByLabelText('Année des statistiques'), { target: { value: '2025' } });

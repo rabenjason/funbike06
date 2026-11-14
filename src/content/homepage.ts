@@ -1,6 +1,7 @@
 // Copie des valeurs d'installation PHP, gardée synchronisée par un test.
 // Ne pas importer depuis /server : Vite transmet ce chemin au serveur PHP.
 import defaults from "./homepage-defaults.json";
+import { LOGO } from "../catalog/brands";
 
 export type HomepageContent = {
   hero: { localisation: string; titreLigne1: string; titreLigne2: string; description: string; descriptionSansMarques: string; sloganPrefix: string; usages: string[]; boutonCatalogue: string; aLaUne: string; choisirModele: string; afficherModele: string };
@@ -21,6 +22,7 @@ const initial = defaults as HomepageData;
 export let chatbotEnabled = true;
 export let chatbotName = "Piston";
 export let chatbotLogo: string | null = null;
+export let siteLogo = LOGO;
 export let siteTheme: "funbike" | "tvs" = "funbike";
 export let homepageContent: HomepageContent = initial.content;
 export let homepageCategories: HomepageLink[] = initial.links;
@@ -56,7 +58,7 @@ export async function loadHomepageData(signal?: AbortSignal) {
   if (!res.ok) throw new Error("Impossible de charger le contenu de l’accueil.");
   const value: unknown = await res.json();
   if (!value || typeof value !== "object" || !validHomepage((value as { data?: unknown }).data)) throw new Error("Données de l’accueil invalides.");
-  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown; chatbotEnabled?: unknown; chatbotName?: unknown; chatbotLogo?: unknown };
+  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown; chatbotEnabled?: unknown; chatbotName?: unknown; chatbotLogo?: unknown; siteLogo?: unknown };
   let image = "https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg" as string | null;
   if (response.shercoBannerConfigured === true) {
     if (response.shercoBannerImage !== null && (typeof response.shercoBannerImage !== "string" || !/^\/server\/uploads\/homepage\/sherco-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.shercoBannerImage))) throw new Error("Image de bannière invalide.");
@@ -71,6 +73,7 @@ export async function loadHomepageData(signal?: AbortSignal) {
   chatbotName = response.chatbotName as string | undefined ?? "Piston";
   chatbotLogo = response.chatbotLogo as string | null | undefined ?? null;
   chatbotEnabled = response.chatbotEnabled !== false;
+  siteLogo = typeof response.siteLogo === "string" && (response.siteLogo === LOGO || /^\/server\/uploads\/site-logo\/logo-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.siteLogo)) ? response.siteLogo : LOGO;
   siteTheme = response.siteTheme === "tvs" ? "tvs" : "funbike";
   shercoBannerImage = image;
 }
