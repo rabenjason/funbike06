@@ -458,9 +458,11 @@ function DealerContent({ go, initialCity }: { go: (p: string, id?: string) => vo
             <button
               type="button"
               onClick={() => go("contact")}
-              className="inline-flex min-h-12 w-full items-center justify-between gap-4 bg-[#171816] px-4 text-[12px] font-bold uppercase tracking-[0.1em] text-white transition active:scale-[0.98] sm:hidden dark:bg-[#ffd100] dark:text-[#171816]"
+              className="inline-flex min-h-12 w-full items-center justify-center gap-4 text-center bg-[#171816] px-4 text-[12px] font-bold uppercase tracking-[0.1em] text-white transition active:scale-[0.98] sm:hidden dark:bg-[#ffd100] dark:text-[#171816]"
             >
-              Devenir revendeur <FontAwesomeIcon icon={faArrowRight} />
+              <span aria-hidden="true" className="invisible inline-flex shrink-0"><FontAwesomeIcon icon={faArrowRight} /></span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">Devenir revendeur</span>
+              <FontAwesomeIcon icon={faArrowRight} aria-hidden="true" className="shrink-0" />
             </button>
             {/* Tablet / desktop: editorial underlined link */}
             <button
