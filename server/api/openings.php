@@ -19,6 +19,9 @@ else {
         ($input['kind'] === 'visitor' && !isset($input['id'])) || count(array_diff(array_keys($input), ['kind', 'id'])) !== 0) {
         funbikeJsonResponse(400, ['message' => 'Requête invalide.']);
     }
+    // Anciennes pages encore en cache : ignorer leurs événements et identifiants visiteurs.
+    if ($input['kind'] === 'visitor') { http_response_code(204); exit; }
+    unset($input['id']);
 }
 $now = new DateTimeImmutable('now', new DateTimeZone('Indian/Antananarivo'));
 $month = $now->format('Y-m');
@@ -53,11 +56,6 @@ try {
             if ($input['kind'] === 'opening') {
                 if ($entry['count'] >= PHP_INT_MAX) throw new RuntimeException();
                 $entry['count']++;
-            }
-            if (isset($input['id'])) {
-                // Identifiant non stocké : seul son condensat annuel pseudonyme est conservé.
-                $hash = hash('sha256', $now->format('Y') . ':' . $input['id']);
-                if (count($entry['visitors']) < 50000 && !in_array($hash, $entry['visitors'], true)) $entry['visitors'][] = $hash;
             }
             $months[$month] = $entry;
             $json = json_encode(['months' => $months, 'limit' => ['minute' => $minute, 'count' => $limit + 1]], JSON_UNESCAPED_SLASHES);
