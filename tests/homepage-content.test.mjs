@@ -176,8 +176,14 @@ test('les logos sont dans Accueil, avec bibliothèque séparée et protection du
     return React.createElement(ConfirmationProvider, null, React.createElement(AdminHomepage, {catalog:adminCatalog,onToggle:async()=>{},dirty:isDirty,saving:isSaving,onDirtyChange:setIsDirty,onSavingChange:setIsSaving}));
   }
   const view=render(React.createElement(Example));
+  assert.equal(view.queryByRole('button',{name:'Bibliothèque des logos'}),null, 'la bibliothèque ne figure pas dans le menu Accueil');
   fireEvent.click(view.getByRole('button',{name:'Logo du site'}));
   await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
+  const menuAccueil = view.getByLabelText('Gestion de l’accueil');
+  const menuLogo = view.getByRole('navigation',{name:'Gestion du logo'});
+  assert.equal(menuAccueil.contains(view.getByRole('button',{name:'Bibliothèque des logos'})),false);
+  assert.ok(menuLogo.contains(view.getByRole('button',{name:'Bibliothèque des logos'})));
+  assert.equal(view.getByRole('button',{name:'Réglages du logo'}).getAttribute('aria-pressed'),'true');
   assert.equal(view.queryByRole('heading',{name:'Bibliothèque des logos'}),null);
   fireEvent.change(view.getByLabelText('Nom du logo'),{target:{value:'Mon brouillon'}});
   fireEvent.click(view.getByRole('button',{name:'Bibliothèque des logos'}));
@@ -187,4 +193,8 @@ test('les logos sont dans Accueil, avec bibliothèque séparée et protection du
   fireEvent.click(view.getByRole('button',{name:'Bibliothèque des logos'})); fireEvent.click(view.getByRole('button',{name:'Abandonner'}));
   await waitFor(()=>assert.ok(view.getByRole('heading',{name:'Bibliothèque des logos'})));
   assert.equal(view.queryByLabelText('Nom du logo'),null);
+  assert.equal(view.getByRole('button',{name:'Bibliothèque des logos'}).getAttribute('aria-pressed'),'true');
+  fireEvent.click(view.getByRole('button',{name:'Réglages du logo'}));
+  await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
+  assert.equal(view.getByLabelText('Nom du logo').value,'');
 });
