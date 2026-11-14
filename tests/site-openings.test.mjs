@@ -4,7 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
-let dom, server, render, fireEvent, waitFor, cleanup, AdminOpenings, Admin, recordSiteOpening, clearOldAudienceId, CookieConsent, calls, oldFetch;
+let dom, server, render, fireEvent, waitFor, cleanup, AdminOpenings, Admin, recordSiteOpening, clearOldAudienceId, getBrowserId, CookieConsent, calls, oldFetch;
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
   globalThis.window = dom.window; globalThis.document = dom.window.document; globalThis.localStorage = dom.window.localStorage; globalThis.HTMLElement = dom.window.HTMLElement; globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,14 +12,14 @@ before(async () => {
   server = await createServer({ server: { middlewareMode: true }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
   ({ AdminOpenings } = await server.ssrLoadModule('/src/pages/AdminOpenings.tsx'));
   ({ default: Admin } = await server.ssrLoadModule('/src/pages/Admin.tsx'));
-  ({ recordSiteOpening, clearOldAudienceId } = await server.ssrLoadModule('/src/lib/openings.ts'));
+  ({ recordSiteOpening, clearOldAudienceId, getBrowserId } = await server.ssrLoadModule('/src/lib/openings.ts'));
   ({ default: CookieConsent } = await server.ssrLoadModule('/src/components/CookieConsent.tsx'));
   oldFetch = globalThis.fetch;
 });
 afterEach(() => cleanup());
 after(async () => { globalThis.fetch = oldFetch; dom.window.close(); await server.close(); });
 
-test('ouvertures sans identifiant, préférences cookies préservées', async () => {
+test('identifiant de navigateur stable, comptage unique et préférences cookies préservées', async () => {
   calls = []; localStorage.clear();
   const consent = JSON.stringify({necessary:true,stats:true,marketing:false,date:new Date().toISOString()});
   localStorage.setItem('fb_cookie_consent', consent);
@@ -31,10 +31,27 @@ test('ouvertures sans identifiant, préférences cookies préservées', async ()
   recordSiteOpening(false, send); assert.equal(calls.length, 0);
   recordSiteOpening(true, send); recordSiteOpening(true, send);
   assert.equal(calls.length, 1);
-  assert.deepEqual(JSON.parse(calls[0][1].body), {kind:'opening'});
+  const payload = JSON.parse(calls[0][1].body);
+  assert.equal(payload.kind, 'opening'); assert.match(payload.browserId, /^[a-f0-9]{64}$/);
+  assert.equal(getBrowserId(), payload.browserId);
+  assert.equal(JSON.parse(localStorage.getItem('fb_stats_browser_v1')).id, payload.browserId);
   assert.equal(calls[0][1].credentials, 'omit');
   assert.equal(localStorage.getItem('fb_audience_id_v2'), null);
   assert.equal(localStorage.getItem('fb_cookie_consent'), consent);
+});
+
+test('renouvellement annuel, stockage indisponible et navigateurs distincts', () => {
+  localStorage.clear();
+  const first = getBrowserId(); assert.match(first, /^[a-f0-9]{64}$/);
+  const saved = JSON.parse(localStorage.getItem('fb_stats_browser_v1'));
+  localStorage.setItem('fb_stats_browser_v1', JSON.stringify({...saved, year: '1990'}));
+  const renewed = getBrowserId(); assert.notEqual(renewed, first);
+  localStorage.removeItem('fb_stats_browser_v1');
+  const second = getBrowserId(); assert.notEqual(second, renewed);
+  localStorage.removeItem('fb_stats_browser_v1');
+  const original = window.Storage.prototype.setItem;
+  try { window.Storage.prototype.setItem = () => { throw new Error('storage blocked'); }; assert.equal(getBrowserId(), null); }
+  finally { window.Storage.prototype.setItem = original; }
 });
 
 test('bandeau cookies original, sans nouvelle information sur les visiteurs', () => {
@@ -48,16 +65,16 @@ test('bandeau cookies original, sans nouvelle information sur les visiteurs', ()
 });
 
 test('statistiques mensuelles, annuelles, données manquantes et état désactivé', async () => {
-  globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: false, currentMonth: '2026-11', months: [{ month: '2026-01', count: 4, visitors: 2 }, { month: '2026-02', count: 7, visitors: 2 }, { month: '2025-12', count: 12, visitors: 1 }], years: [{year:'2026', visitors: 3}, {year:'2025', visitors:1}] }) });
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: false, currentMonth: '2026-11', months: [{ month: '2026-01', count: 4, visitors: 2, browsers: 3 }, { month: '2026-02', count: 7, visitors: 2, browsers: 2 }, { month: '2025-12', count: 12, visitors: 1, browsers: null }], years: [{year:'2026', visitors: 3, browsers: 4}, {year:'2025', visitors:1, browsers:null}] }) });
   const view = render(React.createElement(AdminOpenings));
   await waitFor(() => assert.match(view.container.textContent, /Comptage désactivé/));
-  assert.match(view.container.textContent, /Visiteurs estimés sur l’année :\s*3/);
+  assert.match(view.container.textContent, /Visiteurs estimés sur l’année :\s*4/);
   assert.match(view.container.textContent, /pas des personnes/);
   assert.match(view.container.textContent, /Total des mois enregistrés :\s*11/);
-  assert.equal(view.getAllByText('—').length, 20);
+  assert.equal(view.getAllByText('—').length, 30);
   fireEvent.change(view.getByLabelText('Année des statistiques'), { target: { value: '2025' } });
   assert.match(view.container.textContent, /Total des mois enregistrés :\s*12/);
-  assert.equal(view.getAllByText('—').length, 22);
+  assert.equal(view.getAllByText('—').length, 35);
 });
 
 test('erreur serveur visible, sans inventer de nombres', async () => {

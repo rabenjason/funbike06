@@ -56,23 +56,35 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     assert.equal(before.enabled, true); assert.deepEqual(before.months, []);
     for (let n = 0; n < 10; n++) assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
     let data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.deepEqual(data.months, [{ month: data.currentMonth, count: 10, visitors: 1 }]);
+    assert.deepEqual(data.months, [{ month: data.currentMonth, count: 10, visitors: 1, browsers: null }]);
     const stored = JSON.parse(readFileSync(statsFile, 'utf8'));
     assert.deepEqual(Object.keys(stored).sort(), ['limit', 'months']); assert.equal(stored.months[data.currentMonth].count, 10);
     assert.equal(readFileSync(statsFile, 'utf8').includes('127.0.0.1'), false);
     assert.equal((await fetch(base.replace('/api/', '/storage/private/site-ip-audience.json'))).status, 404);
+    // Même IP, deux identifiants de navigateurs et plusieurs ouvertures.
+    const phone = 'a'.repeat(64), computer = 'b'.repeat(64);
+    for (const browserId of [phone, phone, computer]) {
+      const r = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening', browserId})});
+      assert.equal(r.status, 204);
+    }
+    data = await (await fetch(base + 'openings.php', {headers:{Cookie:cookie}})).json();
+    assert.equal(data.months[0].count, 13); assert.equal(data.months[0].visitors, 1);
+    assert.equal(data.months[0].browsers, 2); assert.equal(data.years[0].browsers, 2);
+    const rawStats = readFileSync(statsFile, 'utf8');
+    assert.equal(rawStats.includes(phone), false); assert.equal(rawStats.includes(computer), false);
+    assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening', browserId:'not-valid'})})).status, 400);
     // Le routeur de test uniquement simule une seconde adresse distante ; le code de production n'utilise pas cet en-tête.
     for (let n = 0; n < 3; n++) {
       const response = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json', 'X-Test-Client':'203.0.113.2'}, body:JSON.stringify({kind:'opening'})});
       assert.equal(response.status, 204);
     }
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.deepEqual(data.months, [{month:data.currentMonth, count:13, visitors:2}]);
+    assert.deepEqual(data.months, [{month:data.currentMonth, count:16, visitors:2, browsers:2}]);
     assert.equal(data.years[0].visitors, 2);
     const results = await Promise.all(Array.from({ length: 12 }, () => fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })));
     assert.ok(results.every(response => response.status === 204));
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.equal(data.months[0].count, 25, 'aucune ouverture perdue lors des requêtes rapprochées');
+    assert.equal(data.months[0].count, 28, 'aucune ouverture perdue lors des requêtes rapprochées');
     const idA = 'a'.repeat(64);
     const prior = readFileSync(statsFile, 'utf8');
     const event = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id:idA})});
@@ -80,7 +92,7 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     const opening = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json', 'X-Forwarded-For':'203.0.113.91'}, body:JSON.stringify({kind:'opening', id:idA})});
     assert.equal(opening.status, 204);
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.equal(data.months[0].count, 26); assert.equal(data.months[0].visitors, 2, 'les en-têtes client ne changent pas l’IP');
+    assert.equal(data.months[0].count, 29); assert.equal(data.months[0].visitors, 2, 'les en-têtes client ne changent pas l’IP');
     assert.equal(readFileSync(statsFile, 'utf8').includes(idA), false);
     assert.equal(readFileSync(statsFile, 'utf8').includes('127.0.0.1'), false);
     assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id:'bad'})})).status, 400);
@@ -88,10 +100,11 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     const year = data.currentMonth.slice(0,4);
     const previous = `${year}-01`;
     if (previous < data.currentMonth) {
-      historical.months[previous] = {count:4, visitors:[historical.months[data.currentMonth].visitors[0], 'b'.repeat(64)]};
+      historical.months[previous] = {count:4, visitors:[historical.months[data.currentMonth].visitors[0], 'c'.repeat(64)], browsers:[historical.months[data.currentMonth].browsers[0], 'd'.repeat(64)]};
       writeFileSync(statsFile, JSON.stringify(historical));
       const annual = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
       assert.equal(annual.years.find(y => y.year === year).visitors, 3, 'une même empreinte est dédupliquée entre les mois');
+      assert.equal(annual.years.find(y => y.year === year).browsers, 3, 'les navigateurs annuels sont dédupliqués entre les mois');
     }
     const keyFile = join(root, 'storage/private/site-ip-audience-key.json');
     const savedKey = readFileSync(keyFile, 'utf8');
