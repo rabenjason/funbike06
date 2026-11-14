@@ -21,8 +21,8 @@ function parse(result: Record<string, unknown>): Library {
   return { images: data.images as Image[], selected: data.selected as string | null, revision: result.revision };
 }
 
-type Props = { view: "settings" | "library"; onSavingChange?: (saving: boolean) => void; onDirtyChange?: (dirty: boolean) => void };
-export function AdminSiteLogo({ view, onSavingChange, onDirtyChange }: Props) {
+type Props = { view: "settings" | "library"; onViewChange?: (view: "settings" | "library") => void; onSavingChange?: (saving: boolean) => void; onDirtyChange?: (dirty: boolean) => void };
+export function AdminSiteLogo({ view, onViewChange, onSavingChange, onDirtyChange }: Props) {
   const confirm = useConfirmation();
   const [data, setData] = useState<Library | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,9 +71,18 @@ export function AdminSiteLogo({ view, onSavingChange, onDirtyChange }: Props) {
   }
   const active = data?.images.find(image => image.id === data.selected);
   return <section className="rounded-xl border border-black/10 bg-white p-5 sm:p-6">
-    <p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Accueil</p>
-    <h1 className="mt-1 text-2xl font-bold">{view === "settings" ? "Logo du site" : "Bibliothèque des logos"}</h1>
-    <p className="mt-2 text-sm text-black/60">{view === "settings" ? "Le logo choisi apparaît en haut et en bas du site. L’écran de chargement et l’icône de l’onglet ne changent pas." : "Retrouvez, renommez ou supprimez les logos ajoutés. Le logo par défaut reste toujours disponible."}</p>
+    <div className="flex flex-col gap-5 border-b border-black/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="max-w-2xl">
+        <p className="text-xs font-bold uppercase tracking-widest text-[#98741b]">Accueil / Identité</p>
+        <h1 className="mt-1 text-2xl font-bold">Logo du site</h1>
+        <p className="mt-2 text-sm leading-relaxed text-black/60">Le logo choisi apparaît en haut et en bas du site. L’écran de chargement et l’icône de l’onglet ne changent pas.</p>
+      </div>
+      {onViewChange && <nav aria-label="Gestion du logo" className="flex w-fit max-w-full flex-wrap gap-2 rounded-lg border border-black/10 bg-[#faf9f5] p-1.5">
+        <button type="button" aria-pressed={view === "settings"} disabled={busy} onClick={() => void onViewChange("settings")} className={view === "settings" ? "rounded-md bg-[#ffd100] px-4 py-2 text-sm font-bold text-[#171816] disabled:opacity-50" : secondary}>Réglages du logo</button>
+        <button type="button" aria-pressed={view === "library"} disabled={busy} onClick={() => void onViewChange("library")} className={view === "library" ? "rounded-md bg-[#ffd100] px-4 py-2 text-sm font-bold text-[#171816] disabled:opacity-50" : secondary}>Bibliothèque des logos</button>
+      </nav>}
+    </div>
+    {view === "library" && <div className="mt-5"><h2 className="text-lg font-bold">Bibliothèque des logos</h2><p className="mt-1 text-sm text-black/60">Retrouvez, renommez ou supprimez les logos ajoutés. Le logo par défaut reste toujours disponible.</p></div>}
     {loading && <p role="status" className="mt-4 text-sm">Chargement des logos…</p>}
     {error && <div role="alert" className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error} <button type="button" className="underline" disabled={busy} onClick={() => setAttempt(n => n + 1)}>Recharger</button></div>}
     {notice && <p role="status" className="mt-4 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
