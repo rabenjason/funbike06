@@ -10,7 +10,7 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
-export type Consent = { necessary: true; stats: boolean; marketing: boolean; date: string; version: 2 };
+export type Consent = { necessary: true; stats: boolean; marketing: boolean; date: string };
 
 const STORAGE_KEY = "fb_cookie_consent";
 const COOKIE_DAYS = 180;
@@ -18,18 +18,14 @@ const COOKIE_DAYS = 180;
 export function readConsent(): Consent | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const value = JSON.parse(raw);
-    const date = Date.parse(value.date);
-    if (value.version !== 2 || value.necessary !== true || typeof value.stats !== "boolean" || typeof value.marketing !== "boolean" || !Number.isFinite(date) || date > Date.now() || Date.now() - date >= COOKIE_DAYS * 86400000) return null;
-    return value as Consent;
+    return raw ? (JSON.parse(raw) as Consent) : null;
   } catch {
     return null;
   }
 }
 
 function saveConsent(stats: boolean, marketing: boolean) {
-  const consent: Consent = { necessary: true, stats, marketing, date: new Date().toISOString(), version: 2 };
+  const consent: Consent = { necessary: true, stats, marketing, date: new Date().toISOString() };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(consent));
   } catch {
@@ -37,7 +33,6 @@ function saveConsent(stats: boolean, marketing: boolean) {
   }
   const value = encodeURIComponent(JSON.stringify({ s: stats ? 1 : 0, m: marketing ? 1 : 0 }));
   document.cookie = `${STORAGE_KEY}=${value}; max-age=${COOKIE_DAYS * 86400}; path=/; SameSite=Lax`;
-  window.dispatchEvent(new window.Event("fb-consent-change"));
 }
 
 function Switch({
@@ -90,9 +85,6 @@ export default function CookieConsent({ open, onClose }: { open: boolean; onClos
     if (open) {
       setMode("compact");
       setSavedFlash(false);
-      const current = readConsent();
-      setStats(current?.stats ?? false);
-      setMarketing(current?.marketing ?? false);
     }
   }, [open]);
 
@@ -214,6 +206,16 @@ export default function CookieConsent({ open, onClose }: { open: boolean; onClos
                   </span>
                 </motion.button>
 
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => decide(true, true)}
+                  className="rounded-full bg-[#ffd100] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#171816]"
+                  aria-label="Accepter tous les cookies"
+                >
+                  OK
+                </motion.button>
               </motion.div>
             ) : mode === "compact" ? (
               /* STATE 2: SLIM ADAPTIVE MOBILE BAR */
@@ -247,8 +249,8 @@ export default function CookieConsent({ open, onClose }: { open: boolean; onClos
                         <FontAwesomeIcon icon={faChevronDown} />
                       </button>
                     </div>
-                    <p className="text-[11px] leading-4 text-black/60 dark:text-white/60">
-                      Les ouvertures peuvent être comptées sans identifiant, même en cas de refus. Avec votre accord, un identifiant aléatoire de navigateur estime les visiteurs uniques, sans service externe. Identifiant renouvelé chaque année ; empreintes conservées jusqu’à 36 mois. Retrait en pied de page ; les données déjà enregistrées restent conservées.
+                    <p className="hidden text-[11px] leading-4 text-black/60 sm:line-clamp-2 sm:block dark:text-white/60">
+                      Essentiels & mesure d'audience pour fluidifier votre visite.
                     </p>
                   </div>
                 </div>
@@ -332,7 +334,7 @@ export default function CookieConsent({ open, onClose }: { open: boolean; onClos
                     },
                     {
                       title: "Audience",
-                      desc: "Identifiant aléatoire renouvelé à la première visite d’une nouvelle année et supprimé au retrait ; empreintes côté serveur jusqu’à 36 mois. Estimation des visiteurs uniques, sans nom ni téléphone. Retrait via Cookies en pied de page ; les statistiques déjà enregistrées restent conservées.",
+                      desc: "Pages consultées et performance.",
                       locked: false,
                       checked: stats,
                       onChange: setStats,

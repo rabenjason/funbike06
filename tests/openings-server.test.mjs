@@ -65,26 +65,24 @@ test('ouvertures : inactif par défaut, accès privé, agrégation et protection
     assert.ok(results.every(response => response.status === 204));
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.equal(data.months[0].count, 15, 'aucune ouverture perdue lors des requêtes rapprochées');
-    const idA = 'a'.repeat(64), idB = 'b'.repeat(64);
-    for (const id of [idA, idA, idB]) {
-      const r = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id})});
-      assert.equal(r.status, 204);
-    }
+    const idA = 'a'.repeat(64);
+    const prior = readFileSync(statsFile, 'utf8');
+    const event = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id:idA})});
+    assert.equal(event.status, 204);
+    assert.equal(readFileSync(statsFile, 'utf8'), prior, 'un ancien événement visiteur ne doit rien modifier');
+    const opening = await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening', id:idA})});
+    assert.equal(opening.status, 204);
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.equal(data.months[0].count, 15); assert.equal(data.months[0].visitors, 2);
-    assert.equal(data.years[0].visitors, 2);
+    assert.equal(data.months[0].count, 16); assert.equal(data.months[0].visitors, 0);
+    assert.deepEqual(JSON.parse(readFileSync(statsFile, 'utf8')).months[data.currentMonth].visitors, []);
     assert.equal(readFileSync(statsFile, 'utf8').includes(idA), false);
     assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'visitor', id:'bad'})})).status, 400);
-    // La même empreinte sur deux mois ne doit être comptée qu'une fois sur l'année.
-    const addMonth = JSON.parse(readFileSync(statsFile, 'utf8'));
-    const currentYear = data.currentMonth.slice(0,4);
-    const previous = `${currentYear}-${data.currentMonth.slice(5) === '01' ? '02' : '01'}`;
-    if (previous < data.currentMonth) {
-      addMonth.months[previous] = {count: 4, visitors: [addMonth.months[data.currentMonth].visitors[0]]};
-      writeFileSync(statsFile, JSON.stringify(addMonth));
-      const annual = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-      assert.equal(annual.years.find(y => y.year === currentYear).visitors, 2);
-    }
+    // Les empreintes historiques sont conservées sans qu'on en ajoute de nouvelles.
+    const historical = JSON.parse(readFileSync(statsFile, 'utf8'));
+    historical.months[data.currentMonth].visitors.push('b'.repeat(64));
+    writeFileSync(statsFile, JSON.stringify(historical));
+    await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening', id:idA})});
+    assert.deepEqual(JSON.parse(readFileSync(statsFile, 'utf8')).months[data.currentMonth].visitors, ['b'.repeat(64)]);
     const extended = JSON.parse(readFileSync(statsFile, 'utf8'));
     extended.months['1990-01'] = {count:99, visitors:[]}; writeFileSync(statsFile, JSON.stringify(extended));
     await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) });
