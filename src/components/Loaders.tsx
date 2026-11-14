@@ -1,5 +1,19 @@
 import { motion } from "framer-motion";
 
+/** Réserve l'espace de la page pendant le chargement de son code. */
+export function PageLoading() {
+  return (
+    <div role="status" className="grid min-h-[100svh] place-items-center px-6 text-[#171816] dark:text-[#f2f0ea]">
+      <span className="sr-only">Chargement de la page…</span>
+      <svg aria-hidden="true" viewBox="0 0 48 48" className="size-11 motion-safe:animate-spin" fill="none">
+        {Array.from({ length: 12 }, (_, index) => (
+          <line key={index} x1="24" y1="4" x2="24" y2="12" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity={(index + 1) / 12} transform={`rotate(${index * 30} 24 24)`} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 /** Thin yellow progress line replayed on every page change. */
 export function RouteProgress() {
   return (
