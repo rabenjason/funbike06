@@ -38,7 +38,7 @@ test('bibliothèque serveur : original protégé, logos conservés, sélection, 
     assert.deepEqual(library.body.data,{images:[],selected:null}); assert.equal(library.body.defaultLogo,original);
     const config = join(root,'storage/data/site-logo.json'); assert.equal(existsSync(config),false);
     const imageBytes=readFileSync(join(dir,original));
-    async function upload(revision, bytes=imageBytes, name='Logo Christmas') { const form=new FormData(); form.set('revision',revision); form.set('name',name); form.set('image',new Blob([bytes],{type:'image/png'}),'logo.png'); return call('site-logo.php','POST',form); }
+    async function upload(revision, bytes=imageBytes, name='Logo Christmas', type='image/png') { const form=new FormData(); form.set('revision',revision); form.set('name',name); form.set('image',new Blob([bytes],{type}),type==='image/webp'?'logo.webp':'logo.png'); return call('site-logo.php','POST',form); }
     assert.equal((await upload(library.body.revision,Buffer.from('invalid'))).status,400);
     const first=await upload(library.body.revision); assert.equal(first.status,201,JSON.stringify(first.body));
     assert.equal(first.body.data.selected,null); assert.equal(first.body.data.images.length,1);
@@ -84,6 +84,10 @@ test('bibliothèque serveur : original protégé, logos conservés, sélection, 
     const missingDeleted=await call('site-logo.php','DELETE',{id:missingId,revision:activeMissing.body.revision});
     assert.equal(missingDeleted.status,200); assert.equal(missingDeleted.body.fileStatus,'missing'); assert.equal(missingDeleted.body.data.selected,null);
     assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
+    const webpBytes=Buffer.from('UklGRjoCAABXRUJQVlA4WAoAAAAwAAAAAwAAAwAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZBTFBICwAAAAEPMP8REaIDEf0PAFZQOCA4AAAA0AEAnQEqBAAEAAFAJiWoAnRHAGSAA1AA/vLrffw2DyFvAMPIf+Jj/28ysA2Jj+P/+7zKwDYAAAA=','base64');
+    const webp=await upload(missingDeleted.body.revision,webpBytes,'Logo WebP','image/webp'); assert.equal(webp.status,201,JSON.stringify(webp.body));
+    const webpImage=webp.body.data.images[0]; assert.match(webpImage.url,/\.webp$/); assert.deepEqual(readFileSync(join(dir,webpImage.url)),webpBytes);
+    const webpDeleted=await call('site-logo.php','DELETE',{id:webpImage.id,revision:webp.body.revision}); assert.equal(webpDeleted.status,200); assert.equal(existsSync(join(dir,webpImage.url)),false);
     writeFileSync(config,'{invalid');
     assert.equal((await call('site-logo.php')).status,500);
     assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);
