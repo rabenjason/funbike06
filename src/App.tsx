@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
@@ -6,15 +6,23 @@ import { chatbotEnabled } from "./content/homepage";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
 import { PageLoading, RouteProgress } from "./components/Loaders";
 import { PromotionsProvider } from "./components/PromotionsContext";
-import { motorcycles, findProductById } from "./catalog";
+import { motorcycles, products } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
-import { parseRoute, routePath } from "./lib/routes";
+import { navigationPage, parseRoute, routePath } from "./lib/routes";
 import { updateSeo } from "./lib/seo";
 import { recordSiteOpening, clearOldAudienceId } from "./lib/openings";
 import { loadPublicPage, loadedPublicPage, publicPageKey } from "./lib/publicPages";
 
 function sameRoute(a: Route, b: Route) {
   return a.page === b.page && (a.id ?? "") === (b.id ?? "") && (a.categoryId ?? "") === (b.categoryId ?? "");
+}
+
+function defaultBackRoute(route: Route): Route {
+  if (route.page === "product" || route.page === "accessory") {
+    const page = navigationPage(route);
+    if (page === "motos" || page === "equipements" || page === "spares") return { page };
+  }
+  return { page: "home" };
 }
 
 function routeLabel(route: Route): string {
@@ -34,7 +42,7 @@ function routeLabel(route: Route): string {
       return bike ? bike.name : "Fiche moto";
     }
     case "accessory": {
-      const part = findProductById(route.id);
+      const part = products.find((item) => item.id === route.id && item.categoryId !== "motos" && (!route.categoryId || item.categoryId === route.categoryId));
       return part ? part.name : "Fiche produit";
     }
     case "promotions":
@@ -48,18 +56,29 @@ function routeLabel(route: Route): string {
   }
 }
 
+type HistoryEntry = { key: string; route: Route };
+type RouteHistory = { entries: HistoryEntry[]; index: number };
+const historyKey = "__funbikeRouteKey";
+
 export default function App() {
   const [dark, setDark] = useState(readDarkPreference);
-  const [history, setHistory] = useState<Route[]>(() => [parseRoute(window.location.pathname, window.location.search)]);
+  const session = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const sequence = useRef(0);
+  const [history, setHistory] = useState<RouteHistory>(() => ({ entries: [{ key: `${session.current}:0`, route: parseRoute(window.location.pathname, window.location.search) }], index: 0 }));
   const [cookieOpen, setCookieOpen] = useState(false);
   const [progressKey, setProgressKey] = useState(0);
   const [pageLoadError, setPageLoadError] = useState("");
   const [, pageLoaded] = useState(0);
 
-  const route = history[history.length - 1];
+  const route = history.entries[history.index].route;
+  useLayoutEffect(() => {
+    // Identifier l'entrée initiale sans effacer un éventuel état navigateur existant.
+    const current = window.history.state;
+    window.history.replaceState({ ...(current && typeof current === "object" ? current : {}), [historyKey]: `${session.current}:0` }, "");
+  }, []);
   useEffect(() => {
     clearOldAudienceId();
-    if (history[0].page !== "not-found") recordSiteOpening();
+    if (history.entries[0].route.page !== "not-found") recordSiteOpening();
   }, []);
   const pageKey = publicPageKey(route.page);
   const Page = pageKey ? loadedPublicPage(pageKey) : undefined;
@@ -69,19 +88,19 @@ export default function App() {
     loadPublicPage(pageKey).then(() => { if (active) pageLoaded((n) => n + 1); }, () => { if (active) setPageLoadError(pageKey); });
     return () => { active = false; };
   }, [pageKey]);
-  const canGoBack = history.length > 1;
+  const canGoBack = history.index > 0;
   useEffect(() => {
     if (route.page !== "not-found") return;
     // En cas d'adresse invalide atteinte dans l'historique de l'application,
     // remplacer l'entrée évite une boucle avec le bouton Retour.
-    window.history.replaceState(null, "", "/");
-    setHistory([{ page: "home" }]);
+    window.history.replaceState(window.history.state, "", "/");
+    setHistory((prev) => ({ entries: [{ key: prev.entries[prev.index].key, route: { page: "home" } }], index: 0 }));
   }, [route.page]);
   useEffect(() => { updateSeo(route); }, [route]);
-  const previousRoute = canGoBack ? history[history.length - 2] : null;
+  const previousRoute = canGoBack ? history.entries[history.index - 1].route : null;
   const backLabel = useMemo(
-    () => (previousRoute ? routeLabel(previousRoute) : "Accueil"),
-    [previousRoute?.page, previousRoute?.id],
+    () => routeLabel(previousRoute ?? defaultBackRoute(route)),
+    [previousRoute?.page, previousRoute?.id, previousRoute?.categoryId, route.page, route.id, route.categoryId],
   );
 
   useEffect(() => {
@@ -98,21 +117,35 @@ export default function App() {
   }, []);
 
   const go = useCallback((page: string, id?: string, categoryId?: string) => {
-    const next = { page, id, categoryId };
+    const path = routePath({ page, id, categoryId });
+    const url = new URL(path, window.location.origin);
+    // L'état et l'URL doivent désigner exactement la même fiche, y compris
+    // quand l'appelant ne précise pas la catégorie d'une moto.
+    const next = parseRoute(url.pathname, url.search);
     if (sameRoute(next, route)) return;
-    window.history.pushState(null, "", routePath(next));
-    setHistory((prev) => [...prev, next].slice(-50));
+    const key = `${session.current}:${++sequence.current}`;
+    window.history.pushState({ [historyKey]: key }, "", path);
+    setHistory((prev) => {
+      const entries = [...prev.entries.slice(0, prev.index + 1), { key, route: next }].slice(-50);
+      return { entries, index: entries.length - 1 };
+    });
     setProgressKey((key) => key + 1);
   }, [route]);
 
   useEffect(() => {
-    const onPop = () => {
+    const onPop = (event: PopStateEvent) => {
       const next = parseRoute(window.location.pathname, window.location.search);
+      let key = event.state?.[historyKey];
+      if (typeof key !== "string" || !key.startsWith(`${session.current}:`)) {
+        key = `${session.current}:${++sequence.current}`;
+        const current = window.history.state;
+        window.history.replaceState({ ...(current && typeof current === "object" ? current : {}), [historyKey]: key }, "");
+      }
       setHistory((prev) => {
-        if (prev.length > 1 && sameRoute(prev[prev.length - 2], next)) return prev.slice(0, -1);
-        return [next];
+        const index = prev.entries.findIndex((entry) => entry.key === key && sameRoute(entry.route, next));
+        return index >= 0 ? { entries: prev.entries, index } : { entries: [{ key, route: next }], index: 0 };
       });
-      setProgressKey((key) => key + 1);
+      setProgressKey((value) => value + 1);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -127,10 +160,13 @@ export default function App() {
   }, [route.page, route.id]);
 
   /** Retour navigateur ; une entrée directe revient à une page pertinente. */
-  const back = useCallback((fallback: Route = { page: "home" }) => {
+  const back = useCallback((fallback?: Route) => {
     if (canGoBack) window.history.back();
-    else go(fallback.page, fallback.id);
-  }, [canGoBack, go]);
+    else {
+      const destination = fallback ?? defaultBackRoute(route);
+      go(destination.page, destination.id, destination.categoryId);
+    }
+  }, [canGoBack, go, route]);
 
   return (
     <PromotionsProvider><MotionConfig reducedMotion="user">
