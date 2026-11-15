@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { json, request } from "../lib/adminApi";
+import { optimizeProductImage, photoOptimizationMessage } from "../lib/optimizeProductImage";
 import { CatFace } from "../components/CatFace";
 import { AdminChatbotLogos } from "./AdminChatbotLogos";
 
@@ -26,6 +27,17 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
   const [attempt, setAttempt] = useState(0);
   const [showLogos, setShowLogos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const uploadController = useRef<AbortController | null>(null);
+  const savingRef = useRef(false);
+  const [imageStatus, setImageStatus] = useState("");
+  const onSavingChangeRef = useRef(onSavingChange);
+  onSavingChangeRef.current = onSavingChange;
+  useEffect(() => () => {
+    if (uploadController.current) {
+      uploadController.current.abort(); uploadController.current = null;
+      savingRef.current = false; onSavingChangeRef.current?.(false);
+    }
+  }, []);
   useEffect(() => {
     let active = true;
     setLoading(true); setError(""); setNotice("");
@@ -43,21 +55,31 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
   async function save(body: { enabled?: boolean; name?: string; resetLogo?: true } | { file: File }) {
-    if (!settings || busy) return;
-    setBusy(true); onSavingChange?.(true); setError(""); setNotice("");
+    if (!settings || busy || savingRef.current) return;
+    savingRef.current = true;
+    const controller = "file" in body ? new AbortController() : null;
+    if (controller) uploadController.current = controller;
+    setBusy(true); onSavingChange?.(true); setError(""); setNotice(""); setImageStatus(controller ? "Optimisation du logo en cours…" : "");
     try {
       let options: RequestInit;
-      if ("file" in body) { const form = new FormData(); form.set("revision", settings.revision); form.set("logo", body.file); options = { method: "POST", body: form }; }
+      if ("file" in body && controller) {
+        const optimized = await optimizeProductImage(body.file, controller.signal);
+        if (controller.signal.aborted) return;
+        setImageStatus(photoOptimizationMessage(body.file.size, optimized));
+        if (optimized.file.size > 2 * 1024 * 1024) throw new Error("Le logo dépasse 2 Mo après optimisation. Choisissez une image plus légère ; la limite du serveur peut être inférieure.");
+        const form = new FormData(); form.set("revision", settings.revision); form.set("logo", optimized.file); options = { method: "POST", body: form, signal: controller.signal };
+      }
       else options = json("PUT", { revision: settings.revision, ...body });
       const result = parse(await request("chatbot-settings.php", options));
+      if (controller?.signal.aborted) return;
       if (!("file" in body) && ((body.enabled !== undefined && result.enabled !== body.enabled) || (body.name !== undefined && result.name !== body.name) || (body.resetLogo && result.logo !== null))) throw new Error("Réponse inattendue. Rechargez pour vérifier le réglage.");
       if ("file" in body && (!result.logo || result.logo === settings.logo)) throw new Error("Réponse inattendue. Rechargez pour vérifier le logo.");
       setSettings(result);
       if (!("file" in body) && body.name !== undefined) { nameRef.current = result.name; setName(result.name); }
       const dirty = nameRef.current !== result.name; dirtyRef.current = dirty; onDirtyChange?.(dirty);
       setNotice("Réglage enregistré pour tous les visiteurs. Les pages déjà ouvertes doivent être actualisées.");
-    } catch (err) { setError((err as Error).message); }
-    finally { setBusy(false); onSavingChange?.(false); if (fileRef.current) fileRef.current.value = ""; }
+    } catch (err) { if (!controller?.signal.aborted) setError((err as Error).message); }
+    finally { if (uploadController.current === controller) uploadController.current = null; savingRef.current = false; if (!controller?.signal.aborted) { setBusy(false); onSavingChange?.(false); if (fileRef.current) fileRef.current.value = ""; } }
   }
   function saveName(event: FormEvent) {
     event.preventDefault(); const clean = name.trim();
@@ -79,8 +101,8 @@ export function AdminChatbot({ onSavingChange, onDirtyChange }: { onSavingChange
             {settings.logo ? <img src={settings.logo} alt="Logo actuel du chatbot" className="h-16 w-16 rounded-full border border-black/15 bg-white object-contain" /> : <span role="img" aria-label="Logo par défaut : le chat Funbike" className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[#ffd100]"><CatFace className="h-[72%] w-[72%]" /></span>}
             <p className="text-sm text-black/60">{settings.logo ? "Logo personnalisé actuel." : "Logo par défaut : le chat Funbike. Vous pouvez le garder ou choisir une autre image."}</p>
           </div>
-          <label className="mt-3 block text-sm font-semibold">Choisir une image<input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className={`${input} cursor-pointer`} disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024 || file.size === 0) { setError("Choisissez une image JPEG, PNG ou WebP de 2 Mo maximum."); event.currentTarget.value = ""; return; } void save({ file }); }} /></label>
-          <p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP, 2 Mo maximum. Le logo est enregistré dès sa sélection ; une image carrée est conseillée.</p>
+          <label className="mt-3 block text-sm font-semibold">Choisir une image<input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className={`${input} cursor-pointer`} disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0) { setError("Choisissez une image JPEG, PNG ou WebP valide."); event.currentTarget.value = ""; return; } void save({ file }); }} /></label>
+          <p className="mt-2 text-xs text-black/60">JPEG, PNG ou WebP. Le logo est optimisé sur cet appareil puis enregistré dès sa sélection (2 Mo maximum après optimisation). L’original et les logos déjà enregistrés restent inchangés ; une image carrée est conseillée.</p>{imageStatus && <p aria-live="polite" className="mt-2 text-xs text-black/60">{imageStatus}</p>}
           {settings.logo && <button type="button" className={`${secondary} mt-3`} disabled={busy} onClick={() => void save({ resetLogo: true })}>Rétablir le logo d’origine</button>}
           <div className="mt-5 border-t border-black/10 pt-4"><button type="button" disabled={busy} aria-expanded={showLogos} onClick={() => setShowLogos((value) => !value)} className={secondary}>{showLogos ? "Masquer les logos ajoutés" : "Gérer les logos ajoutés"}</button>
             {showLogos && <AdminChatbotLogos selectedLogo={settings.logo} busy={busy} onSavingChange={(saving) => { setBusy(saving); onSavingChange?.(saving); }} />}

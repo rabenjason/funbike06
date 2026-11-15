@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminCatalog } from "./AdminCatalog";
 import type { Product } from "../types/product";
 import { isPromotionCategory, type PromotionCategory, type Promotion } from "../lib/promotions";
 import { request, json } from "../lib/adminApi";
+import { optimizeProductImage, photoOptimizationMessage } from "../lib/optimizeProductImage";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { PromotionProducts } from "./PromotionProducts";
 
@@ -25,6 +26,9 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   const [displayNotice, setDisplayNotice] = useState("");
   const displayDirty = !!displayRevision && preferred !== savedPreferred;
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  const [imageStatus, setImageStatus] = useState("");
+  const uploadController = useRef<AbortController | null>(null);
+  useEffect(() => () => { uploadController.current?.abort(); uploadController.current = null; }, []);
   async function load() { setError(""); try { const result = await request("promotions.php?admin=1"); if (!Array.isArray(result.campaigns)) throw new Error("Réponse invalide."); setCampaigns(result.campaigns); setLoaded(true); } catch (err) { setError((err as Error).message); } }
   async function loadDisplay() {
     setDisplayError("");
@@ -68,12 +72,24 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
     catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
   async function upload(file: File | undefined) {
-    if (!file) return; setBusy(true); setError("");
-    try { const form = new FormData(); form.set("banner", file); const result = await request("promotions.php", { method: "POST", body: form }); set("bannerUrl", result.url); }
-    catch (err) { setError((err as Error).message); } finally { setBusy(false); }
+    if (!file || busy || uploadController.current) return;
+    setError(""); setImageStatus("");
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size) { setError("Choisissez une image JPEG, PNG ou WebP valide."); return; }
+    const controller = new AbortController(); uploadController.current = controller;
+    setBusy(true); setImageStatus("Optimisation de la bannière en cours…");
+    try {
+      const optimized = await optimizeProductImage(file, controller.signal);
+      if (controller.signal.aborted) return;
+      setImageStatus(photoOptimizationMessage(file.size, optimized));
+      if (optimized.file.size > 8 * 1024 * 1024) throw new Error("La bannière dépasse 8 Mo après optimisation. Choisissez une image plus légère ; la limite du serveur peut être inférieure.");
+      const form = new FormData(); form.set("banner", optimized.file);
+      const result = await request("promotions.php", { method: "POST", body: form, signal: controller.signal });
+      if (!controller.signal.aborted) set("bannerUrl", result.url);
+    } catch (err) { if (!controller.signal.aborted) setError((err as Error).message); }
+    finally { if (uploadController.current === controller) uploadController.current = null; if (!controller.signal.aborted) setBusy(false); }
   }
   return <section className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">Promotions</h1>{loaded && !draft && <button className={primary} disabled={displayDirty || busy} onClick={() => { setDraft(empty()); setError(""); }}>Créer une promotion</button>}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-2xl font-bold">Promotions</h1>{loaded && !draft && <button className={primary} disabled={displayDirty || busy} onClick={() => { setDraft(empty()); setError(""); setImageStatus(""); }}>Créer une promotion</button>}</div>
     {error && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {!loaded && <button className={button} onClick={() => void load()}>Charger les promotions / Réessayer</button>}
     {loaded && !draft && <div className="rounded-lg bg-white p-4">
@@ -83,14 +99,14 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
       {displayError && <p role="alert" className="mt-2 text-sm text-red-700">{displayError}{!displayRevision && <> <button type="button" className="underline" onClick={() => void loadDisplay()}>Réessayer</button></>}</p>}
       {displayNotice && <p role="status" className="mt-2 text-sm text-emerald-700">{displayNotice}</p>}
     </div>}
-    {loaded && !draft && <div className="space-y-2">{campaigns.length === 0 && <p className="text-sm">Aucune campagne enregistrée.</p>}{campaigns.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-4"><div><h2 className="font-bold">{c.name}</h2><p className="text-sm text-black/60">{c.startDate} — {c.endDate} · {c.enabled ? 'Activée' : 'Désactivée'} · {c.published ? 'Publiée' : 'Brouillon'} · {c.products.length} produit(s)</p></div><div className="flex gap-2"><button disabled={displayDirty || busy} className={button} onClick={() => { setDraft(structuredClone(c)); setError(""); }}>Modifier</button><button disabled={displayDirty || busy} className={button} onClick={() => void remove(c)}>Supprimer</button></div></div>)}</div>}
+    {loaded && !draft && <div className="space-y-2">{campaigns.length === 0 && <p className="text-sm">Aucune campagne enregistrée.</p>}{campaigns.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-white p-4"><div><h2 className="font-bold">{c.name}</h2><p className="text-sm text-black/60">{c.startDate} — {c.endDate} · {c.enabled ? 'Activée' : 'Désactivée'} · {c.published ? 'Publiée' : 'Brouillon'} · {c.products.length} produit(s)</p></div><div className="flex gap-2"><button disabled={displayDirty || busy} className={button} onClick={() => { setDraft(structuredClone(c)); setError(""); setImageStatus(""); }}>Modifier</button><button disabled={displayDirty || busy} className={button} onClick={() => void remove(c)}>Supprimer</button></div></div>)}</div>}
     {draft && <>
       <div className="space-y-4 rounded-lg bg-white p-5"><h2 className="text-lg font-bold">{draft.id ? 'Modifier la campagne' : 'Nouvelle campagne'}</h2>
-        <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Nom<input required maxLength={150} className={input} value={draft.name} onChange={(e) => set('name', e.target.value)} /></label><label className="text-sm font-semibold">Bannière facultative<input type="file" accept="image/jpeg,image/png,image/webp" className={input} onChange={(e) => { void upload(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label>
+        <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Nom<input required maxLength={150} className={input} value={draft.name} onChange={(e) => set('name', e.target.value)} /></label><label className="text-sm font-semibold">Bannière facultative<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || productBusy} className={input} onChange={(e) => { void upload(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label>
         <label className="text-sm font-semibold">Début (Madagascar)<input type="date" required className={input} value={draft.startDate} onChange={(e) => set('startDate', e.target.value)} /></label><label className="text-sm font-semibold">Fin incluse (Madagascar)<input type="date" required className={input} value={draft.endDate} onChange={(e) => set('endDate', e.target.value)} /></label></div>
         <label className="block text-sm font-semibold">Description<textarea maxLength={5000} className={input} value={draft.description} onChange={(e) => set('description', e.target.value)} /></label>
-        <p className="text-xs text-black/60">La description et la bannière restent enregistrées, mais ne sont pas affichées sur la page Promotions.</p>
-        {draft.bannerUrl && <div><img src={draft.bannerUrl} alt="Bannière de la campagne" className="max-h-48 max-w-full object-contain" /><button className={`${button} mt-2`} onClick={() => set('bannerUrl', '')}>Retirer la bannière</button></div>}
+        <p className="text-xs text-black/60">La nouvelle image est optimisée sur cet appareil avant l’envoi (8 Mo maximum après optimisation). L’original et les images déjà enregistrées restent inchangés. La description et la bannière restent enregistrées, mais ne sont pas affichées sur la page Promotions.</p>{imageStatus && <p aria-live="polite" className="text-xs text-black/60">{imageStatus}</p>}
+        {draft.bannerUrl && <div><img src={draft.bannerUrl} alt="Bannière de la campagne" className="max-h-48 max-w-full object-contain" /><button className={`${button} mt-2`} disabled={busy} onClick={() => set('bannerUrl', '')}>Retirer la bannière</button></div>}
         <div className="flex flex-wrap gap-5 text-sm"><label><input type="checkbox" checked={draft.enabled} onChange={(e) => set('enabled', e.target.checked)} /> Activée</label><label><input type="checkbox" checked={draft.published} onChange={(e) => set('published', e.target.checked)} /> Publiée</label></div><p className="text-xs text-black/60">Visible uniquement si activée et publiée, pendant les dates choisies. Une même fiche ne peut pas avoir deux offres publiées et activées aux mêmes dates.</p>
       </div>
       <PromotionProducts catalog={catalog} items={draft.products} onChange={(items) => set("products", items)} onCreate={() => setCreatingProduct(true)} />

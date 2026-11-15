@@ -63,7 +63,7 @@ test('onglet unique : textes, destination TVS et photo, changements non enregist
   fireEvent.change(view.getByLabelText('Marque du bouton (facultatif)'), { target: { value: 'tvs' } });
   const file = new window.File(['photo'], 'photo.png', { type: 'image/png' });
   fireEvent.change(view.getByLabelText(/Ajouter une photo/), { target: { files: [file] } });
-  fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.ok(view.getByText(/Image ajoutée/)));
   await waitFor(() => assert.equal(view.getByRole('button', { name: 'Textes et liens' }).disabled, false));
   fireEvent.click(view.getByRole('button', { name: 'Textes et liens' }));

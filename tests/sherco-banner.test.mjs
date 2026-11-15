@@ -61,10 +61,10 @@ test('administration : aperçu, ajout, sélection et retrait seulement après co
   assert.equal(dirty, true); assert.ok(view.getByAltText('Aperçu de la nouvelle photo'));
   fireEvent.click(view.getByRole('button', { name: 'Annuler' })); assert.equal(dirty, false); assert.equal(calls.length, 1);
   fireEvent.change(input, { target: { files: [new window.File(['photo'], 'photo.png', { type: 'image/png' })] } });
-  fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.ok(view.getByText('Photo affichée'))); assert.equal(data.selected, id1); assert.equal(dirty, false);
   fireEvent.change(input, { target: { files: [new window.File(['photo'], 'autre.png', { type: 'image/png' })] } });
-  fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.equal(view.getAllByRole('button', { name: 'Afficher cette photo' }).length, 2));
   assert.equal(data.selected, id1);
   fireEvent.click(view.getAllByRole('button', { name: 'Afficher cette photo' })[1]);
@@ -99,7 +99,7 @@ test('une erreur d’envoi conserve la photo précédente et l’aperçu', async
   const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminBanner, { onDirtyChange: (v) => { dirty = v; }, onSavingChange() {} })));
   await waitFor(() => assert.ok(view.getByText('Photo affichée')));
   fireEvent.change(view.getByLabelText(/Ajouter une photo/), { target: { files: [new window.File(['x'], 'photo.png', { type: 'image/png' })] } });
-  fail = true; fireEvent.click(view.getByRole('button', { name: 'Ajouter la photo' }));
+  fail = true; fireEvent.click(await view.findByRole('button', { name: 'Ajouter la photo' }));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /Erreur serveur/));
   assert.equal(data.selected, id1); assert.equal(dirty, true); assert.ok(view.getByAltText('Aperçu de la nouvelle photo'));
 });
@@ -128,4 +128,19 @@ test('site public : transition initiale, image locale sélectionnée et absence 
   assert.equal(view.queryByAltText(defaults.content.sherco.imageAlt), null); assert.ok(view.container.querySelector('h2').textContent.includes(defaults.content.sherco.titreLigne1)); view.unmount();
   globalThis.fetch = async () => response({ data: defaults, shercoBannerConfigured: true, shercoBannerImage: 'https://evil.invalid/x' });
   await assert.rejects(content.loadHomepageData(), /invalide/);
+});
+
+test('bannière : résultat de l’optimisation, blocage après limite et annulation', async () => {
+  setup(); data = { images: [image(id1)], selected: id1 }; legacy = false;
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminBanner, { onDirtyChange:v=>{dirty=v}, onSavingChange(){} })));
+  await waitFor(() => assert.ok(view.getByText('Photo affichée')));
+  const input = view.getByLabelText('Ajouter une photo');
+  const big = new window.File([new Uint8Array(8 * 1024 * 1024 + 1)], 'lourd.jpg', {type:'image/jpeg'});
+  fireEvent.change(input, {target:{files:[big]}}); assert.equal(view.getByRole('button',{name:'Optimisation…'}).disabled,true);
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /dépasse 8 Mo après optimisation/));
+  assert.equal(view.getByRole('button',{name:'Ajouter la photo'}).disabled,true); assert.equal(calls.filter(c=>c.options.method === 'POST').length,0);
+  const light = new window.File(['photo'], 'petite.png', {type:'image/png'});
+  fireEvent.change(input, {target:{files:[light]}}); await waitFor(() => assert.match(view.container.textContent,/Original conservé/));
+  assert.equal(dirty,true); fireEvent.click(view.getByRole('button',{name:'Annuler'}));
+  assert.equal(dirty,false); assert.deepEqual(data.images,[image(id1)]); assert.equal(calls.filter(c=>c.options.method === 'POST').length,0);
 });

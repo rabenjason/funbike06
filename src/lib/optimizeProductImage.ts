@@ -69,3 +69,12 @@ export function photoFileSize(size: number): string {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} Ko`;
   return `${(size / (1024 * 1024)).toFixed(2).replace(".", ",")} Mo`;
 }
+
+/** Résultat lisible sans promettre une réduction quand le fichier reste inchangé. */
+export function photoOptimizationMessage(originalSize: number, result: OptimizedPhoto): string {
+  const sizes = `${photoFileSize(originalSize)} → ${photoFileSize(result.file.size)}`;
+  if (result.status === "optimized") return `${sizes} · Image optimisée`;
+  if (result.status === "animated") return `${sizes} · Animation conservée, original conservé`;
+  if (result.status === "failed") return `${sizes} · Optimisation impossible, original conservé`;
+  return `${sizes} · Original conservé`;
+}
