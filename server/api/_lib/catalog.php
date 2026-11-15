@@ -129,12 +129,15 @@ function funbikePreventReferencedDeletion($kind, $id)
 /** Remplacement atomique sous verrou global, sans tronquer le JSON existant. */
 function funbikeAtomicWrite($file, $json)
 {
+    try { $historyCapture = function_exists('funbikeHistoryBeforeWrite') ? funbikeHistoryBeforeWrite($file) : null; }
+    catch (Throwable $e) { error_log('FUNBIKE historique : ' . $e->getMessage()); return false; }
     $temp = tempnam(dirname($file), '.catalog-');
     if ($temp === false) return false;
     if (file_put_contents($temp, $json, LOCK_EX) !== strlen($json) || !rename($temp, $file)) {
         @unlink($temp);
         return false;
     }
+    if (function_exists('funbikeHistoryAfterWrite')) funbikeHistoryAfterWrite($historyCapture);
     return true;
 }
 
@@ -161,4 +164,40 @@ function funbikePreventPromotionProductDeletion($categoryId, $id)
         if (!is_array($campaign) || !isset($campaign['products']) || !is_array($campaign['products'])) funbikeJsonResponse(500, ['error' => 'Impossible de vérifier les promotions : produit non supprimé.']);
         foreach ($campaign['products'] as $item) if (($item['productId'] ?? null) === $id && ($item['categoryId'] ?? null) === $categoryId) funbikeJsonResponse(409, ['error' => 'Retirez d’abord ce produit des promotions qui le référencent.']);
     }
+}
+
+// Par prudence, un fichier produit encore référencé ou dont les références
+// ne peuvent pas toutes être vérifiées doit être conservé lors de la
+// suppression de la fiche. Utilisé sous le verrou d'écriture du catalogue.
+function funbikeDeletionContainsReference($value, $url)
+{
+    if (is_string($value)) {
+        $normalized = str_replace('\\', '/', rawurldecode(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        return stripos($normalized, ltrim($url, '/')) !== false;
+    }
+    if (!is_array($value)) return false;
+    foreach ($value as $key => $part) if ((is_string($key) && funbikeDeletionContainsReference($key, $url)) || funbikeDeletionContainsReference($part, $url)) return true;
+    return false;
+}
+function funbikeUploadFileUnreferenced($path)
+{
+    $base = dirname(__DIR__, 2); $uploads = $base . '/uploads/';
+    if (strpos($path, $uploads . 'products/') !== 0 && strpos($path, $uploads . 'brands/') !== 0) return false;
+    if (is_link($path) || !is_file($path)) return false;
+    $relative = substr($path, strlen($uploads));
+    $url = '/server/uploads/' . str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+    $dir = $base . '/storage/data';
+    try {
+        if (is_link($dir) || !is_dir($dir)) return false;
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            if ($file->isLink()) return false;
+            if (!$file->isFile() || strtolower($file->getExtension()) !== 'json') continue;
+            $raw = @file_get_contents($file->getPathname());
+            if ($raw === false) return false;
+            $data = json_decode($raw, true);
+            if (json_last_error() !== JSON_ERROR_NONE || funbikeDeletionContainsReference($data, $url)) return false;
+        }
+    } catch (Throwable $e) { return false; }
+    return true;
 }

@@ -101,10 +101,12 @@ if ($method === 'POST') {
     $filename = 'sherco-' . $id . '.' . $types[$mime];
     $path = $dir . '/' . $filename;
     if (!move_uploaded_file($image['tmp_name'], $path)) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer l’image.']);
+    funbikeHistoryNote('Ajout — photo bannière', 'Photo bannière : ' . $filename, 'Fichier transféré ; vérifier son association à la bibliothèque.');
     $data['images'][] = ['id' => $id, 'url' => '/server/uploads/homepage/' . $filename];
     if ($data['selected'] === null) { $data['selected'] = $id; unset($data['legacy']); }
     // En cas d'échec de sauvegarde, le fichier est conservé pour récupération.
     funbikeShercoBannerWrite($data);
+    funbikeHistoryNote('Ajout de référence — photo bannière', 'Photo bannière : ' . $filename, 'Référence enregistrée dans la bibliothèque.');
     bannerRespond(201, $data);
 }
 $body = funbikeReadJsonBody();
@@ -135,10 +137,12 @@ if ($action === 'restore' || $action === 'purge') {
         // Restaurer ne doit pas modifier la bannière publique existante.
         if ($legacy) $data['legacy'] = true;
         funbikeShercoBannerWrite($data);
+        funbikeHistoryNote('Restauration — photo bannière', 'Photo bannière : ' . basename($image['url']), 'Référence restaurée ; fichier conservé.');
         bannerRespond(200, $data);
     }
     bannerAssertNotReferenced($image['url']);
     if (!@unlink($realPath)) funbikeJsonResponse(500, ['error' => 'Impossible de supprimer le fichier. Il reste dans la liste.']);
+    funbikeHistoryNote('Suppression physique — photo bannière', 'Photo bannière : ' . basename($image['url']), 'Fichier supprimé définitivement.');
     // Un nettoyage d'anciens fichiers ne doit pas initialiser le catalogue ni
     // modifier l'image actuellement affichée.
     bannerRespond(200, $legacy && !isset($data['legacy']) && count($data['images']) === 0 ? null : $data);
@@ -150,9 +154,12 @@ if ($action === 'select') {
     $data['selected'] = $id;
     unset($data['legacy']);
     funbikeShercoBannerWrite($data);
+    funbikeHistoryNote('Changement — photo bannière', 'Photo bannière : ' . basename($data['images'][$index]['url']), 'Photo sélectionnée pour la bannière.');
     bannerRespond(200, $data);
 }
+$retiredName = basename($data['images'][$index]['url']);
 array_splice($data['images'], $index, 1);
 if ($data['selected'] === $id) $data['selected'] = null;
 funbikeShercoBannerWrite($data);
+funbikeHistoryNote('Retrait — photo bannière', 'Photo bannière : ' . $retiredName, 'Référence retirée ; fichier conservé.');
 bannerRespond(200, $data);

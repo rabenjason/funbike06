@@ -34,9 +34,11 @@ if ($method === 'POST') {
     if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) funbikeJsonResponse(500, ['error' => 'Dossier des logos indisponible.']);
     do { $id = bin2hex(random_bytes(16)); $path = $dir . '/logo-' . $id . '.' . $types[$mime]; } while (file_exists($path) || is_link($path));
     if (!move_uploaded_file($image['tmp_name'], $path)) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le logo.']);
+    funbikeHistoryNote('Ajout — logo du site', 'Logo : ' . $name . ' (' . basename($path) . ')', 'Fichier transféré ; vérifier son association à la bibliothèque.');
     $data['images'][] = ['id' => $id, 'url' => '/server/uploads/site-logo/' . basename($path), 'name' => $name];
     // Sur échec de sauvegarde, ne pas effacer silencieusement l'image transférée.
     if (!funbikeSiteLogoWrite($data)) funbikeJsonResponse(500, ['error' => 'Logo transféré mais bibliothèque non enregistrée. Vérifiez le stockage.']);
+    funbikeHistoryNote('Ajout de référence — logo du site', 'Logo : ' . $name . ' (' . basename($path) . ')', 'Référence enregistrée dans la bibliothèque.');
     siteLogoReply(201, $data);
 }
 if (!array_key_exists('id', $body)) funbikeJsonResponse(400, ['error' => 'Logo non précisé.']);
@@ -44,6 +46,7 @@ $id = $body['id'];
 if ($method === 'PUT' && $id === null) {
     $data['selected'] = null;
     if (!funbikeSiteLogoWrite($data)) funbikeJsonResponse(500, ['error' => 'Impossible de modifier le logo.']);
+    funbikeHistoryNote('Changement — logo du site', 'Logo par défaut Funbike', 'Logo par défaut sélectionné.');
     siteLogoReply(200, $data);
 }
 if (!is_string($id) || !preg_match('/^[a-f0-9]{32}$/D', $id)) funbikeJsonResponse(400, ['error' => 'Logo invalide. Le logo par défaut ne peut jamais être supprimé.']);
@@ -66,14 +69,17 @@ if (!is_file($path)) {
         $entries = @scandir($dir);
         if ($entries === false || in_array($filename, $entries, true)) funbikeJsonResponse(500, ['error' => 'Fichier du logo inaccessible. Aucun logo supprimé.']);
     } elseif (in_array('site-logo', $uploadEntries, true)) funbikeJsonResponse(500, ['error' => 'Dossier des logos inaccessible. Aucun logo supprimé.']);
+    $removedName = $data['images'][$index]['name'] ?? $filename;
     array_splice($data['images'], $index, 1);
     if ($data['selected'] === $id) $data['selected'] = null;
     if (!funbikeSiteLogoWrite($data)) funbikeJsonResponse(500, ['error' => 'Impossible de modifier la bibliothèque.']);
+    funbikeHistoryNote('Retrait — logo du site', 'Logo : ' . $removedName . ' (' . $filename . ')', 'Référence retirée ; fichier déjà absent.');
     funbikeJsonResponse(200, ['data' => $data, 'revision' => funbikeSiteLogoRevision($data), 'defaultLogo' => FUNBIKE_DEFAULT_SITE_LOGO, 'fileStatus' => 'missing']);
 }
 if ($method === 'PUT') {
     $data['selected'] = $id;
     if (!funbikeSiteLogoWrite($data)) funbikeJsonResponse(500, ['error' => 'Impossible de modifier le logo.']);
+    funbikeHistoryNote('Changement — logo du site', 'Logo : ' . ($data['images'][$index]['name'] ?? $filename) . ' (' . $filename . ')', 'Logo sélectionné.');
     siteLogoReply(200, $data);
 }
 // Un autre contenu JSON peut conserver une référence à cette image : ne pas supprimer à l'aveugle.
@@ -112,16 +118,18 @@ try {
 $staged = $dir . '/.suppression-' . $id;
 if (file_exists($staged) || is_link($staged) || !@rename($path, $staged)) funbikeJsonResponse(500, ['error' => 'Impossible de préparer la suppression du logo.']);
 $previous = $data;
+$removedName = $data['images'][$index]['name'] ?? $filename;
 array_splice($data['images'], $index, 1);
 if ($data['selected'] === $id) $data['selected'] = null;
 if (!funbikeSiteLogoWrite($data)) {
-    if (!@rename($staged, $path)) funbikeJsonResponse(500, ['error' => 'Enregistrement impossible ; logo conservé en fichier temporaire. Vérifiez une sauvegarde.']);
+    if (!@rename($staged, $path)) { funbikeHistoryNote('Résultat partiel — logo du site', 'Logo : ' . $removedName . ' (' . $filename . ')', 'Écriture de la bibliothèque et restauration du fichier échouées : fichier temporaire à vérifier.'); funbikeJsonResponse(500, ['error' => 'Enregistrement impossible ; logo conservé en fichier temporaire. Vérifiez une sauvegarde.']); }
     funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer la bibliothèque. Logo conservé.']);
 }
 if (!@unlink($staged)) {
     // Si l'effacement échoue, rétablir si possible la bibliothèque et son fichier.
-    if (!@rename($staged, $path)) funbikeJsonResponse(500, ['error' => 'Fichier temporaire non supprimé. Vérifiez le serveur et vos sauvegardes.']);
-    if (!funbikeSiteLogoWrite($previous)) funbikeJsonResponse(500, ['error' => 'Fichier conservé mais bibliothèque non rétablie. Vérifiez le serveur et vos sauvegardes.']);
+    if (!@rename($staged, $path)) { funbikeHistoryNote('Résultat partiel — logo du site', 'Logo : ' . $removedName . ' (' . $filename . ')', 'Fichier temporaire non supprimé et restauration échouée.'); funbikeJsonResponse(500, ['error' => 'Fichier temporaire non supprimé. Vérifiez le serveur et vos sauvegardes.']); }
+    if (!funbikeSiteLogoWrite($previous)) { funbikeHistoryNote('Résultat partiel — logo du site', 'Logo : ' . $removedName . ' (' . $filename . ')', 'Fichier conservé mais bibliothèque non rétablie.'); funbikeJsonResponse(500, ['error' => 'Fichier conservé mais bibliothèque non rétablie. Vérifiez le serveur et vos sauvegardes.']); }
     funbikeJsonResponse(500, ['error' => 'Suppression impossible : logo conservé. Vérifiez les permissions du serveur.']);
 }
+funbikeHistoryNote('Suppression physique — logo du site', 'Logo : ' . $removedName . ' (' . $filename . ')', 'Référence retirée et fichier supprimé définitivement.');
 siteLogoReply(200, $data);

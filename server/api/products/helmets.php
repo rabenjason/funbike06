@@ -260,6 +260,7 @@ function saveUploadedImage($file, $destinationWithoutExtension)
         respond(false, null, "Impossible d'enregistrer une image.", 500);
     }
 
+    funbikeHistoryNote('Ajout — photo produit', 'Produit : ' . basename(dirname($destination)) . ' / ' . basename($destination), 'Fichier transféré ; vérifier son association à la fiche.');
     return $destination;
 }
 
@@ -392,6 +393,7 @@ function applyImageUploads(&$product, $productId, $productDir, $uploadsUrl)
 
 function deleteProductDirectory($directory)
 {
+    if (is_link($directory)) { funbikeHistoryNote('Résultat partiel — photo produit', 'Produit : ' . basename($directory), 'Dossier lié : aucun fichier supprimé.'); return; }
     if (!is_dir($directory)) {
         return;
     }
@@ -405,10 +407,14 @@ function deleteProductDirectory($directory)
     );
 
     foreach ($iterator as $item) {
-        if ($item->isDir()) {
+        if ($item->isLink()) {
+            funbikeHistoryNote('Résultat partiel — photo produit', 'Produit : ' . basename($directory) . ' / ' . $item->getFilename(), 'Lien symbolique conservé sans le suivre.');
+        } elseif ($item->isDir()) {
             @rmdir($item->getPathname());
         } else {
-            @unlink($item->getPathname());
+            $safe = funbikeUploadFileUnreferenced($item->getPathname());
+            $removed = $safe && @unlink($item->getPathname());
+            funbikeHistoryNote('Suppression physique — photo produit', 'Produit : ' . basename($directory) . ' / ' . $item->getFilename(), $removed ? 'Fichier supprimé avec le produit.' : ($safe ? 'Échec de suppression : fichier conservé ou indisponible.' : 'Fichier conservé : référence présente ou vérification impossible.'));
         }
     }
 

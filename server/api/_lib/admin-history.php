@@ -29,14 +29,24 @@ function funbikeHistoryClose($handle)
 
 // Données limitées : noms de champs uniquement, jamais leurs valeurs, mot de
 // passe, contenu de message, corps HTTP ou réponse entière.
+function funbikeHistoryBound($value, $limit)
+{
+    if (!preg_match('//u', $value)) return '[texte invalide]';
+    $value = preg_replace('/[\x00-\x1f\x7f]/u', ' ', $value);
+    preg_match('/^.{0,' . $limit . '}/us', $value, $match);
+    return strlen($match[0]) < strlen($value) ? $match[0] . '…' : $value;
+}
+
 function funbikeHistoryAppend($user, $type, $subject, $fields = [], $result = '')
 {
     if (!is_array($user) || !is_string($user['username'] ?? null) || !is_string($type) || !is_string($subject) || !is_array($fields) || !is_string($result)) throw new InvalidArgumentException('Entrée de journal invalide.');
     foreach ($fields as $field) if (!is_string($field)) throw new InvalidArgumentException('Champ invalide.');
+    if (count($fields) > 60) $fields = array_merge(array_slice($fields, 0, 60), ['… autres champs non affichés']);
+    $fields = array_map(function ($field) { return funbikeHistoryBound($field, 40); }, $fields);
     $entry = [
         'time' => (new DateTimeImmutable('now', new DateTimeZone('Indian/Antananarivo')))->format('Y-m-d\TH:i:sP'),
-        'account' => $user['username'], 'type' => $type, 'subject' => $subject,
-        'fields' => array_values($fields), 'result' => $result
+        'account' => funbikeHistoryBound($user['username'], 64), 'type' => funbikeHistoryBound($type, 80), 'subject' => funbikeHistoryBound($subject, 240),
+        'fields' => array_values($fields), 'result' => funbikeHistoryBound($result, 400)
     ];
     $line = json_encode($entry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if ($line === false || strlen($line) > 16384) throw new RuntimeException('Entrée de journal trop grande ou invalide.');

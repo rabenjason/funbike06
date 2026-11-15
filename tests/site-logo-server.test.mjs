@@ -88,6 +88,10 @@ test('bibliothèque serveur : original protégé, logos conservés, sélection, 
     const webp=await upload(missingDeleted.body.revision,webpBytes,'Logo WebP','image/webp'); assert.equal(webp.status,201,JSON.stringify(webp.body));
     const webpImage=webp.body.data.images[0]; assert.match(webpImage.url,/\.webp$/); assert.deepEqual(readFileSync(join(dir,webpImage.url)),webpBytes);
     const webpDeleted=await call('site-logo.php','DELETE',{id:webpImage.id,revision:webp.body.revision}); assert.equal(webpDeleted.status,200); assert.equal(existsSync(join(dir,webpImage.url)),false);
+    const history=readFileSync(join(root,'storage/private/admin-history.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+    assert.ok(history.some(e => e.type==='Ajout — logo du site' && e.account==='admin-test' && e.subject.includes('Logo Christmas')));
+    assert.ok(history.some(e => e.type==='Suppression physique — logo du site' && e.result.includes('fichier supprimé')));
+    assert.ok(history.some(e => e.type==='Retrait — logo du site' && e.result.includes('fichier déjà absent')));
     writeFileSync(config,'{invalid');
     assert.equal((await call('site-logo.php')).status,500);
     assert.equal((await call('homepage-content.php','GET',undefined,false)).body.siteLogo,original);

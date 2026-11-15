@@ -27,6 +27,7 @@ if ($method === 'DELETE') {
     $path = $uploadDir . '/' . basename($url);
     if (is_link($path) || !is_file($path)) funbikeJsonResponse(404, ['error' => 'Logo introuvable ou non supprimable.']);
     if (!@unlink($path)) funbikeJsonResponse(500, ['error' => 'Impossible de supprimer ce logo.']);
+    funbikeHistoryNote('Suppression physique — logo Piston', 'Logo Piston : ' . basename($path), 'Fichier supprimé définitivement.');
 }
 $logos = [];
 if (is_dir($uploadDir)) {

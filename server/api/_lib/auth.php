@@ -7,6 +7,7 @@
 require_once __DIR__ . "/http.php";
 require_once __DIR__ . "/user-store.php";
 require_once __DIR__ . "/catalog.php";
+require_once __DIR__ . "/admin-history-recorder.php";
 
 function funbikeStartSession()
 {
@@ -160,7 +161,8 @@ function funbikeProtectWriteMethods($method)
 
     if (!in_array($method, ["GET", "OPTIONS"], true)) {
         funbikeRequireTrustedOrigin();
-        funbikeRequireAdmin();
+        $user = funbikeRequireAdmin();
+        funbikeHistoryBegin($user, $method);
     }
     if ($method === "GET" && ($_GET["includeDrafts"] ?? "") === "1") funbikeRequireAdmin();
     funbikeCatalogLock(!in_array($method, ["GET", "OPTIONS"], true));

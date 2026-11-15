@@ -166,21 +166,23 @@ if ($method === 'POST') {
         if ($brand['id'] === $id) { http_response_code(409); echo json_encode(["error" => "Cette marque existe déjà."]); exit; }
     }
     $brandDir = $uploadsDir . '/' . $id;
+    if (is_link($brandDir)) funbikeJsonResponse(409, ['error' => 'Dossier de marque non autorisé.']);
     if (!is_dir($brandDir)) {
         mkdir($brandDir, 0755, true);
     }
 
-    $destination = $brandDir . '/logo.' . $fileExt;
+    do { $logoName = 'logo-' . bin2hex(random_bytes(8)) . '.' . $fileExt; $destination = $brandDir . '/' . $logoName; } while (file_exists($destination) || is_link($destination));
     if (!move_uploaded_file($file['tmp_name'], $destination)) {
         http_response_code(500);
         echo json_encode(["error" => "Échec de l'enregistrement du logo."]);
         exit;
     }
 
+    funbikeHistoryNote('Ajout — logo de marque', 'Marque : ' . $name . ' (' . $id . ')', 'Fichier transféré ; vérifier son association à la marque.');
     $newBrand = [
         "id" => $id,
         "name" => $name,
-        "logo" => "/server/uploads/brands/$id/logo.$fileExt",
+        "logo" => "/server/uploads/brands/$id/$logoName",
         "isEquipmentBrand" => $isEquipmentBrand,
         "isPublished" => $flags['isPublished'],
         "isPartner" => $flags['isPartner']
@@ -263,14 +265,15 @@ if ($method === 'PUT') {
         }
 
         $brandDir = $uploadsDir . '/' . $id;
+        if (is_link($brandDir)) funbikeJsonResponse(409, ['error' => 'Dossier de marque non autorisé.']);
         if (!is_dir($brandDir)) {
             mkdir($brandDir, 0755, true);
         }
 
-        $fileName = 'logo-' . bin2hex(random_bytes(8)) . '.' . $fileExt;
-        $destination = $brandDir . '/' . $fileName;
+        do { $fileName = 'logo-' . bin2hex(random_bytes(8)) . '.' . $fileExt; $destination = $brandDir . '/' . $fileName; } while (file_exists($destination) || is_link($destination));
         if (move_uploaded_file($file['tmp_name'], $destination)) {
             $newLogoFile = $destination;
+            funbikeHistoryNote('Ajout — logo de marque', 'Marque : ' . $id . ' / ' . $fileName, 'Fichier transféré ; vérifier son association à la marque.');
             $data['brands'][$brandIndex]['logo'] = "/server/uploads/brands/$id/$fileName";
         } else {
             http_response_code(500);
@@ -281,7 +284,10 @@ if ($method === 'PUT') {
 
     if (!saveData($jsonFile, $data)) {
         // Le JSON pointe encore sur l'ancien logo : seul le nouveau fichier peut être retiré.
-        if ($newLogoFile !== null) @unlink($newLogoFile);
+        if ($newLogoFile !== null) {
+            $removed = @unlink($newLogoFile);
+            funbikeHistoryNote('Résultat partiel — logo de marque', 'Marque : ' . $id . ' / ' . basename($newLogoFile), $removed ? 'Écriture échouée ; fichier transféré retiré.' : 'Écriture échouée ; fichier transféré conservé ou indisponible.');
+        }
         http_response_code(500); echo json_encode(["error" => "Impossible de sauvegarder les marques."]); exit;
     }
     // Ne pas effacer les anciens logos : d'autres pages ou sauvegardes peuvent encore les utiliser.
@@ -322,9 +328,14 @@ if ($method === 'DELETE') {
     if (!saveData($jsonFile, $data)) { http_response_code(500); echo json_encode(["error" => "Impossible de sauvegarder les marques."]); exit; }
     // Ne supprimer les fichiers qu'après l'enregistrement du JSON.
     $brandDir = $uploadsDir . '/' . basename($id);
-    if (is_dir($brandDir)) {
+    if (is_link($brandDir)) funbikeHistoryNote('Résultat partiel — logo de marque', 'Marque : ' . $id, 'Dossier lié : aucun fichier supprimé.');
+    if (!is_link($brandDir) && is_dir($brandDir)) {
         $files = array_diff(scandir($brandDir), ['.', '..']);
-        foreach ($files as $file) @unlink($brandDir . '/' . $file);
+        foreach ($files as $file) {
+            $safe = funbikeUploadFileUnreferenced($brandDir . '/' . $file);
+            $removed = $safe && @unlink($brandDir . '/' . $file);
+            funbikeHistoryNote('Suppression physique — logo de marque', 'Marque : ' . $id . ' / ' . $file, $removed ? 'Fichier supprimé.' : ($safe ? 'Échec de suppression : fichier conservé ou indisponible.' : 'Fichier conservé : référence présente ou vérification impossible.'));
+        }
         @rmdir($brandDir);
     }
     http_response_code(200);
