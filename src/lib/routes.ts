@@ -4,6 +4,18 @@ import type { Product } from "../types/product";
 export type SiteRoute = { page: string; id?: string; categoryId?: string };
 const pages: Record<string, string> = { home: "/", catalogue: "/catalogue", motos: "/motos", equipements: "/equipements", spares: "/pieces-detachees", promotions: "/promotions", revendeurs: "/revendeurs", contact: "/contact" };
 
+/** Section de navigation correspondant à la catégorie réelle d'une fiche. */
+export function navigationPage(route: SiteRoute): string | undefined {
+  if (route.page === "product") return "motos";
+  if (route.page === "accessory") {
+    const category = route.categoryId ?? products.find((item) => item.id === route.id && item.categoryId !== "motos")?.categoryId;
+    if (category === "pieces-detachees") return "spares";
+    if (category === "casques" || category === "equipements") return "equipements";
+    return undefined;
+  }
+  return route.page;
+}
+
 /** L'identifiant immuable, et non le nom modifiable, constitue le lien public. */
 export function productPath(product: Product): string {
   const prefix = product.categoryId === "motos" ? "motos" : product.categoryId === "pieces-detachees" ? "pieces-detachees" : product.categoryId === "casques" ? "casques" : "equipements";

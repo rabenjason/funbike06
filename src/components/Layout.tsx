@@ -23,7 +23,7 @@ import { LOGO, brands } from "../catalog";
 import { siteLogo } from "../content/homepage";
 import { usePromotions } from "./PromotionsContext";
 import { content } from "../constants/content";
-import { routePath, navigateLink } from "../lib/routes";
+import { routePath, navigateLink, navigationPage } from "../lib/routes";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONE_HREF, CONTACT_SOCIAL_LINKS } from "../catalog/contact";
 import { facebookUrl } from "../lib/socialLinks";
 
@@ -68,6 +68,7 @@ export function Header({
   const [open, setOpen] = useState(false);
   const hasPromotions = usePromotions().campaigns.length > 0;
   const nav = hasPromotions ? NAV.flatMap((item) => item.key === "spares" ? [{ ...item, label: "Pièces" }, { key: "promotions", label: "Promotions" }] : [item]) : NAV;
+  const activePage = navigationPage(route);
   return (
     <header className="glass-header sticky top-0 z-40 border-b border-black/10 dark:border-white/10">
       <div className="mx-auto flex h-[calc(var(--site-header-height)-1px)] w-full max-w-(--container-site) items-center gap-4 px-4 sm:px-7 lg:px-10">
@@ -77,14 +78,12 @@ export function Header({
 
         <nav className={`ml-auto hidden h-full items-center gap-3 md:gap-4 lg:gap-7 ${hasPromotions ? "min-[1100px]:flex" : "md:flex"}`}>
           {nav.map((item) => {
-            const active =
-              route.page === item.key ||
-              (route.page === "product" && item.key === "motos") ||
-              (route.page === "accessory" && item.key === "equipements");
+            const active = activePage === item.key;
             return (
               <a
                 key={item.key}
                 href={routePath({ page: item.key })}
+                aria-current={active ? "page" : undefined}
                 onClick={(event) => navigateLink(event, go, item.key)}
                 className={
                   "fluid-btn relative flex h-full items-center font-bold uppercase transition-colors " +
@@ -131,6 +130,7 @@ export function Header({
               {nav.map((item, index) => (
                 <motion.button
                   key={item.key}
+                  aria-current={activePage === item.key ? "page" : undefined}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.035 }}
