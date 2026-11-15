@@ -174,6 +174,7 @@ function saveUploadedImage($file, $destinationWithoutExtension)
         respond(false, null, "Impossible d'enregistrer une image.", 500);
     }
 
+    funbikeHistoryNote('Ajout — photo produit', 'Produit : ' . basename(dirname($filename)) . ' / ' . basename($filename), 'Fichier transféré ; vérifier son association à la fiche.');
     return $filename;
 }
 
@@ -581,7 +582,8 @@ if ($method === "DELETE") {
 
     $productDir = $uploadsDir . "/" . basename($id);
 
-    if (is_dir($productDir)) {
+    if (is_link($productDir)) funbikeHistoryNote('Résultat partiel — photo produit', 'Produit : ' . $id, 'Dossier lié : aucun fichier supprimé.');
+    if (!is_link($productDir) && is_dir($productDir)) {
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator(
                 $productDir,
@@ -591,14 +593,18 @@ if ($method === "DELETE") {
         );
 
         foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
+            if ($fileInfo->isLink()) {
+                funbikeHistoryNote('Résultat partiel — photo produit', 'Produit : ' . $id . ' / ' . $fileInfo->getFilename(), 'Lien symbolique conservé sans le suivre.');
+            } elseif ($fileInfo->isDir()) {
+                @rmdir($fileInfo->getPathname());
             } else {
-                unlink($fileInfo->getPathname());
+                $safe = funbikeUploadFileUnreferenced($fileInfo->getPathname());
+                $removed = $safe && @unlink($fileInfo->getPathname());
+                funbikeHistoryNote('Suppression physique — photo produit', 'Produit : ' . $id . ' / ' . $fileInfo->getFilename(), $removed ? 'Fichier supprimé avec le produit.' : ($safe ? 'Échec de suppression : fichier conservé ou indisponible.' : 'Fichier conservé : référence présente ou vérification impossible.'));
             }
         }
 
-        rmdir($productDir);
+        @rmdir($productDir);
     }
 
     respond(true, ["id" => $id], "Moto supprimée avec succès.");

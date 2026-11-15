@@ -49,6 +49,7 @@ if ($method === 'POST' && isset($_FILES['banner'])) {
     if (is_link($dir) || (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir))) funbikeJsonResponse(500, ['error' => 'Dossier des images indisponible.']);
     do { $name = bin2hex(random_bytes(16)) . '.' . $types[$mime]; } while (file_exists($dir . '/' . $name));
     if (!move_uploaded_file($image['tmp_name'], $dir . '/' . $name)) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer l’image.']);
+    funbikeHistoryNote('Ajout — photo promotion', 'Photo promotion : ' . $name, 'Fichier transféré ; la campagne doit encore être enregistrée.');
     funbikeJsonResponse(201, ['url' => '/server/uploads/promotions/' . $name]);
 }
 $body = funbikeReadJsonBody();

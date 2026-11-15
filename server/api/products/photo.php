@@ -106,6 +106,8 @@ if ($isCleanup) {
         if (is_link($path) || $actual === false || dirname($actual) !== $realDir || !is_file($actual) || !@unlink($actual)) $failed[] = $filename;
         else $deleted[] = $filename;
     }
+    foreach ($deleted as $filename) funbikeHistoryNote('Suppression physique — photo produit', 'Produit : ' . ($product['name'] ?? $id) . ' (' . $id . ')', 'Fichier supprimé : ' . $filename . '.');
+    foreach ($failed as $filename) funbikeHistoryNote('Suppression physique — photo produit', 'Produit : ' . ($product['name'] ?? $id) . ' (' . $id . ')', 'Échec : fichier conservé ou indisponible : ' . $filename . '.');
     funbikeJsonResponse(200, ['deleted' => $deleted, 'failed' => $failed]);
 }
 
@@ -205,4 +207,5 @@ $messages = [
     'unverified' => 'Photo retirée de cette fiche. Le fichier a été conservé car sa situation ou ses autres usages ne peuvent pas être vérifiés.',
     'failed' => 'Photo retirée de cette fiche, mais le fichier reste sur le serveur : vérifiez les permissions.',
 ];
+funbikeHistoryNote('Retrait — photo produit', 'Produit : ' . ($data['products'][array_search($id, array_column($data['products'], 'id'), true)]['name'] ?? $id) . ' (' . $id . ')', 'Référence retirée : ' . basename(parse_url($url, PHP_URL_PATH) ?: '') . '. ' . $messages[$fileStatus]);
 funbikeJsonResponse(200, ['success' => true, 'deleted' => $fileStatus === 'deleted', 'fileStatus' => $fileStatus, 'message' => $messages[$fileStatus], 'renumbered' => $renumbered]);

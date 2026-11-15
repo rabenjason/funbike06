@@ -46,6 +46,7 @@ if ($method === 'PUT') {
     if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) funbikeJsonResponse(500, ['error' => 'Dossier des logos indisponible.']);
     do { $filename = 'logo-' . bin2hex(random_bytes(16)) . '.' . $types[$mime]; $path = $uploadDir . '/' . $filename; } while (file_exists($path) || is_link($path));
     if (!move_uploaded_file($image['tmp_name'], $path)) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le logo.']);
+    funbikeHistoryNote('Ajout — logo Piston', 'Logo Piston : ' . basename($path), 'Fichier transféré ; vérifier son association aux réglages.');
     // Les anciens fichiers restent disponibles pour sauvegarde, restauration et caches.
     $data['logo'] = '/server/uploads/chatbot/' . $filename;
 }

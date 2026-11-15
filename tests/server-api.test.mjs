@@ -352,6 +352,8 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('sherco-banner.php', { method: 'DELETE', authenticated: true, body: { action: 'purge', ...secondImage } })).status, 200);
     assert.equal(existsSync(join(dir, secondImage.url)), false); assert.equal(existsSync(join(dir, firstImage.url)), true);
     assert.deepEqual((await call('sherco-banner.php', { authenticated: true })).body.retired, []);
+    const bannerEvents = readFileSync(join(serverDir,'storage/private/admin-history.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+    for (const type of ['Ajout — photo bannière','Retrait — photo bannière','Restauration — photo bannière','Suppression physique — photo bannière']) assert.ok(bannerEvents.some(e => e.type === type && e.account === 'test-admin'), type);
     assert.equal(readFileSync(join(serverDir, 'api/_lib/homepage-defaults.json'), 'utf8'), homeBeforeBanner);
 
     // Contenu de l’accueil : initialisation sans écriture, mises à jour protégées et conflit.
