@@ -70,6 +70,13 @@ export default function App() {
     return () => { active = false; };
   }, [pageKey]);
   const canGoBack = history.length > 1;
+  useEffect(() => {
+    if (route.page !== "not-found") return;
+    // En cas d'adresse invalide atteinte dans l'historique de l'application,
+    // remplacer l'entrée évite une boucle avec le bouton Retour.
+    window.history.replaceState(null, "", "/");
+    setHistory([{ page: "home" }]);
+  }, [route.page]);
   useEffect(() => { updateSeo(route); }, [route]);
   const previousRoute = canGoBack ? history[history.length - 2] : null;
   const backLabel = useMemo(
@@ -140,7 +147,7 @@ export default function App() {
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              {route.page === "not-found" && <div className="p-8">Page introuvable. <button className="underline" onClick={() => go("home")}>Accueil</button></div>}
+              {route.page === "not-found" && <PageLoading />}
               {Page && <Page route={route} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />}
               {pageKey && !Page && (pageLoadError === pageKey ? <div role="alert" className="p-8">Impossible de charger cette page. Vérifiez votre connexion puis <button className="underline" onClick={() => window.location.reload()}>actualisez la page</button>.</div> : <PageLoading />)}
             </motion.div>

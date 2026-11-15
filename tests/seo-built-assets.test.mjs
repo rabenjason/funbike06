@@ -56,7 +56,8 @@ test('build versionné : assets séparés et SEO PHP sans JavaScript', { timeout
     assert.ok(seo.includes(js[1]) && seo.includes(css[1]), 'les assets restent liés dans la réponse SEO');
     for (const asset of [js[1], css[1]]) assert.equal((await fetch(origin + asset)).status, 200, asset);
     assert.equal((await fetch(origin + '/server/storage/data/products/motorcycles.json')).status, 404);
-    assert.equal((await fetch(origin + '/motos/modele-inconnu')).status, 404);
+    const unknown = await fetch(origin + '/motos/modele-inconnu', { redirect: 'manual' });
+    assert.equal(unknown.status, 302); assert.equal(unknown.headers.get('location'), origin + '/');
   } finally {
     child?.kill(); rmSync(dir, { recursive: true, force: true });
   }

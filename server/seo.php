@@ -80,21 +80,35 @@ $knownRedirects = [
     '/catalogue-motos/xx125-2026' => '/motos/xx-125-2026',
     '/catalogue-motos/tvs-hlx-plus' => '/motos/tvs-hlx-plus',
     '/catalogue-motos/tvs-apache-rtr-200-4v' => '/motos/tvs-apache-rtr-200-4v',
+    '/catalogue-motos/tvs-raider' => '/motos/tvs-red',
 ];
-$redirects = json_decode((string) @file_get_contents(__DIR__ . '/storage/data/seo-redirects.json'), true);
-$redirects = is_array($redirects) ? $redirects + $knownRedirects : $knownRedirects;
+$configuredRedirects = json_decode((string) @file_get_contents(__DIR__ . '/storage/data/seo-redirects.json'), true);
+$configuredRedirects = is_array($configuredRedirects) ? $configuredRedirects : [];
+$redirects = $configuredRedirects + $knownRedirects;
 if (isset($redirects[$path]) && is_string($redirects[$path])) {
     $target = $redirects[$path];
     $valid = isset($pages[$target]);
-    foreach ($all as $p) if (seoPath($p) === $target) $valid = true;
+    foreach ($all as $p) {
+        if (seoPath($p) !== $target) continue;
+        // L'identifiant de démonstration ne suffit pas à confirmer une Raider
+        // sur une autre installation. Une configuration explicite reste prioritaire.
+        if ($path === '/catalogue-motos/tvs-raider' && !array_key_exists($path, $configuredRedirects)
+            && (($p['brandId'] ?? null) !== 'tvs' || ($p['modelId'] ?? null) !== 'tvs-raider-rouge')) continue;
+        $valid = true;
+    }
     if ($valid && $target !== $path) { header('Location: ' . $origin . $target, true, 301); exit; }
 }
 $product = null;
 foreach ($all as $p) if (seoPath($p) === $path) { $product = $p; break; }
 if (!isset($pages[$path]) && !$product) {
-    http_response_code(404); header('X-Robots-Tag: noindex');
-    header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Page introuvable | Funbike</title><h1>Page introuvable</h1><a href="/">Retour à l’accueil</a></html>'; exit;
+    // Les fichiers, dossiers techniques et chemins cachés ne sont pas des pages :
+    // ne jamais masquer leurs erreurs ni détourner leurs réponses vers l'accueil.
+    if (preg_match('#^/(?:server|assets|admin|\.well-known)(?:/|$)|(?:^|/)\.[^/]*|\.(?!html?$)[^/]+$#i', $path)) {
+        http_response_code(404); header('X-Robots-Tag: noindex'); exit;
+    }
+    // Une page inconnue peut devenir valide plus tard : éviter une 301 en cache.
+    header('X-Robots-Tag: noindex');
+    header('Location: ' . $origin . '/', true, 302); exit;
 }
 $title = $product ? seoText($product['name'] ?? 'Produit') . ' | Funbike Madagascar' : $pages[$path][0];
 $description = $product ? seoText($product['description'] ?? '') : $pages[$path][1];
