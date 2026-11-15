@@ -67,10 +67,11 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     assert.equal(forbidden.status, 403);
     assert.equal((await forbidden.json()).code, 'SUPERADMIN_REQUIRED');
     const before = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
-    assert.equal(before.enabled, true); assert.deepEqual(before.months, []);
+    assert.equal(before.enabled, true); assert.deepEqual(before.months, []); assert.deepEqual(before.days, []);
     for (let n = 0; n < 10; n++) assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
     let data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.deepEqual(data.months, [{ month: data.currentMonth, count: 10, visitors: 1, browsers: null }]);
+    assert.equal(data.days.length, 1); assert.equal(data.days[0].visitors, 1); assert.match(data.days[0].date, new RegExp('^' + data.currentMonth));
     const stored = JSON.parse(readFileSync(statsFile, 'utf8'));
     assert.deepEqual(Object.keys(stored).sort(), ['limit', 'months']); assert.equal(stored.months[data.currentMonth].count, 10);
     assert.equal(readFileSync(statsFile, 'utf8').includes('127.0.0.1'), false);
@@ -84,6 +85,7 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     data = await (await fetch(base + 'openings.php', {headers:{Cookie:cookie}})).json();
     assert.equal(data.months[0].count, 13); assert.equal(data.months[0].visitors, 1);
     assert.equal(data.months[0].browsers, 2); assert.equal(data.years[0].browsers, 2);
+    assert.equal(data.days[0].visitors, 1, 'plusieurs navigateurs sur une IP restent un visiteur estimé par jour');
     const rawStats = readFileSync(statsFile, 'utf8');
     assert.equal(rawStats.includes(phone), false); assert.equal(rawStats.includes(computer), false);
     assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening', browserId:'not-valid'})})).status, 400);
@@ -94,7 +96,34 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
     }
     data = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
     assert.deepEqual(data.months, [{month:data.currentMonth, count:16, visitors:2, browsers:2}]);
-    assert.equal(data.years[0].visitors, 2);
+    assert.equal(data.years[0].visitors, 2); assert.equal(data.days[0].visitors, 2, 'deux IP distinctes le même jour');
+    // Simulation isolée : la même IP peut compter sur plusieurs jours, sans
+    // changer les totaux mensuels ou annuels. Pas d’historique inventé.
+    const savedDailyFixture = readFileSync(statsFile, 'utf8');
+    const synthetic = JSON.parse(savedDailyFixture);
+    const [cy, cm] = data.currentMonth.split('-').map(Number);
+    const previousDate = new Date(Date.UTC(cy, cm - 2, 1));
+    const previousMonth = previousDate.toISOString().slice(0, 7);
+    const lastDay = new Date(Date.UTC(previousDate.getUTCFullYear(), previousDate.getUTCMonth() + 1, 0)).getUTCDate();
+    const lastBit = 1 << (lastDay - 1);
+    const ips = synthetic.months[data.currentMonth].visitors;
+    synthetic.months[previousMonth] = { count: 7, visitors: [...ips], days: { 0: 1 | lastBit, 1: lastBit } };
+    writeFileSync(statsFile, JSON.stringify(synthetic));
+    const past = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
+    assert.deepEqual(past.days.filter(d => d.date.startsWith(previousMonth)), [{ date: previousMonth + '-01', visitors: 1 }, { date: previousMonth + '-' + lastDay, visitors: 2 }]);
+    assert.equal(past.months.find(m => m.month === previousMonth).visitors, 2);
+    writeFileSync(statsFile, savedDailyFixture);
+    // Migration d'un ancien fichier : les anciens totaux sont préservés, mais
+    // seuls les événements après la mise à jour alimentent le détail journalier.
+    const legacy = JSON.parse(savedDailyFixture);
+    delete legacy.months[data.currentMonth].days;
+    writeFileSync(statsFile, JSON.stringify(legacy));
+    const legacyRead = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
+    assert.equal(legacyRead.months[0].count, 16); assert.deepEqual(legacyRead.days, []);
+    assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body:JSON.stringify({kind:'opening'}) })).status, 204);
+    const migrated = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
+    assert.equal(migrated.months[0].count, 17); assert.equal(migrated.months[0].visitors, 2); assert.equal(migrated.days[0].visitors, 1);
+    writeFileSync(statsFile, savedDailyFixture);
     const forbiddenWithData = await fetch(base + 'openings.php', {headers:{Cookie:editorCookie}});
     assert.equal(forbiddenWithData.status, 403);
     const deniedBody = await forbiddenWithData.json(); assert.equal(deniedBody.code, 'SUPERADMIN_REQUIRED'); assert.equal(deniedBody.months, undefined);
@@ -121,6 +150,7 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
       writeFileSync(statsFile, JSON.stringify(historical));
       const annual = await (await fetch(base + 'openings.php', { headers: { Cookie: cookie } })).json();
       assert.equal(annual.years.find(y => y.year === year).visitors, 3, 'une même empreinte est dédupliquée entre les mois');
+      assert.ok(!annual.days.some(d=>d.date.startsWith(previous)), 'les jours historiques ne sont pas inventés');
       assert.equal(annual.years.find(y => y.year === year).browsers, 3, 'les navigateurs annuels sont dédupliqués entre les mois');
     }
     const keyFile = join(root, 'storage/private/site-ip-audience-key.json');
@@ -145,6 +175,15 @@ test('ouvertures : désactivation, IP distinctes, accès privé et protection co
       assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 204);
       assert.equal(JSON.parse(readFileSync(statsFile, 'utf8')).months[data.currentMonth].count, current, 'limitation globale à 120 par minute');
     }
+    // Le champ quotidien corrompu ne doit jamais écraser les données existantes.
+    const invalidDays = JSON.parse(readFileSync(statsFile, 'utf8'));
+    const validDays = invalidDays.months[data.currentMonth].days;
+    invalidDays.months[data.currentMonth].days = { '9999': 1 };
+    const invalidJSON = JSON.stringify(invalidDays); writeFileSync(statsFile, invalidJSON);
+    assert.equal((await fetch(base + 'openings.php', {headers:{Cookie:cookie}})).status, 503);
+    assert.equal((await fetch(base + 'openings.php', {method:'POST', headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'opening'})})).status, 503);
+    assert.equal(readFileSync(statsFile, 'utf8'), invalidJSON);
+    invalidDays.months[data.currentMonth].days = validDays; writeFileSync(statsFile, JSON.stringify(invalidDays));
     const future = JSON.parse(readFileSync(statsFile, 'utf8'));
     future.months['9999-12'] = {count:42, visitors:[]}; writeFileSync(statsFile, JSON.stringify(future));
     assert.equal((await fetch(base + 'openings.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({kind:'opening'}) })).status, 503);
