@@ -64,25 +64,43 @@ test('bandeau cookies original, sans nouvelle information sur les visiteurs', ()
   assert.ok(view.getByRole('button', {name:'Accepter'}));
 });
 
-test('statistiques mensuelles, annuelles, données manquantes et état désactivé', async () => {
-  globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: false, currentMonth: '2026-11', months: [{ month: '2026-01', count: 4, visitors: 2, browsers: 3 }, { month: '2026-02', count: 7, visitors: 2, browsers: 2 }, { month: '2025-12', count: 12, visitors: 1, browsers: null }], years: [{year:'2026', visitors: 3, browsers: 4}, {year:'2025', visitors:1, browsers:null}] }) });
+test('fréquentation : chiffres par IP, ouvertures, détails et jours', async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: false, currentMonth: '2026-11', months: [{ month: '2026-01', count: 4, visitors: 2, browsers: 3 }, { month: '2026-02', count: 7, visitors: 2, browsers: 2 }, { month: '2025-12', count: 12, visitors: 1, browsers: null }], years: [{year:'2026', visitors: 3, browsers: 4}, {year:'2025', visitors:1, browsers:null}], days: [{date:'2026-02-01', visitors:1}, {date:'2026-02-02', visitors:2}] }) });
   const view = render(React.createElement(AdminOpenings));
   await waitFor(() => assert.match(view.container.textContent, /Comptage désactivé/));
-  assert.match(view.container.textContent, /Visiteurs estimés sur l’année :\s*4/);
-  assert.match(view.container.textContent, /Les visiteurs et les IP sont estimés/);
-  assert.doesNotMatch(view.container.textContent, /Les visiteurs estimés représentent des navigateurs/);
-  assert.match(view.container.textContent, /Total des mois enregistrés :\s*11/);
-  assert.equal(view.getAllByText('—').length, 30);
+  assert.match(view.container.textContent, /3 visiteurs estimés/);
+  assert.match(view.container.textContent, /11 ouvertures du site/);
+  assert.match(view.container.textContent, /3 adresses IP · 4 navigateurs/);
+  assert.match(view.container.textContent, /Aucune donnée quotidienne pour ce mois/);
+  const jan = view.getByRole('row', {name:/Janvier/});
+  assert.match(jan.textContent, /Janvier\s*2\s*4/);
+  fireEvent.change(view.getByLabelText('Mois des statistiques quotidiennes'), { target: { value: '02' } });
+  assert.match(view.getByRole('row', {name:/01\/02\/2026/}).textContent, /01\/02\/2026\s*1/);
+  assert.match(view.getByRole('row', {name:/02\/02\/2026/}).textContent, /02\/02\/2026\s*2/);
+  assert.match(view.getByRole('row', {name:/03\/02\/2026/}).textContent, /—/);
+  assert.equal(view.queryByRole('row', {name:/29\/02\/2026/}), null);
   fireEvent.change(view.getByLabelText('Année des statistiques'), { target: { value: '2025' } });
-  assert.match(view.container.textContent, /Total des mois enregistrés :\s*12/);
-  assert.equal(view.getAllByText('—').length, 35);
+  assert.match(view.container.textContent, /1 visiteur estimé/);
+  assert.match(view.container.textContent, /12 ouvertures du site/);
+  assert.match(view.container.textContent, /1 adresse IP · — navigateurs/);
+  assert.match(view.container.textContent, /Aucune donnée quotidienne pour ce mois/);
+});
+
+test('ancien serveur sans détail quotidien et données invalides', async () => {
+  let invalid = false;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ enabled: true, currentMonth: '2026-11', months:[{month:'2026-02',count:1,visitors:1}], years:[{year:'2026',visitors:1}], ...(invalid ? {days:[{date:'2026-02-31',visitors:1}]} : {}) }) });
+  const view = render(React.createElement(AdminOpenings));
+  await waitFor(() => assert.match(view.container.textContent, /1 visiteur estimé/));
+  assert.match(view.container.textContent, /Aucune donnée quotidienne pour ce mois/);
+  invalid = true; fireEvent.click(view.getByRole('button', {name:'Actualiser'}));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /invalide/));
 });
 
 test('erreur serveur visible, sans inventer de nombres', async () => {
   globalThis.fetch = async () => ({ ok: false, json: async () => ({ message: 'Statistiques indisponibles.' }) });
   const view = render(React.createElement(AdminOpenings));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /indisponibles/));
-  assert.ok(view.getByText('Réessayer')); assert.equal(view.queryByText(/Total des mois enregistrés/), null);
+  assert.ok(view.getByText('Réessayer')); assert.equal(view.queryByText(/visiteurs estimés/), null);
 });
 
 

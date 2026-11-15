@@ -34,7 +34,7 @@ $dir = dirname(__DIR__) . '/storage/private';
 // Nouvelle série : ne jamais supprimer ni mélanger les anciennes données d'ouvertures.
 $file = $dir . '/site-ip-audience.json';
 $keyFile = $dir . '/site-ip-audience-key.json';
-if ($method === 'GET' && !file_exists($file)) funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => [], 'years' => []]);
+if ($method === 'GET' && !file_exists($file)) funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => [], 'years' => [], 'days' => []]);
 if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) funbikeJsonResponse(503, ['message' => 'Statistiques indisponibles.']);
 $lock = @fopen($dir . '/site-ip-audience.lock', 'c');
 if (!$lock || !flock($lock, $method === 'POST' ? LOCK_EX : LOCK_SH)) funbikeJsonResponse(503, ['message' => 'Statistiques indisponibles.']);
@@ -54,6 +54,14 @@ try {
             if (!is_array($entry['browsers']) || count($entry['browsers']) > 50000) throw new RuntimeException();
             foreach ($entry['browsers'] as $hash) if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) throw new RuntimeException();
             if (count(array_unique($entry['browsers'])) !== count($entry['browsers'])) throw new RuntimeException();
+        }
+        if (array_key_exists('days', $entry)) {
+            if (!is_array($entry['days']) || count($entry['days']) > count($entry['visitors'])) throw new RuntimeException();
+            $lastDay = $key === $month ? (int) $now->format('j') : (int) (new DateTimeImmutable($key . '-01', new DateTimeZone('Indian/Antananarivo')))->format('t');
+            $maxMask = (1 << ($lastDay - 1)) | ((1 << ($lastDay - 1)) - 1);
+            foreach ($entry['days'] as $index => $mask) {
+                if (!is_int($index) || $index < 0 || !isset($entry['visitors'][$index]) || !is_int($mask) || $mask < 1 || $mask > $maxMask) throw new RuntimeException();
+            }
         }
         if ($key >= $firstMonth) $months[$key] = $entry;
     }
@@ -80,10 +88,18 @@ try {
             }
             $hash = hash_hmac('sha256', $ip, hex2bin($keyState['key']));
             $entry = $months[$month] ?? ['count' => 0, 'visitors' => []];
-            if (!in_array($hash, $entry['visitors'], true)) {
+            $visitorIndex = array_search($hash, $entry['visitors'], true);
+            if ($visitorIndex === false) {
                 if (count($entry['visitors']) >= 50000) throw new RuntimeException();
                 $entry['visitors'][] = $hash;
+                $visitorIndex = array_key_last($entry['visitors']);
             }
+            // Un masque compact indexé sur les empreintes mensuelles : un bit par jour.
+            // Les anciens mois sans ce champ restent inchangés et non reconstitués.
+            if (!is_int($visitorIndex) || $visitorIndex < 0) throw new RuntimeException();
+            if (!isset($entry['days'])) $entry['days'] = [];
+            $dayBit = 1 << ((int) $now->format('j') - 1);
+            $entry['days'][$visitorIndex] = ($entry['days'][$visitorIndex] ?? 0) | $dayBit;
             if (isset($input['browserId'])) {
                 $browserHash = hash_hmac('sha256', "browser:" . $input['browserId'], hex2bin($keyState['key']));
                 if (!isset($entry['browsers'])) $entry['browsers'] = [];
@@ -107,9 +123,17 @@ try {
 }
 flock($lock, LOCK_UN); fclose($lock);
 if ($method === 'POST') { http_response_code(204); exit; }
-$rows = []; $years = [];
+$rows = []; $years = []; $days = [];
 foreach ($months as $key => $entry) {
     $rows[] = ['month' => $key, 'count' => $entry['count'], 'visitors' => count($entry['visitors']), 'browsers' => isset($entry['browsers']) ? count($entry['browsers']) : null];
+    $dailyCounts = [];
+    foreach (($entry['days'] ?? []) as $mask) {
+        for ($day = 1; $day <= 31; $day++) {
+            if ($mask & (1 << ($day - 1))) $dailyCounts[$day] = ($dailyCounts[$day] ?? 0) + 1;
+        }
+    }
+    ksort($dailyCounts);
+    foreach ($dailyCounts as $day => $count) $days[] = ['date' => $key . '-' . str_pad((string) $day, 2, '0', STR_PAD_LEFT), 'visitors' => $count];
     $year = substr($key, 0, 4);
     if (!isset($years[$year])) $years[$year] = ['visitors' => [], 'browsers' => null];
     foreach ($entry['visitors'] as $hash) $years[$year]['visitors'][$hash] = true;
@@ -120,4 +144,4 @@ foreach ($months as $key => $entry) {
 }
 $annual = [];
 foreach ($years as $year => $entries) $annual[] = ['year' => (string)$year, 'visitors' => count($entries['visitors']), 'browsers' => $entries['browsers'] === null ? null : count($entries['browsers'])];
-funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => $rows, 'years' => $annual]);
+funbikeJsonResponse(200, ['enabled' => $enabled, 'currentMonth' => $month, 'months' => $rows, 'years' => $annual, 'days' => $days]);
