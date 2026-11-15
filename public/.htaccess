@@ -5,7 +5,17 @@ RewriteEngine On
 RewriteRule ^server(?:/|$) - [L]
 RewriteRule ^index\.html$ / [R=301,L,NE]
 RewriteRule ^$ server/seo.php [L,QSA]
-# Anciennes sections vérifiées : ne pas router tous les chemins inconnus.
+# Anciennes sections et pages connues.
 RewriteRule ^(?:catalogue-motos/?|catalogue-motos/page/2/?|catalogue-equipements/?)$ server/seo.php [L,QSA,NC]
 RewriteRule ^(?:sitemap\.xml|robots\.txt|admin/?|catalogue/?|motos(?:/[^/]+)?/?|casques/[^/]+/?|equipements(?:/[^/]+)?/?|pieces-detachees(?:/[^/]+)?/?|revendeurs/?|promotions/?|contact/?|catalogue-motos/[^/]+/?)$ server/seo.php [L,QSA,NC]
+# Pages inconnues : laisser les fichiers, les dossiers et les chemins techniques
+# à Apache, et ne rediriger que les navigations GET/HEAD vers le routeur SEO.
+RewriteCond %{REQUEST_METHOD} ^(?:GET|HEAD)$
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/(?:server|assets|admin|\.well-known)(?:/|$) [NC]
+RewriteCond %{REQUEST_URI} !(?:^|/)\.
+RewriteCond %{REQUEST_URI} !\.[^/]+/?$ [OR]
+RewriteCond %{REQUEST_URI} \.html?/?$ [NC]
+RewriteRule ^ server/seo.php [L,QSA]
 </IfModule>

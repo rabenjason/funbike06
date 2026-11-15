@@ -61,3 +61,15 @@ test('entrée directe, liens, historique navigateur et balises pendant la naviga
   await waitFor(() => assert.equal(window.location.pathname, '/motos'));
   view.unmount();
 });
+
+test('une mauvaise adresse atteinte dans l’historique revient à l’accueil sans boucle', async () => {
+  window.history.replaceState(null, '', '/motos/tvs-hlx-plus');
+  const view = render(React.createElement(App));
+  await waitFor(() => assert.match(view.container.textContent, /TVS HLX Plus/));
+  window.history.pushState(null, '', '/mauvaise-page');
+  fireEvent.popState(window);
+  await waitFor(() => assert.equal(window.location.pathname, '/'));
+  await waitFor(() => assert.equal(document.title, 'Funbike Madagascar — Motos, pièces et équipements'));
+  assert.doesNotMatch(view.container.textContent, /Page introuvable/);
+  view.unmount();
+});

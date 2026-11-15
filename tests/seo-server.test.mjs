@@ -9,7 +9,7 @@ import { createServer } from 'node:net';
 const wasm = resolve('node_modules/.bin/php-wasm-cli');
 const php = process.env.PHP_BINARY || (spawnSync('php', ['-v'], { stdio: 'ignore' }).status === 0 ? 'php' : existsSync(wasm) ? wasm : null);
 
-test('Apache : les anciennes sections confirmées sont routées sans règle générale', () => {
+test('Apache : les pages inconnues sont routées sans détourner les ressources techniques', () => {
   const htaccess = readFileSync('public/.htaccess', 'utf8');
   const rule = htaccess.split('\n').find((line) => line.startsWith('RewriteRule ^(?:catalogue-motos/?|catalogue-motos/page/2/?|catalogue-equipements/?)$'));
   assert.ok(rule, 'règle ciblée présente dans le modèle Apache');
@@ -19,6 +19,9 @@ test('Apache : les anciennes sections confirmées sont routées sans règle gén
   for (const path of ['catalogue-motos', 'catalogue-motos/', 'catalogue-motos/page/2', 'catalogue-motos/page/2/', 'catalogue-equipements', 'catalogue-equipements/']) assert.ok(matcher.test(path), path);
   for (const path of ['catalogue-motos/page/3/', 'catalogue-motos/xx125-2026/', 'server/api/test.php', 'vide']) assert.equal(matcher.test(path), false, path);
   assert.ok(htaccess.indexOf('RewriteRule ^server(?:/|$) - [L]') < htaccess.indexOf(rule), 'les URL serveur restent exclues');
+  const fallback = htaccess.slice(htaccess.indexOf('# Pages inconnues'));
+  for (const condition of ['%{REQUEST_METHOD} ^(?:GET|HEAD)$', '%{REQUEST_FILENAME} !-f', '%{REQUEST_FILENAME} !-d', 'server|assets|admin|\\.well-known', '%{REQUEST_URI} !(?:^|/)\\.', '%{REQUEST_URI} !\\.[^/]+/?$', '%{REQUEST_URI} \\.html?/?$']) assert.ok(fallback.includes(condition), condition);
+  assert.match(fallback, /RewriteRule \^ server\/seo\.php \[L,QSA\]/);
 });
 
 test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens stables', { skip: !php && 'PHP non installé', timeout: 90000 }, async () => {
@@ -70,9 +73,15 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
     assert.match(html, /<meta property="og:title"/); assert.match(html, /<meta property="og:image"/);
     assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/motos\/nouveau-test">/);
     assert.match(html, /application\/ld\+json/); assert.doesNotMatch(html, /<script>danger<\/script>|<img src=x onerror/);
-    assert.equal((await fetch(origin + '/motos/brouillon-secret')).status, 404);
-    assert.equal((await fetch(origin + '/motos/marque-masquee')).status, 404);
-    assert.equal((await fetch(origin + '/motos/inconnu')).status, 404);
+    async function goesHome(path, options = {}) {
+      const response = await fetch(origin + path, { ...options, redirect: 'manual' });
+      assert.equal(response.status, 302, path); assert.equal(response.headers.get('location'), origin + '/', path);
+      assert.match(response.headers.get('x-robots-tag'), /noindex/);
+    }
+    for (const path of ['/motos/brouillon-secret', '/motos/marque-masquee', '/motos/inconnu', '/page-inconnue', '/ancienne/page.html', '/catalogue-motos/tvs-raideur/?utm_source=test']) await goesHome(path);
+    await goesHome('/page-inconnue', { method: 'HEAD' });
+    assert.equal((await fetch(origin + '/page-inconnue', { method: 'POST', redirect: 'manual' })).status, 405);
+    for (const path of ['/assets/manquant.js', '/server/missing', '/admin/inconnu', '/.well-known/missing', '/motos/manquant.js']) assert.equal((await fetch(origin + path, { redirect: 'manual' })).status, 404, path);
     assert.match(await (await fetch(origin + '/motos')).text(), /href="\/motos\/nouveau-test"/);
     assert.match((await fetch(origin + '/admin')).headers.get('x-robots-tag'), /noindex/);
     assert.equal((await fetch(origin + '/server/storage/data/products/motorcycles.json')).status, 404);
@@ -80,7 +89,7 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
     injected.name = 'Moto renommée'; products.products[products.products.length - 3] = injected; writeFileSync(file, JSON.stringify(products));
     assert.match(await (await fetch(origin + '/motos/nouveau-test')).text(), /Moto renommée/);
     injected.status = 'ARCHIVED'; writeFileSync(file, JSON.stringify(products));
-    assert.equal((await fetch(origin + '/motos/nouveau-test')).status, 404);
+    await goesHome('/motos/nouveau-test');
     assert.doesNotMatch(await (await fetch(origin + '/sitemap.xml')).text(), /nouveau-test/);
     injected.status = 'PUBLISHED'; writeFileSync(file, JSON.stringify(products));
     assert.equal((await fetch(origin + '/motos/nouveau-test')).status, 200);
@@ -90,6 +99,7 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
       ['/catalogue-motos/page/2', '/motos'],
       ['/catalogue-equipements', '/equipements'],
       ['/catalogue-motos/xx125-2026', '/motos/xx-125-2026'],
+      ['/catalogue-motos/tvs-raider', '/motos/tvs-red'],
     ]) {
       for (const suffix of ['', '/', '/?source=test']) {
         const response = await fetch(origin + oldPath + suffix, { redirect: 'manual' });
@@ -100,12 +110,12 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
       assert.ok(!sitemap.includes(origin + oldPath), 'le sitemap utilise les nouvelles adresses');
     }
     assert.equal((await fetch(origin + '/catalogue/')).status, 200, 'le catalogue existant reste disponible');
-    for (const unknown of ['/catalogue-motos/page/3', '/catalogue-motos/hlx-125', '/catalogue-motos/tvs-hlx-150', '/catalogue-motos/tvs-raider', '/catalogue-motos/sherco-sef-300-2026']) {
-      assert.equal((await fetch(origin + unknown, { redirect: 'manual' })).status, 404, 'aucune correspondance non confirmée : ' + unknown);
+    for (const unknown of ['/catalogue-motos/page/3', '/catalogue-motos/hlx-125', '/catalogue-motos/tvs-hlx-150', '/catalogue-motos/sherco-sef-300-2026']) {
+      await goesHome(unknown);
     }
     const xx = products.products.find((p) => p.id === 'xx-125-2026');
     const xxStatus = xx.status; xx.status = 'ARCHIVED'; writeFileSync(file, JSON.stringify(products));
-    assert.equal((await fetch(origin + '/catalogue-motos/xx125-2026/', { redirect: 'manual' })).status, 404, 'ne pas rediriger vers un produit archivé');
+    await goesHome('/catalogue-motos/xx125-2026/');
     xx.status = xxStatus; writeFileSync(file, JSON.stringify(products));
     for (const id of ['tvs-hlx-plus', 'tvs-apache-rtr-200-4v']) {
       for (const suffix of ['', '/', '/?utm_source=test']) {
@@ -115,19 +125,31 @@ test('SEO PHP : pages publiques, sitemap dynamique, confidentialité et liens st
       }
       assert.doesNotMatch(sitemap, new RegExp(`/catalogue-motos/${id}`));
     }
-    assert.equal((await fetch(origin + '/catalogue-motos/apache-rtr-160-4v', { redirect: 'manual' })).status, 404, 'ne pas confondre 160 4V et 160 2V');
+    await goesHome('/catalogue-motos/apache-rtr-160-4v'); // ne pas confondre 160 4V et 160 2V
     apacheFixture.status = 'ARCHIVED'; writeFileSync(file, JSON.stringify(products));
-    assert.equal((await fetch(origin + '/catalogue-motos/tvs-apache-rtr-200-4v', { redirect: 'manual' })).status, 404, 'ne pas rediriger vers une fiche archivée');
+    await goesHome('/catalogue-motos/tvs-apache-rtr-200-4v');
     apacheFixture.status = 'PUBLISHED'; writeFileSync(file, JSON.stringify(products));
-    const savedRedirects = JSON.stringify({ '/catalogue-motos/ancienne': '/motos/nouveau-test', '/catalogue-motos/externe': 'https://evil.invalid/', '/catalogue-motos/tvs-hlx-plus': null, '/catalogue-motos/xx125-2026': null, '/catalogue-motos/tvs-apache-rtr-200-4v': '/motos/nouveau-test' });
+    const raider = products.products.find((p) => p.id === 'tvs-red');
+    raider.status = 'ARCHIVED'; writeFileSync(file, JSON.stringify(products));
+    await goesHome('/catalogue-motos/tvs-raider/');
+    raider.status = 'PUBLISHED';
+    const raiderModel = raider.modelId;
+    raider.modelId = 'autre-modele'; writeFileSync(file, JSON.stringify(products));
+    await goesHome('/catalogue-motos/tvs-raider'); // ne pas supposer le contenu réel à partir du seul identifiant
+    raider.modelId = raiderModel; writeFileSync(file, JSON.stringify(products));
+    const savedRedirects = JSON.stringify({ '/catalogue-motos/ancienne': '/motos/nouveau-test', '/catalogue-motos/externe': 'https://evil.invalid/', '/catalogue-motos/tvs-hlx-plus': null, '/catalogue-motos/xx125-2026': null, '/catalogue-motos/tvs-apache-rtr-200-4v': '/motos/nouveau-test', '/catalogue-motos/tvs-raider': '/motos/nouveau-test' });
     writeFileSync(redirects, savedRedirects);
-    assert.equal((await fetch(origin + '/catalogue-motos/xx125-2026', { redirect: 'manual' })).status, 404, 'le fichier privé reste prioritaire pour la nouvelle redirection');
+    await goesHome('/catalogue-motos/xx125-2026');
     assert.equal(readFileSync(redirects, 'utf8'), savedRedirects, 'aucune écriture dans le fichier privé');
-    assert.equal((await fetch(origin + '/catalogue-motos/tvs-hlx-plus', { redirect: 'manual' })).status, 404, 'une configuration existante peut désactiver une redirection par défaut');
+    await goesHome('/catalogue-motos/tvs-hlx-plus');
     const overridden = await fetch(origin + '/catalogue-motos/tvs-apache-rtr-200-4v', { redirect: 'manual' });
     assert.equal(overridden.status, 301); assert.equal(overridden.headers.get('location'), origin + '/motos/nouveau-test', 'la configuration de l’installation est prioritaire');
     const redirect = await fetch(origin + '/catalogue-motos/ancienne/', { redirect: 'manual' });
     assert.equal(redirect.status, 301); assert.equal(redirect.headers.get('location'), origin + '/motos/nouveau-test');
-    assert.equal((await fetch(origin + '/catalogue-motos/externe', { redirect: 'manual' })).status, 404);
+    const raiderOverride = await fetch(origin + '/catalogue-motos/tvs-raider', { redirect: 'manual' });
+    assert.equal(raiderOverride.status, 301); assert.equal(raiderOverride.headers.get('location'), origin + '/motos/nouveau-test');
+    await goesHome('/catalogue-motos/externe');
+    writeFileSync(file, 'JSON corrompu');
+    assert.equal((await fetch(origin + '/mauvaise-page', { redirect: 'manual' })).status, 500, 'une panne de catalogue ne doit pas être cachée par une redirection');
   } finally { child.kill(); rmSync(dir, { recursive: true, force: true }); }
 });
