@@ -32,6 +32,9 @@
 # Thème public choisi depuis le dashboard (donnée locale, jamais livrée).
 /storage/data/site-theme.json
 
+# Historique d'administration : données réelles, à conserver sur le serveur.
+/storage/private/admin-history.jsonl
+
 # Statistiques locales réelles : ne jamais livrer les données runtime.
 /storage/private/site-openings.json
 
