@@ -347,3 +347,26 @@ test('la date disparaît automatiquement quand le compteur commence', async () =
     view.unmount(); assert.equal(timers.size, 0);
   } finally { Date.now = realNow; window.setInterval = realInterval; window.clearInterval = realClear; }
 });
+
+test('bannière de promotion : optimisation avant envoi, limite et conservation du brouillon', async () => {
+  const adminCatalog = { products: [], brands: [], categories: [], families: [], types: [], models: [] };
+  const uploads=[];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('promotions.php?admin=1')) return {ok:true,json:async()=>({campaigns:[]})};
+    if (String(url).endsWith('promotions-display.php')) return {ok:true,json:async()=>({data:{preferredCategory:'motos'},revision:'r1'})};
+    if (String(url).endsWith('promotions.php') && options.method === 'POST') { uploads.push(options.body); return {ok:true,json:async()=>({url:'/server/uploads/promotions/'+ 'a'.repeat(32)+'.png'})}; }
+    throw new Error(String(url));
+  };
+  const view=render(React.createElement(ConfirmationProvider,null,React.createElement(AdminPromotions,{catalog:adminCatalog,onDirtyChange:()=>{},onSavingChange:()=>{},productEditor:()=>null})));
+  await waitFor(()=>view.getByRole('button',{name:'Créer une promotion'})); fireEvent.click(view.getByRole('button',{name:'Créer une promotion'}));
+  fireEvent.change(view.getByLabelText('Nom'),{target:{value:'Brouillon'}});
+  const input=view.getByLabelText('Bannière facultative');
+  const big=new File([new Uint8Array(8*1024*1024+1)],'lourd.jpg',{type:'image/jpeg'});
+  fireEvent.change(input,{target:{files:[big]}}); assert.match(view.container.textContent,/Optimisation de la bannière en cours/); assert.equal(uploads.length,0);
+  await waitFor(()=>assert.match(view.getByRole('alert').textContent,/dépasse 8 Mo après optimisation/)); assert.equal(uploads.length,0);
+  assert.equal(view.getByLabelText('Nom').value,'Brouillon');
+  const light=new File(['image'],'petite.png',{type:'image/png'});
+  fireEvent.change(input,{target:{files:[light]}}); await waitFor(()=>assert.equal(uploads.length,1));
+  assert.equal(uploads[0].get('banner').name,'petite.png'); assert.match(view.container.textContent,/Original conservé/);
+  assert.ok(view.getByAltText('Bannière de la campagne')); assert.equal(light.name,'petite.png');
+});

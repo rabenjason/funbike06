@@ -60,7 +60,7 @@ test('logo actuel, aperçu immédiat, annulation et remplacement avec confirmati
   fireEvent.click(view.getByRole('button', { name: 'Ne pas changer le logo' }));
   assert.ok(!view.queryByAltText('Aperçu du nouveau logo')); assert.ok(revoked.includes('blob:tvs.png'));
   select(view, file('tvs.png'));
-  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.match(view.getByRole('status').textContent, /marque « TVS » a été enregistrée/));
   assert.equal(writes.length, 1); assert.equal(writes[0].get('_method'), 'PUT'); assert.equal(writes[0].get('logo').name, 'tvs.png');
   assert.equal(view.getByAltText('Logo TVS').getAttribute('src'), '/server/uploads/brands/tvs/nouveau.png');
@@ -70,7 +70,7 @@ test('logo actuel, aperçu immédiat, annulation et remplacement avec confirmati
 test('modifier seulement le nom ne transmet pas de logo et conserve l’image', async () => {
   const view = await editTVS();
   fireEvent.change(view.getByLabelText('Nom'), { target: { value: 'TVS Madagascar' } });
-  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.ok(view.getByRole('status')));
   assert.equal(writes[0].get('logo'), null); assert.equal(brands[0].logo, initial[0].logo);
 });
@@ -83,7 +83,7 @@ test('un logo introuvable, un format invalide et une erreur serveur sont clairem
   assert.match(view.getByRole('alert').textContent, /PNG, JPG ou WEBP/);
   assert.ok(view.getByRole('button', { name: 'Enregistrer' }).disabled); assert.equal(writes.length, 0);
   select(view, file('tvs.png')); failWrite = true;
-  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /Transfert impossible/));
   assert.ok(view.getByAltText('Aperçu du nouveau logo')); assert.equal(brands[0].logo, initial[0].logo);
   assert.equal(view.queryByRole('status'), null);
@@ -91,7 +91,7 @@ test('un logo introuvable, un format invalide et une erreur serveur sont clairem
 
 test('un échec d’actualisation après enregistrement est distingué d’un échec de sauvegarde', async () => {
   const view = await editTVS(); select(view, file('tvs.png')); failRefresh = true;
-  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.match(view.getByRole('alert').textContent, /modification a été enregistrée.*Rechargez/));
   assert.equal(writes.length, 1); assert.equal(brands[0].logo, '/server/uploads/brands/tvs/nouveau.png');
 });
@@ -104,7 +104,7 @@ test('publication, partenaire et équipement sont trois choix indépendants', as
   assert.equal(view.getByLabelText('Marque d’équipements').checked, true);
   fireEvent.click(view.getByLabelText('Publiée'));
   fireEvent.click(view.getByLabelText('Partenaire'));
-  fireEvent.click(view.getByRole('button', { name: 'Enregistrer' }));
+  fireEvent.click(await view.findByRole('button', { name: 'Enregistrer' }));
   await waitFor(() => assert.ok(view.getByRole('status')));
   assert.equal(writes[0].get('isPublished'), 'false');
   assert.equal(writes[0].get('isPartner'), 'true');
@@ -113,4 +113,29 @@ test('publication, partenaire et équipement sont trois choix indépendants', as
   fireEvent.click(within(view.getByText('TVS').closest('.py-3')).getByRole('button', { name: 'Modifier' }));
   assert.equal(view.getByLabelText('Publiée').checked, false);
   assert.equal(view.getByLabelText('Partenaire').checked, true);
+});
+
+test('logo de marque : attente de l’optimisation, repli sur original et fichier trop lourd bloqué', async () => {
+  const view = await editTVS();
+  const big = new dom.window.File([new Uint8Array(8 * 1024 * 1024 + 1)], 'lourd.jpg', { type: 'image/jpeg' });
+  select(view, big);
+  assert.equal(view.getByRole('button', {name:'Optimisation…'}).disabled, true);
+  fireEvent.submit(view.getByLabelText('Nom').closest('form')); assert.equal(writes.length, 0);
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /dépasse 8 Mo après optimisation/));
+  assert.equal(view.getByRole('button', {name:'Enregistrer'}).disabled, true);
+  const light = file('leger.png'); select(view, light);
+  await waitFor(() => assert.match(view.container.textContent, /Original conservé/));
+  fireEvent.click(view.getByRole('button', {name:'Enregistrer'}));
+  await waitFor(() => assert.equal(writes.length, 1));
+  assert.equal(writes[0].get('logo'), light); assert.equal(light.name, 'leger.png');
+});
+
+test('logo de marque : changer ou annuler la sélection empêche tout résultat tardif', async () => {
+  const view = await editTVS();
+  select(view, new dom.window.File([new Uint8Array(150 * 1024)], 'premier.jpg', {type:'image/jpeg'}));
+  select(view, file('deuxieme.png'));
+  await waitFor(() => assert.match(view.container.textContent, /Original conservé/));
+  assert.match(view.getByAltText('Aperçu du nouveau logo').src, /deuxieme.png/);
+  fireEvent.click(view.getByRole('button', {name:'Ne pas changer le logo'}));
+  assert.equal(view.queryByAltText('Aperçu du nouveau logo'), null); assert.equal(writes.length, 0);
 });

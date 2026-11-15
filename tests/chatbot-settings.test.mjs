@@ -174,3 +174,29 @@ test('gestion des logos : aperçu, confirmation, erreurs et protection du logo a
   await waitFor(() => view.getByRole('button', { name: 'Supprimer définitivement le logo ajouté 1' }));
   assert.equal(logo, null); assert.equal(enabled, true); assert.equal(name, 'Piston');
 });
+
+test('logo chatbot : optimisation préalable, limite après optimisation et ancien logo conservé', async () => {
+  setup(); logo='/server/uploads/chatbot/logo-'+'b'.repeat(32)+'.png';
+  const view=open(); fireEvent.click(view.getByRole('button',{name:'Chatbot'}));
+  await waitFor(()=>view.getByLabelText('Choisir une image'));
+  const input=view.getByLabelText('Choisir une image');
+  const big=new File([new Uint8Array(2*1024*1024+1)],'lourd.jpg',{type:'image/jpeg'});
+  fireEvent.change(input,{target:{files:[big]}});
+  assert.match(view.container.textContent,/Optimisation du logo en cours/);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
+  await waitFor(()=>assert.match(view.getByRole('alert').textContent,/dépasse 2 Mo après optimisation/));
+  assert.equal(requests.filter(r=>r.method==='POST').length,0); assert.match(logo,/bbbb/);
+  const small=new File(['logo'],'petit.png',{type:'image/png'});
+  fireEvent.change(input,{target:{files:[small]}});
+  await waitFor(()=>assert.equal(requests.filter(r=>r.method==='POST').length,1));
+  assert.equal(requests.find(r=>r.method==='POST').body.logo.name,'petit.png');
+  assert.match(view.container.textContent,/Original conservé/); assert.equal(small.name,'petit.png');
+});
+
+test('quitter pendant l’optimisation annule l’envoi et libère l’état de sauvegarde', async () => {
+  setup(); const view=open(); fireEvent.click(view.getByRole('button',{name:'Chatbot'}));
+  await waitFor(()=>view.getByLabelText('Choisir une image'));
+  fireEvent.change(view.getByLabelText('Choisir une image'),{target:{files:[new File([new Uint8Array(150*1024)],'logo.jpg',{type:'image/jpeg'})]}});
+  assert.equal(saveCallback.at(-1),true); view.unmount(); assert.equal(saveCallback.at(-1),false);
+  await new Promise(resolve=>setTimeout(resolve,30)); assert.equal(requests.filter(r=>r.method==='POST').length,0);
+});

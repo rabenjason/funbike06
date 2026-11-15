@@ -3,6 +3,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCloudArrowUp } from "@fortawesome/free-solid-svg-icons";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { json, request } from "../lib/adminApi";
+import { useImageOptimization } from "../lib/useImageOptimization";
+import { photoOptimizationMessage } from "../lib/optimizeProductImage";
 
 type BannerImage = { id: string; url: string };
 type BannerData = { images: BannerImage[]; selected: string | null };
@@ -27,7 +29,8 @@ export function AdminShercoBanner({ onDirtyChange, onSavingChange }: { onDirtyCh
   const [data, setData] = useState<BannerData | null>(null);
   const [retired, setRetired] = useState<BannerImage[]>([]);
   const [legacy, setLegacy] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const { selection, choose } = useImageOptimization();
+  const file = selection?.file ?? null;
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -50,10 +53,10 @@ export function AdminShercoBanner({ onDirtyChange, onSavingChange }: { onDirtyCh
   }, [file]);
   function chooseFile(next: File | null) {
     setError(""); setNotice("");
-    if (next && (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || next.size > 8 * 1024 * 1024 || next.size === 0)) {
-      setError("Choisissez une image JPEG, PNG ou WebP de 8 Mo maximum."); return;
+    if (next && (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type) || next.size === 0)) {
+      choose(null); onDirtyChange(false); setError("Choisissez une image JPEG, PNG ou WebP valide."); return;
     }
-    setFile(next); onDirtyChange(!!next);
+    choose(next); onDirtyChange(!!next);
   }
   async function perform(path: string, options: RequestInit, message: string) {
     if (busy) return;
@@ -61,12 +64,12 @@ export function AdminShercoBanner({ onDirtyChange, onSavingChange }: { onDirtyCh
     try {
       const result = await request(path, options);
       if (!validData(result.data) || !validRetired(result.retired) || typeof result.legacy !== "boolean") throw new Error("Réponse invalide : rechargez pour vérifier l’enregistrement.");
-      setData(result.data); setRetired(result.retired); setLegacy(result.legacy); setFile(null); onDirtyChange(false); setNotice(message);
+      setData(result.data); setRetired(result.retired); setLegacy(result.legacy); choose(null); onDirtyChange(false); setNotice(message);
     } catch (err) { setError((err as Error).message); }
     finally { setBusy(false); onSavingChange(false); }
   }
   async function upload() {
-    if (!file) return;
+    if (!file || selection?.status === "processing" || file.size > 8 * 1024 * 1024) return;
     const form = new FormData(); form.set("image", file);
     await perform("sherco-banner.php", { method: "POST", body: form }, "Image ajoutée. La première image locale est automatiquement affichée ; rechargez le site pour la voir.");
   }
@@ -95,10 +98,10 @@ export function AdminShercoBanner({ onDirtyChange, onSavingChange }: { onDirtyCh
       <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#ffd100] text-lg text-[#171816]"><FontAwesomeIcon icon={faCloudArrowUp} /></span>
       <span className="min-w-0">
         <span className="block text-sm font-bold text-[#171816]">Choisir une photo à ajouter</span>
-        <span id="sherco-photo-hint" className="mt-1 block text-xs leading-5 text-black/65">JPEG, PNG ou WebP · 8 Mo maximum. Confirmez l’ajout après l’aperçu.</span>
+        <span id="sherco-photo-hint" className="mt-1 block text-xs leading-5 text-black/65">JPEG, PNG ou WebP · 8 Mo maximum après optimisation. La nouvelle image est optimisée sur cet appareil avant l’envoi ; l’original et les photos enregistrées restent inchangés.</span>
       </span>
     </label>
-    {file && <div className="space-y-2 rounded-lg border border-black/10 p-3"><p className="text-sm">Aperçu avant enregistrement : {file.name}</p>{preview && <img src={preview} alt="Aperçu de la nouvelle photo" className="max-h-56 max-w-full object-contain" />}<div className="flex gap-2"><button type="button" className={primary} disabled={busy} onClick={() => void upload()}>{busy ? "Envoi…" : "Ajouter la photo"}</button><button type="button" className={secondary} disabled={busy} onClick={() => chooseFile(null)}>Annuler</button></div></div>}
+    {file && <div className="space-y-2 rounded-lg border border-black/10 p-3"><p className="text-sm">Aperçu avant enregistrement : {file.name}</p>{selection && <p className="text-xs text-black/60" aria-live="polite">{selection.status === "processing" ? "Optimisation de la photo en cours…" : photoOptimizationMessage(selection.originalSize, { file: selection.file, status: selection.status })}</p>}{selection?.status !== "processing" && file.size > 8 * 1024 * 1024 && <p role="alert" className="text-sm text-red-700">La photo dépasse 8 Mo après optimisation. Choisissez une image plus légère ; la limite du serveur peut être inférieure.</p>}{preview && <img src={preview} alt="Aperçu de la nouvelle photo" className="max-h-56 max-w-full object-contain" />}<div className="flex gap-2"><button type="button" className={primary} disabled={busy || selection?.status === "processing" || file.size > 8 * 1024 * 1024} onClick={() => void upload()}>{busy ? "Envoi…" : selection?.status === "processing" ? "Optimisation…" : "Ajouter la photo"}</button><button type="button" className={secondary} disabled={busy} onClick={() => chooseFile(null)}>Annuler</button></div></div>}
     {data.images.length === 0 ? <p className="text-sm text-black/60">Aucune photo locale enregistrée.</p> : <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.images.map((image, index) => <li key={image.id} className="rounded-lg border border-black/10 p-3"><img src={image.url} alt={`Photo de bannière ${index + 1}`} loading="lazy" className="aspect-video w-full object-cover" /><p className="mt-2 text-sm font-semibold">{data.selected === image.id ? "Photo affichée" : `Photo ${index + 1}`}</p><div className="mt-2 flex flex-wrap gap-2"><button type="button" className={primary} disabled={busy || !!file || data.selected === image.id} onClick={() => void perform("sherco-banner.php", json("PUT", { id: image.id }), "Photo sélectionnée. Rechargez le site pour la voir.")}>Afficher cette photo</button><button type="button" className={secondary} disabled={busy || !!file} onClick={() => void remove(image)}>Retirer</button></div></li>)}</ul>}
     <details className="rounded-lg border border-black/15 p-4">
       <summary className="cursor-pointer text-sm font-bold">Photos retirées ou retrouvées ({retired.length})</summary>
