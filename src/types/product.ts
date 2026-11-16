@@ -17,7 +17,7 @@ export interface Brand {
   id: string;
   name: string;
   logo?: string;
-  /** Afficher cette marque parmi les marques d’équipements. */
+  /** Afficher cette marque dans les raccourcis d’équipements de l’accueil. */
   isEquipmentBrand: boolean;
   /** Les anciennes marques sont publiées par défaut et ne sont pas partenaires. */
   isPublished?: boolean;

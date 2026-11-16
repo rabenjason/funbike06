@@ -10,7 +10,7 @@ import {
   getAvailableMotoFamilies,
   getAvailableSpareBrands,
   getAvailableTypes,
-  getEquipmentProducts,
+  getPublishedEquipmentProducts,
   spareParts,
   helmets,
   ridingGear,
@@ -227,15 +227,25 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
   const aliases: Record<string, string> = { tld: "troy-lee-designs", mt: "mt-helmets" };
   const requestedBrand = initialBrand && equipmentBrands.some((brand) => brand.id === initialBrand)
     ? initialBrand
-    : initialBrand ? (aliases[initialBrand] ?? initialBrand) : (equipmentBrands[0]?.id ?? "");
+    : initialBrand ? (aliases[initialBrand] ?? initialBrand) : "";
   const [tab, setTab] = useState(() => equipmentBrands.some((brand) => brand.id === requestedBrand) ? requestedBrand : "");
   const [category, setCategory] = useState<string>("");
   const [page, setPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const allItems = getEquipmentProducts(tab);
-  const types = getAvailableTypes(allItems);
-  const items = category ? allItems.filter((item) => item.productTypeId === category) : allItems;
+  const publishedItems = getPublishedEquipmentProducts();
+  const allItems = tab ? publishedItems.filter((item) => item.brandId === tab) : publishedItems;
+  // Les casques forment une catégorie unique, même s'ils possèdent plusieurs types.
+  const hasHelmets = allItems.some((item) => item.categoryId === "casques");
+  const types = getAvailableTypes(allItems.filter((item) => item.categoryId === "equipements"));
+  const filters = [
+    { id: "", name: "Tous" },
+    ...(hasHelmets ? [{ id: "casques", name: "Casques" }] : []),
+    ...types.map((type) => ({ id: `type:${type.id}`, name: type.name })),
+  ];
+  const items = category === "casques" ? allItems.filter((item) => item.categoryId === "casques")
+    : category.startsWith("type:") ? allItems.filter((item) => item.categoryId === "equipements" && item.productTypeId === category.slice(5))
+    : allItems;
   const totalPages = Math.max(1, Math.ceil(items.length / PARTS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
   const visible = items.slice((safePage - 1) * PARTS_PER_PAGE, safePage * PARTS_PER_PAGE);
@@ -288,9 +298,9 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
                   </span>
                 </div>
 
-                {types.length > 0 && (
+                {filters.length > 1 && (
                   <div role="tablist" aria-label="Types des équipements" className="no-scrollbar mb-5 flex gap-5 overflow-x-auto border-b border-black/15 dark:border-white/15">
-                    {[{ id: "", name: "Tous" }, ...types].map((cat) => (
+                    {filters.map((cat) => (
                       <button
                         key={cat.id}
                         type="button"
@@ -321,7 +331,7 @@ export function Equipements({ go, initialBrand }: { go: (p: string, id?: string)
                 </div>
 
                 {!loading && items.length === 0 && (
-                  <p className="mt-4 text-sm text-black/55 dark:text-white/55">Aucun équipement publié pour cette marque.</p>
+                  <p className="mt-4 text-sm text-black/55 dark:text-white/55">{tab ? "Aucun équipement publié pour cette marque." : "Aucun casque ou équipement publié pour le moment."}</p>
                 )}
 
                 {tab === "tvs" && (

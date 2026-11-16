@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { motion, useInView, type Variants } from "framer-motion";
 import { useRef } from "react";
-import { brands, getAvailableEquipmentBrands } from "../catalog";
+import { brands, getEquipmentBrandsByProductCount } from "../catalog";
 
 /** Parent: reveals its children one after the other when scrolled into view */
 const group: Variants = {
@@ -75,7 +75,7 @@ export default function ShercoBanner({ go }: { go: (page: string, id?: string) =
             onClick={() => {
               const { to, brandId } = homepageBannerLink;
               const brand = brands.find((item) => item.id === brandId && item.isPublished !== false);
-              const usable = brand && (to !== "equipements" || getAvailableEquipmentBrands().some((item) => item.id === brand.id));
+              const usable = brand && (to !== "equipements" || getEquipmentBrandsByProductCount().some((item) => item.id === brand.id));
               go(to, usable ? (to === "motos" ? brand.name : brand.id) : undefined);
             }}
             className="fluid-btn mt-5 inline-flex items-center gap-3 border-b border-[#ffd100] pb-2 font-bold uppercase text-white transition hover:text-[#ffd100]"

@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowUpRightFromSquare, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { faArrowUpRightFromSquare, faGears, type IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import { getAvailableEquipmentBrands } from "../catalog";
 import type { Brand } from "../types/product";
@@ -40,7 +40,7 @@ export function AccessoryBrandSelector({
   return (
     <div className="equipment-brand-scroll" role="group" aria-label="Marques d’équipements">
       <div className="equipment-brand-list">
-        {equipmentBrands.map((brand) => {
+        {[{ id: "", name: "Toutes", icon: faGears }, ...equipmentBrands].map((brand) => {
           const selected = active === brand.id;
           return (
             <button
@@ -50,7 +50,7 @@ export function AccessoryBrandSelector({
               onClick={() => onSelect(brand.id)}
               className="equipment-brand-button"
             >
-              <BrandVisual brand={{ name: brand.name, logo: brand.logo }} />
+              <BrandVisual brand={{ name: brand.name, logo: "logo" in brand ? brand.logo : undefined, icon: "icon" in brand ? brand.icon : undefined }} />
               <span className="equipment-brand-name block truncate">{brand.name}</span>
               {selected && <motion.span
                 aria-hidden="true"

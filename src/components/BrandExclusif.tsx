@@ -1,5 +1,5 @@
 import { homepageContent, homepageExclusiveBrands } from "../content/homepage";
-import { brands, motorcycles, getAvailableEquipmentBrands, spareParts } from "../catalog";
+import { brands, motorcycles, getEquipmentBrandsByProductCount, spareParts } from "../catalog";
 import { motion, type Variants } from "framer-motion";
 import SmartImage from "./SmartImage";
 
@@ -56,7 +56,7 @@ export default function BrandExclusif({ go }: { go: (p: string, id?: string) => 
                 whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   if (motorcycles.some((product) => product.brandId === brand.key)) go("motos", brand.name);
-                  else if (getAvailableEquipmentBrands().some((item) => item.id === brand.key)) go("equipements", brand.key);
+                  else if (getEquipmentBrandsByProductCount().some((item) => item.id === brand.key)) go("equipements", brand.key);
                   else if (spareParts.some((product) => product.brandId === brand.key || product.compatibleBrandIds?.includes(brand.key))) go("spares", brand.key);
                   else go("catalogue");
                 }}
