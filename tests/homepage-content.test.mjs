@@ -198,3 +198,22 @@ test('les logos sont dans Accueil, avec bibliothèque séparée et protection du
   await waitFor(()=>assert.ok(view.getByLabelText('Nom du logo')));
   assert.equal(view.getByLabelText('Nom du logo').value,'');
 });
+
+test('un lien configuré vers une marque hors des raccourcis de l’accueil ouvre sa gamme publiée', async () => {
+  setup();
+  const brand={id:'mx-test',name:'MX Test',logo:'/mx.png',isPublished:true,isEquipmentBrand:false};
+  const product={...catalog.ridingGear[0],id:'coudiere-mx-test',name:'Coudière MX Test',brandId:brand.id,categoryId:'equipements',status:'PUBLISHED',isEquipementAccueil:false};
+  catalog.brands.push(brand); catalog.products.push(product);
+  try {
+    data.links=[{title:'Gamme MX',to:'equipements',brandId:brand.id,icon:'gear'}];
+    await content.loadHomepageData();
+    const calls=[]; const view=render(React.createElement(Home,{go:(...args)=>calls.push(args)}));
+    fireEvent.click(view.getByRole('button',{name:/Gamme MX/}));
+    assert.deepEqual(calls.at(-1),['equipements',brand.id]);
+    assert.equal(catalog.getAvailableEquipmentBrands().some(item=>item.id===brand.id),false);
+    assert.equal(catalog.getEquipementsAccueil([product]).some(item=>item.id===product.id),false);
+    product.isEquipementAccueil=true;
+    assert.equal(catalog.getEquipementsAccueil([product]).some(item=>item.id===product.id),true, 'le choix du produit est indépendant de celui de la marque');
+    view.unmount();
+  } finally {catalog.products.pop();catalog.brands.pop();}
+});

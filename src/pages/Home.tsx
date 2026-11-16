@@ -10,7 +10,7 @@ import {
   faMotorcycle,
   faShirt,
 } from "@fortawesome/free-solid-svg-icons";
-import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, getAvailableEquipmentBrands, brands, mainProductImage } from "../catalog";
+import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, getEquipmentBrandsByProductCount, brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
 import { BikeCard, PartCard } from "../components/Cards";
@@ -179,7 +179,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
                 key={`${index}-${category.title}`}
                 onClick={() => {
                   const brand = brands.find((item) => item.id === category.brandId && item.isPublished !== false);
-                  const usable = brand && (category.to !== "equipements" || getAvailableEquipmentBrands().some((item) => item.id === brand.id));
+                  const usable = brand && (category.to !== "equipements" || getEquipmentBrandsByProductCount().some((item) => item.id === brand.id));
                   go(category.to, usable ? (category.to === "motos" ? brand.name : brand.id) : undefined);
                 }}
                 whileHover={{ x: 4 }}

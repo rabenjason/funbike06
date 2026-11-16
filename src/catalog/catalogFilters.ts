@@ -14,13 +14,21 @@ export const getAvailableMotoFamilies = (catalog: Product[] = products) =>
   families.filter((family) => family.categoryId === "motos" && catalog.some((product) =>
     product.status === "PUBLISHED" && product.categoryId === "motos" && getProductFamily(product)?.id === family.id));
 
+// L'indicateur de marque ne concerne que les raccourcis de l'accueil.
 export const getAvailableEquipmentBrands = () =>
-  getEquipmentBrands().filter((brand) => getEquipmentProducts(brand.id).length > 0);
+  getEquipmentBrands().filter((brand) => brand.isPublished !== false && getEquipmentProducts(brand.id).length > 0);
+
+/** La page Équipements affiche les produits publiés de toutes les marques publiées. */
+export const getPublishedEquipmentProducts = () => {
+  const publishedBrandIds = new Set(brands.filter((brand) => brand.isPublished !== false).map((brand) => brand.id));
+  return products.filter((product) => publishedBrandIds.has(product.brandId) && product.status === "PUBLISHED" &&
+    (product.categoryId === "casques" || product.categoryId === "equipements"));
+};
 
 /** Page équipements : nombre de casques et équipements publiés, puis nom. */
 export const getEquipmentBrandsByProductCount = () =>
-  getAvailableEquipmentBrands()
-    .filter((brand) => brand.isPublished !== false)
+  brands
+    .filter((brand) => brand.isPublished !== false && getEquipmentProducts(brand.id).length > 0)
     .map((brand) => ({ brand, count: getEquipmentProducts(brand.id).length }))
     .sort((a, b) => b.count - a.count || a.brand.name.localeCompare(b.brand.name, "fr", { sensitivity: "base" }) || a.brand.id.localeCompare(b.brand.id, "fr"))
     .map(({ brand }) => brand);
