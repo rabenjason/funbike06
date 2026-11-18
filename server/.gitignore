@@ -46,3 +46,6 @@
 # Bibliothèque des logos du site : données et images runtime.
 /storage/data/site-logo.json
 /uploads/site-logo/
+
+# Réglages et numéros WhatsApp réels : à conserver sur le serveur.
+/storage/private/whatsapp-settings.json

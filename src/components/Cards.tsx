@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight, faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { motion } from "framer-motion";
 import type { Product } from "../types/product";
 import { brands, mainProductImage, productGallery, productTypes, getProductFamily } from "../catalog";
 import SmartImage from "./SmartImage";
+import { WhatsAppIcon, WhatsappDialog, preparedWhatsappUrl, useWhatsapp, whatsappForProduct } from "./Whatsapp";
 import { PromotionBadge, PromotionPrice, usePromotions } from "./PromotionsContext";
 import { productPath, navigateLink } from "../lib/routes";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
 export function BikeCard({ bike, go, uniformLayout = false, alignActions = false, compact = false, promotionPriceAtBottom = false }: { bike: Product; go: (p: string, id?: string) => void; uniformLayout?: boolean; alignActions?: boolean; compact?: boolean; promotionPriceAtBottom?: boolean }) {
+  const settings = useWhatsapp();
+  const phone = whatsappForProduct(settings, bike);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const closeWhatsapp = useCallback(() => setWhatsappOpen(false), []);
   const aligned = uniformLayout || alignActions;
   const gallery = productGallery(bike);
   const family = getProductFamily(bike)?.name;
@@ -69,7 +74,8 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         )}
       </div>
 
-      <div className={"flex flex-1 flex-col border-t border-black/[0.07] dark:border-white/[0.07] " + (compact ? "p-3 sm:p-4" : "p-4 sm:p-5")}>
+      <div className={"relative flex flex-1 flex-col border-t border-black/[0.07] dark:border-white/[0.07] " + (compact ? "p-3 sm:p-4" : "p-4 sm:p-5")}>
+        {phone && <a href={productPath(bike)} onClick={(event) => navigateLink(event, go, "product", bike.id)} aria-label={`Découvrir ${bike.name}`} className="absolute inset-0 z-[1] focus-visible:outline-2 focus-visible:outline-[#98741b]" />}
         <p className={"text-[10px] font-semibold uppercase tracking-[0.2em] text-black/45 dark:text-white/45 " + (uniformLayout ? "line-clamp-1" : "")}>
           {brandName(bike)}{family ? ` · ${family}` : ""}
         </p>
@@ -82,8 +88,8 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
         <p className={(compact ? "mt-2 text-xs leading-5 " : "fluid-body mt-2.5 ") + "line-clamp-2 text-black/55 dark:text-white/55 " + (uniformLayout ? (compact ? "[overflow-wrap:anywhere]" : "min-h-[3.2em] [overflow-wrap:anywhere]") : "")}>{bike.description}</p>
 
         {onPromotion && !bottomPromotion && <div className={compact ? "mt-auto pt-3" : "mt-auto pt-4"}><PromotionPrice product={bike} card /></div>}
-        <div className={bottomPromotion ? "mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-2 pt-5 sm:gap-x-3" : onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 " + (promotionPriceAtBottom ? "items-center" : "items-end") : "mt-5 items-center")}>
-          <motion.button
+        <div className={(phone ? "pointer-events-none relative z-10 flex-wrap " : "") + (bottomPromotion ? "mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-2 pt-5 sm:gap-x-3" : onPromotion ? "mt-3 flex items-center justify-between gap-3" : "flex justify-between gap-3 " + (aligned ? "mt-auto pt-5 " + (promotionPriceAtBottom ? "items-center" : "items-end") : "mt-5 items-center"))}>
+          {phone && settings ? (settings.askIntent ? <button type="button" onClick={() => setWhatsappOpen(true)} className="pointer-events-auto inline-flex min-h-10 max-w-full items-center gap-1.5 border border-black/25 px-2 py-2 text-[11px] sm:gap-2 sm:px-3 sm:text-xs font-bold text-[#171816] hover:bg-black/5 dark:border-white/30 dark:text-white dark:hover:bg-white/10"><WhatsAppIcon /> WhatsApp <FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></button> : <a className="pointer-events-auto inline-flex min-h-10 max-w-full items-center gap-1.5 border border-black/25 px-2 py-2 text-[11px] sm:gap-2 sm:px-3 sm:text-xs font-bold text-[#171816] hover:bg-black/5 dark:border-white/30 dark:text-white dark:hover:bg-white/10" href={preparedWhatsappUrl(settings, phone, bike)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> WhatsApp <FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></a>) : <motion.button
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => go("product", bike.id)}
@@ -91,13 +97,14 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
           >
             Découvrir
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
-          </motion.button>
+          </motion.button>}
           {bottomPromotion && <span className="ml-auto min-w-0 max-w-full flex-1 text-right"><PromotionPrice product={bike} card align="right" /></span>}
           {!onPromotion && <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
             <PromotionPrice product={bike} />
           </span>}
         </div>
       </div>
+      {whatsappOpen && settings && phone && <WhatsappDialog settings={settings} product={bike} phone={phone} offerSite={false} onClose={closeWhatsapp} />}
     </motion.article>
   );
 }
@@ -123,6 +130,10 @@ export function PartCard({
   /** La page Promotions place la carte sous un titre de catégorie. */
   compact?: boolean;
 }) {
+  const settings = useWhatsapp();
+  const phone = whatsappForProduct(settings, part);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const closeWhatsapp = useCallback(() => setWhatsappOpen(false), []);
   const openDetail = () => go?.("accessory", part.id, part.categoryId);
   const image = mainProductImage(part);
   const Heading = compact ? "h4" : "h3";
@@ -154,7 +165,7 @@ export function PartCard({
         {onEnquire && (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onEnquire(part); }}
+            onClick={(e) => { e.stopPropagation(); if (phone && settings) setWhatsappOpen(true); else onEnquire(part); }}
             className="mt-2.5 flex min-h-10 w-full items-center justify-center gap-1 border-t border-black/10 pt-2.5 text-center text-[10px] sm:justify-between sm:text-left font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:text-[#171816] dark:border-white/10 dark:text-white/55 dark:hover:text-white"
           >
             <span aria-hidden="true" className="invisible inline-flex shrink-0 sm:hidden"><FontAwesomeIcon icon={faArrowRight} /></span>
@@ -163,6 +174,7 @@ export function PartCard({
           </button>
         )}
       </div>
+      {whatsappOpen && settings && phone && onEnquire && <WhatsappDialog settings={settings} product={part} phone={phone} offerSite onSite={() => onEnquire(part)} onClose={closeWhatsapp} />}
     </motion.article>
   );
 }
