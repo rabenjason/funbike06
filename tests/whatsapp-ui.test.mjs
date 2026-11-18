@@ -41,10 +41,15 @@ test('moto : carte cliquable, galerie indépendante, choix, message modifiable e
   const navigation=[]; const view=render(wrap(React.createElement(BikeCard,{bike,go:(...args)=>navigation.push(args)})));
   const button=await view.findByRole('button',{name:/WhatsApp/});
   assert.match(view.container.textContent,/Sur devis/); assert.equal(view.queryByRole('button',{name:'Découvrir'}),null);
+  assert.ok(button.classList.contains('uppercase')); assert.ok(button.classList.contains('fb-whatsapp-card-action'));
+  assert.equal(button.querySelectorAll('svg').length,2);
   fireEvent.click(view.getAllByRole('link',{name:'Découvrir TVS HLX test'}).at(-1)); assert.deepEqual(navigation.at(-1),['product',bike.id,undefined]);
   const n=navigation.length; fireEvent.click(view.getByRole('button',{name:'Voir la photo 2'})); assert.equal(navigation.length,n);
   button.focus(); fireEvent.click(button); const dialog=within(view.getByRole('dialog'));
   assert.ok(dialog.getByText('TVS HLX test')); assert.equal(navigation.length,n);
+  assert.ok(view.getByRole('dialog').classList.contains('fb-whatsapp-dialog'));
+  const cancel=dialog.getByRole('button',{name:'Annuler'}); cancel.focus(); fireEvent.keyDown(document,{key:'Tab'});
+  assert.equal(document.activeElement,dialog.getByRole('button',{name:'Prix et disponibilité'}));
   fireEvent.click(dialog.getByRole('button',{name:'Prix et disponibilité'}));
   const textarea=dialog.getByLabelText('Votre message'); assert.match(textarea.value,/TVS HLX test/); assert.match(textarea.value,/https:\/\/funbike.test\/motos\//);
   fireEvent.change(textarea,{target:{value:'Bonjour, une question ?'}});
@@ -64,7 +69,7 @@ test('pièce et équipement : choix site ou WhatsApp et responsables indépendan
   fireEvent.click(view.getAllByRole('button',{name:'Se renseigner'})[0]); dialog=within(view.getByRole('dialog'));
   fireEvent.click(dialog.getByRole('button',{name:'Par WhatsApp'})); fireEvent.click(dialog.getByRole('button',{name:'Informations'}));
   assert.match(dialog.getByLabelText('Votre message').value,/Pièce test/); assert.equal(new URL(dialog.getByRole('link',{name:/Continuer/}).href).pathname,'/261340033333');
-  fireEvent.click(dialog.getByRole('button',{name:'Annuler'}));
+  fireEvent.click(view.getByRole('dialog').parentElement); assert.equal(view.queryByRole('dialog'),null);
   fireEvent.click(view.getAllByRole('button',{name:'Se renseigner'})[1]); dialog=within(view.getByRole('dialog'));
   fireEvent.click(dialog.getByRole('button',{name:'Par WhatsApp'})); fireEvent.click(dialog.getByRole('button',{name:'Informations'}));
   assert.equal(new URL(dialog.getByRole('link',{name:/Continuer/}).href).pathname,'/261340011111');
