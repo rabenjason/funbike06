@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useId, useRef, useSt
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { faCircleInfo, faGlobe, faTag } from "@fortawesome/free-solid-svg-icons";
+import "../styles/whatsapp.css";
 import type { Product } from "../types/product";
 import { validPublicSettings, whatsappMessage, whatsappUrl, type PublicWhatsappSettings } from "../lib/whatsappSettings";
 
@@ -59,21 +61,22 @@ export function WhatsappDialog({ settings, product, phone, offerSite, onSite, on
   }, [close]);
   useEffect(() => { if (stage === 'intent') dialog.current?.querySelector<HTMLElement>('button')?.focus(); }, [stage]);
   function choose(next: 'price' | 'info') { setIntent(next); setMessage(whatsappMessage(next === 'price' ? settings.texts.priceTemplate : settings.texts.infoTemplate, product, window.location.origin)); }
-  const button = 'min-h-11 rounded-md border border-black/20 px-4 py-2.5 text-sm font-semibold text-[#171816] hover:bg-black/5 aria-pressed:border-[#98741b] aria-pressed:bg-[#ffd100]/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#98741b] dark:border-white/25 dark:text-white dark:hover:bg-white/10';
-  const primary = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[#ffd100] px-4 py-2.5 text-center text-sm font-bold text-[#171816] hover:bg-[#ffe36b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#98741b]';
-  return createPortal(<div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 text-[#171816] shadow-xl dark:bg-[#20211e] dark:text-[#f2f0ea] sm:p-6">
-      <h2 id={titleId} className="text-lg font-bold break-words">{stage === 'channel' ? settings.texts.choiceTitle : settings.texts.intentTitle}</h2>
-      <p className="mt-2 break-words text-sm text-black/60 dark:text-white/65">{product.name}</p>
-      {stage === 'channel' ? <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <button type="button" className={button} onClick={() => { close(); onSite?.(); }}>{settings.texts.siteLabel}</button>
-        {settings.askIntent ? <button type="button" className={primary} onClick={() => setStage('intent')}><WhatsAppIcon />{settings.texts.whatsappLabel}</button> : <a className={primary} href={preparedWhatsappUrl(settings,phone,product)} target="_blank" rel="noopener noreferrer" onClick={close}><WhatsAppIcon />{settings.texts.whatsappLabel}</a>}
+  return createPortal(<div className="fb-whatsapp-overlay" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} className="fb-whatsapp-dialog">
+      <div className="fb-whatsapp-header">
+        <span className="fb-whatsapp-mark"><WhatsAppIcon /></span>
+        <div className="min-w-0"><h2 id={titleId} className="fb-whatsapp-title">{stage === 'channel' ? settings.texts.choiceTitle : settings.texts.intentTitle}</h2>
+          <p className="fb-whatsapp-product">{product.name}</p></div>
+      </div>
+      {stage === 'channel' ? <div className="fb-whatsapp-options">
+        <button type="button" className="fb-whatsapp-choice" onClick={() => { close(); onSite?.(); }}><FontAwesomeIcon icon={faGlobe} aria-hidden="true" />{settings.texts.siteLabel}</button>
+        {settings.askIntent ? <button type="button" className="fb-whatsapp-primary" onClick={() => setStage('intent')}><WhatsAppIcon />{settings.texts.whatsappLabel}</button> : <a className="fb-whatsapp-primary" href={preparedWhatsappUrl(settings,phone,product)} target="_blank" rel="noopener noreferrer" onClick={close}><WhatsAppIcon />{settings.texts.whatsappLabel}</a>}
       </div> : <>
-        <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" className={button} aria-pressed={intent === 'price'} onClick={() => choose('price')}>{settings.texts.priceLabel}</button><button type="button" className={button} aria-pressed={intent === 'info'} onClick={() => choose('info')}>{settings.texts.infoLabel}</button></div>
-        {intent && <><label className="mt-4 block text-sm font-semibold">Votre message<textarea className="mt-2 block w-full rounded-md border border-black/20 bg-white p-3 text-sm text-[#171816] dark:border-white/25 dark:bg-[#141513] dark:text-white" rows={5} maxLength={2000} value={message} onChange={(e) => setMessage(e.target.value)} /></label><p className="mt-2 text-xs text-black/55 dark:text-white/55">Vous pourrez encore modifier le message dans WhatsApp avant de l’envoyer.</p>
-          {message.trim() && <a className={`${primary} mt-4 w-full`} href={whatsappUrl(phone,message)} target="_blank" rel="noopener noreferrer" onClick={close}><WhatsAppIcon />{settings.texts.continueLabel}</a>}</>}
+        <div className="fb-whatsapp-options"><button type="button" className="fb-whatsapp-choice" aria-pressed={intent === 'price'} onClick={() => choose('price')}><FontAwesomeIcon icon={faTag} aria-hidden="true" />{settings.texts.priceLabel}</button><button type="button" className="fb-whatsapp-choice" aria-pressed={intent === 'info'} onClick={() => choose('info')}><FontAwesomeIcon icon={faCircleInfo} aria-hidden="true" />{settings.texts.infoLabel}</button></div>
+        {intent && <><label className="fb-whatsapp-field">Votre message<textarea className="fb-whatsapp-message" rows={4} maxLength={2000} value={message} onChange={(e) => setMessage(e.target.value)} /></label><p className="fb-whatsapp-hint">Vous pourrez encore modifier le message dans WhatsApp avant de l’envoyer.</p>
+          {message.trim() && <a className="fb-whatsapp-primary fb-whatsapp-continue" href={whatsappUrl(phone,message)} target="_blank" rel="noopener noreferrer" onClick={close}><WhatsAppIcon />{settings.texts.continueLabel}</a>}</>}
       </>}
-      <button type="button" className={`${button} mt-4 w-full sm:w-auto`} onClick={close}>Annuler</button>
+      <button type="button" className="fb-whatsapp-cancel" onClick={close}>Annuler</button>
     </div>
   </div>, document.body);
 }
