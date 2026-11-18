@@ -5,7 +5,7 @@ require_once __DIR__ . '/admin-history.php';
 
 function funbikeHistoryBegin($user, $method)
 {
-    $scripts = ['motorcycles.php', 'helmets.php', 'riding-gear.php', 'spare-parts.php', 'photo.php', 'homepage-content.php', 'homepage-selections.php', 'site-logo.php', 'sherco-banner.php', 'promotions.php', 'promotions-display.php', 'dealers.php', 'contacts.php', 'brands.php', 'categories.php', 'families.php', 'models.php', 'product-types.php', 'site-theme.php', 'chatbot-settings.php', 'chatbot-logos.php'];
+    $scripts = ['motorcycles.php', 'helmets.php', 'riding-gear.php', 'spare-parts.php', 'photo.php', 'homepage-content.php', 'homepage-selections.php', 'site-logo.php', 'sherco-banner.php', 'promotions.php', 'promotions-display.php', 'dealers.php', 'contacts.php', 'brands.php', 'categories.php', 'families.php', 'models.php', 'product-types.php', 'site-theme.php', 'chatbot-settings.php', 'chatbot-logos.php', 'whatsapp-settings.php'];
     if (in_array($method, ['GET', 'OPTIONS'], true) || !in_array(basename($_SERVER['SCRIPT_FILENAME'] ?? ''), $scripts, true)) return;
     // L'écriture doit au minimum être possible avant toute modification.
     try {

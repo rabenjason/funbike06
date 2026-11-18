@@ -5,6 +5,7 @@ import CatChat from "./components/CatChat";
 import { chatbotEnabled } from "./content/homepage";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
 import { PageLoading, RouteProgress } from "./components/Loaders";
+import { WhatsappProvider } from "./components/Whatsapp";
 import { PromotionsProvider } from "./components/PromotionsContext";
 import { motorcycles, products } from "./catalog";
 import { persistTheme, readDarkPreference } from "./lib/theme";
@@ -169,7 +170,7 @@ export default function App() {
   }, [canGoBack, go, route]);
 
   return (
-    <PromotionsProvider><MotionConfig reducedMotion="user">
+    <WhatsappProvider><PromotionsProvider><MotionConfig reducedMotion="user">
       {progressKey > 0 && <RouteProgress key={progressKey} />}
 
       <div className="min-h-screen bg-white text-[#171816] transition-colors duration-300 dark:bg-[#141513] dark:text-[#f2f0ea]">
@@ -193,6 +194,6 @@ export default function App() {
         {chatbotEnabled && <CatChat go={go} hiddenOnMobile={cookieOpen} />}
         <CookieConsent open={cookieOpen} onClose={() => setCookieOpen(false)} />
       </div>
-    </MotionConfig></PromotionsProvider>
+    </MotionConfig></PromotionsProvider></WhatsappProvider>
   );
 }
