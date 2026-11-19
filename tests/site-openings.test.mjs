@@ -30,7 +30,7 @@ test('identifiant de navigateur stable, comptage unique et préférences cookies
   const send = async (...args) => { calls.push(args); return { ok: true }; };
   recordSiteOpening(false, send); assert.equal(calls.length, 0);
   recordSiteOpening(true, send); recordSiteOpening(true, send);
-  assert.equal(calls.length, 1);
+  await waitFor(() => assert.equal(calls.length, 1));
   const payload = JSON.parse(calls[0][1].body);
   assert.equal(payload.kind, 'opening'); assert.match(payload.browserId, /^[a-f0-9]{64}$/);
   assert.equal(getBrowserId(), payload.browserId);

@@ -24,7 +24,16 @@ function showBootScreen() {
 // résultat tardif remplace les tableaux après l'import des index de l'application.
 let publicData: Promise<void> | undefined;
 function initializePublicData() {
-  if (!publicData) publicData = Promise.all([import("./catalog/loadServerData").then(({ loadServerData }) => loadServerData()), import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(); document.documentElement.dataset.siteTheme = homepage.siteTheme; })]).then(() => {}).catch((error) => { publicData = undefined; throw error; });
+  if (!publicData) {
+    const controller = new AbortController();
+    publicData = Promise.all([
+      import("./catalog/loadServerData").then(({ loadServerData, reloadDealers }) => {
+        void reloadDealers(controller.signal);
+        return loadServerData(controller.signal, undefined, true);
+      }),
+      import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(controller.signal); document.documentElement.dataset.siteTheme = homepage.siteTheme; }),
+    ]).then(() => {}).catch((error) => { controller.abort(); publicData = undefined; throw error; });
+  }
   return publicData;
 }
 
@@ -41,7 +50,7 @@ function Bootstrap() {
           if (active) setContent(<Admin />);
         } else {
           // Le code public et les données se chargent en parallèle, mais aucun
-          // rendu n'a lieu avant que toutes les données publiées soient prêtes.
+          // rendu attend les données essentielles ; les revendeurs restent indépendants.
           const [, { default: App }] = await Promise.all([initializePublicData(), import("./App"), preloadPublicPage(location.pathname).catch(() => {})]);
           if (active) setContent(<App />);
         }

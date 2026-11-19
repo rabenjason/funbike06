@@ -1,12 +1,15 @@
+import { schedulePublicOperation } from "../lib/publicDataRequest";
 import { getPublicDataGeneration, loadServerData } from "./loadServerData";
 
 let verified: { version: string; generation: number } | undefined;
 class VersionChanged extends Error {}
 
 async function readVersion(signal: AbortSignal): Promise<string> {
-  const response = await fetch("/server/api/public-data-version.php", { credentials: "same-origin", cache: "no-store", signal });
-  if (!response.ok) throw new Error("Vérification des données indisponible.");
-  const value: unknown = await response.json();
+  const value: unknown = await schedulePublicOperation(async () => {
+    const response = await fetch("/server/api/public-data-version.php", { credentials: "same-origin", cache: "no-store", signal });
+    if (!response.ok) { try { await response.body?.cancel(); } catch { /* réponse déjà terminée */ } throw new Error("Vérification des données indisponible."); }
+    return await response.json();
+  }, signal);
   if (!value || typeof value !== "object" || typeof (value as { version?: unknown }).version !== "string" || !/^[a-f0-9]{64}$/.test((value as { version: string }).version)) throw new Error("Version des données invalide.");
   if (signal.aborted) throw new Error("Chargement annulé.");
   return (value as { version: string }).version;

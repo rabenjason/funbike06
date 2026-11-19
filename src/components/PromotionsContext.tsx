@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { schedulePublicOperation } from "../lib/publicDataRequest";
 import type { Product } from "../types/product";
 import { products } from "../catalog/products";
 import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
@@ -16,9 +17,11 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     async function refresh() {
       const number = ++sequence;
       try {
-        const response = await fetch('/server/api/promotions.php', { cache: 'no-store', credentials: 'same-origin' });
-        if (!response.ok) throw new Error();
-        const result = await response.json();
+        const result = await schedulePublicOperation(async () => {
+          const response = await fetch('/server/api/promotions.php', { cache: 'no-store', credentials: 'same-origin' });
+          if (!response.ok) { try { await response.body?.cancel(); } catch { /* réponse déjà terminée */ } throw new Error(); }
+          return await response.json();
+        });
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
         if (alive && number === sequence) {
           const serverNow = Date.parse(result.serverTime);
