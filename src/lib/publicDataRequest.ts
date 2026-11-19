@@ -46,17 +46,29 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /** GET uniquement : deux nouvelles tentatives au maximum pour les erreurs HTTP temporaires. */
-export async function readPublicJson(path: string, signal?: AbortSignal): Promise<unknown> {
+export async function readPublicJson(path: string, signal?: AbortSignal, timeoutMs = 8000): Promise<unknown> {
   for (let attempt = 0; ; attempt++) {
     if (signal?.aborted) throw cancelled();
     const result = await schedulePublicOperation(async () => {
       if (signal?.aborted) throw cancelled();
-      const response = await fetch(`/server/api/${path}`, { credentials: "same-origin", cache: "no-store", signal });
-      if (!response.ok) {
-        try { await response.body?.cancel(); } catch { /* la réponse est déjà terminée */ }
-        return { status: response.status, value: undefined };
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      let timedOut = false;
+      signal?.addEventListener("abort", abort, { once: true });
+      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+      try {
+        const response = await fetch(`/server/api/${path}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+        if (!response.ok) {
+          try { await response.body?.cancel(); } catch { /* la réponse est déjà terminée */ }
+          return { status: response.status, value: undefined };
+        }
+        return { status: 200, value: await response.json() as unknown };
+      } catch (error) {
+        if (timedOut && !signal?.aborted) return { status: 504, value: undefined };
+        throw error;
+      } finally {
+        clearTimeout(timer); signal?.removeEventListener("abort", abort);
       }
-      return { status: 200, value: await response.json() as unknown };
     }, signal);
     if (signal?.aborted) throw cancelled();
     if (result.status === 200) return result.value;

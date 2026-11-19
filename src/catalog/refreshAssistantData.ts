@@ -1,5 +1,5 @@
 import { schedulePublicOperation } from "../lib/publicDataRequest";
-import { getPublicDataGeneration, loadServerData } from "./loadServerData";
+import { getPublicDataGeneration, loadServerData, waitForBackgroundCatalog } from "./loadServerData";
 
 let verified: { version: string; generation: number } | undefined;
 class VersionChanged extends Error {}
@@ -17,6 +17,8 @@ async function readVersion(signal: AbortSignal): Promise<string> {
 
 /** Vérifie à chaque question ; les données ne sont publiées que si elles sont stables pendant la lecture. */
 export async function refreshAssistantData(signal: AbortSignal): Promise<void> {
+  await waitForBackgroundCatalog(signal);
+  if (signal.aborted) throw new Error("Chargement annulé.");
   for (let attempt = 0; attempt < 3; attempt++) {
     const version = await readVersion(signal);
     if (verified?.version === version && verified.generation === getPublicDataGeneration()) return;

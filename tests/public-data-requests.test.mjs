@@ -40,6 +40,16 @@ test('502, 503 et 504 : essais bornés et délais progressifs ; pas de nouvel es
   await assert.rejects(pending,/annulé/); assert.equal(calls.length,1);
 });
 
+test('une lecture bloquée est interrompue puis réessayée de manière bornée', async () => {
+  let calls = 0, aborted = 0;
+  globalThis.fetch = async (_url, options) => {
+    calls++;
+    return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => { aborted++; reject(new Error('aborted')); }, {once:true}));
+  };
+  await assert.rejects(readPublicJson('brands.php', undefined, 10), /504/);
+  assert.equal(calls, 3); assert.equal(aborted, 3);
+});
+
 test('annulation d’une requête en attente sans démarrer l’opération', async () => {
   let release; const gate = new Promise(resolve => { release = resolve; });
   let started = 0, cancelledStarted = false;

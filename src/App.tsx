@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
@@ -8,6 +8,7 @@ import { PageLoading, RouteProgress } from "./components/Loaders";
 import { WhatsappProvider } from "./components/Whatsapp";
 import { PromotionsProvider } from "./components/PromotionsContext";
 import { motorcycles, products } from "./catalog";
+import { getBackgroundStatus, subscribeBackgroundStatus, startBackgroundCatalog } from "./catalog/loadServerData";
 import { persistTheme, readDarkPreference } from "./lib/theme";
 import { navigationPage, parseRoute, routePath } from "./lib/routes";
 import { updateSeo } from "./lib/seo";
@@ -72,6 +73,10 @@ export default function App() {
   const [, pageLoaded] = useState(0);
 
   const route = history.entries[history.index].route;
+  const initialPage = useRef(route.page);
+  const catalogStatus = useSyncExternalStore(subscribeBackgroundStatus, getBackgroundStatus, getBackgroundStatus);
+  const sameInitialSection = route.page === initialPage.current || (initialPage.current === "motos" && route.page === "product") || (initialPage.current === "product" && route.page === "motos");
+  const waitingForCatalog = route.page !== "revendeurs" && !sameInitialSection && catalogStatus !== "ready";
   useLayoutEffect(() => {
     // Identifier l'entrée initiale sans effacer un éventuel état navigateur existant.
     const current = window.history.state;
@@ -185,8 +190,8 @@ export default function App() {
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
               {route.page === "not-found" && <PageLoading />}
-              {Page && <Page route={route} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />}
-              {pageKey && !Page && (pageLoadError === pageKey ? <div role="alert" className="p-8">Impossible de charger cette page. Vérifiez votre connexion puis <button className="underline" onClick={() => window.location.reload()}>actualisez la page</button>.</div> : <PageLoading />)}
+              {waitingForCatalog ? (catalogStatus === "error" ? <div role="alert" className="p-8">Impossible de charger les données de cette page. <button className="underline" onClick={() => void startBackgroundCatalog().catch(() => {})}>Réessayer</button></div> : <PageLoading />) : Page && <Page route={route} go={go} back={back} canGoBack={canGoBack} backLabel={backLabel} />}
+              {!waitingForCatalog && pageKey && !Page && (pageLoadError === pageKey ? <div role="alert" className="p-8">Impossible de charger cette page. Vérifiez votre connexion puis <button className="underline" onClick={() => window.location.reload()}>actualisez la page</button>.</div> : <PageLoading />)}
             </motion.div>
           </AnimatePresence>
         </main>

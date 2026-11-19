@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { schedulePublicOperation } from "../lib/publicDataRequest";
+import { readPublicJson } from "../lib/publicDataRequest";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faCircleInfo, faGlobe, faTag } from "@fortawesome/free-solid-svg-icons";
 import "../styles/whatsapp.css";
@@ -20,12 +20,8 @@ export function WhatsappProvider({ children }: { children: ReactNode }) {
       const current = ++sequence;
       try {
         const signal = controller.signal;
-        const body = await schedulePublicOperation(async () => {
-          const res = await fetch('/server/api/whatsapp-settings.php', {credentials:'same-origin',cache:'no-store',signal});
-          if (!res.ok) { try { await res.body?.cancel(); } catch { /* réponse déjà terminée */ } return null; }
-          return await res.json();
-        }, signal);
-        if (active && current === sequence) setSettings(validPublicSettings(body?.data) ? body.data : null);
+        const body = await readPublicJson("whatsapp-settings.php", signal) as { data?: PublicWhatsappSettings };
+        if (active && current === sequence) setSettings(body?.data && validPublicSettings(body.data) ? body.data : null);
       } catch { if (active && current === sequence) setSettings(null); }
     }
     const visible = () => { if (document.visibilityState === 'visible') void load(); };
