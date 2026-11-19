@@ -60,6 +60,14 @@
 .fb-whatsapp-choice {
   width: 100%; border: 1px solid var(--wa-border); background: var(--wa-surface); color: var(--wa-text);
 }
+/* Réserver le même espace de chaque côté pour centrer les deux libellés. */
+.fb-whatsapp-intent-choice {
+  display: grid;
+  grid-template-columns: minmax(1.55rem, 1fr) minmax(0, auto) minmax(1.55rem, 1fr);
+  gap: 0;
+}
+.fb-whatsapp-intent-choice svg { justify-self: end; margin-right: 0.55rem; }
+.fb-whatsapp-intent-choice span { min-width: 0; }
 .fb-whatsapp-choice:hover { background: var(--wa-hover); }
 .fb-whatsapp-choice[aria-pressed="true"] { border-color: #8b721b; background: rgb(255 209 0 / 0.18); }
 :root[data-site-theme="tvs"] .fb-whatsapp-choice[aria-pressed="true"] { border-color: #4669af; background: rgb(90 132 219 / 0.18); }
