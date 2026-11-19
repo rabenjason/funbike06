@@ -52,13 +52,14 @@ test('moto : carte cliquable, galerie indépendante, choix, message modifiable e
   assert.equal(document.activeElement,dialog.getByRole('button',{name:'Prix et disponibilité'}));
   for (const label of ['Prix et disponibilité', 'Informations']) {
     const choice=dialog.getByRole('button',{name:label});
-    assert.ok(choice.classList.contains('fb-whatsapp-intent-choice'));
+    assert.ok(choice.classList.contains('fb-whatsapp-choice'));
+    assert.ok(choice.querySelector('svg'));
     assert.equal(choice.querySelector('span').textContent,label);
   }
   fireEvent.click(dialog.getByRole('button',{name:'Prix et disponibilité'}));
   const textarea=dialog.getByLabelText('Votre message'); assert.match(textarea.value,/TVS HLX test/); assert.match(textarea.value,/https:\/\/funbike.test\/motos\//);
   fireEvent.change(textarea,{target:{value:'Bonjour, une question ?'}});
-  const link=dialog.getByRole('link',{name:/Continuer sur WhatsApp/}); const url=new URL(link.href);
+  const link=dialog.getByRole('link',{name:/Continuer sur WhatsApp/}); assert.ok(link.querySelector('svg')); assert.equal(link.querySelector('span').textContent,'Continuer sur WhatsApp'); const url=new URL(link.href);
   assert.equal(url.hostname,'wa.me'); assert.equal(url.pathname,'/261340011111'); assert.equal(url.searchParams.get('text'),'Bonjour, une question ?');
   assert.equal(link.target,'_blank'); assert.match(link.rel,/noopener/);
   fireEvent.keyDown(document,{key:'Escape'}); assert.equal(view.queryByRole('dialog'),null); assert.equal(document.activeElement,button); assert.equal(navigation.length,n);
@@ -70,6 +71,10 @@ test('pièce et équipement : choix site ou WhatsApp et responsables indépendan
     React.createElement(PartCard,{part,go(){},onEnquire:(p)=>contact.push(p.id)}),React.createElement(PartCard,{part:gear,go(){},onEnquire:(p)=>contact.push(p.id)}))));
   await waitFor(()=>assert.ok(calls.length));
   fireEvent.click(view.getAllByRole('button',{name:'Se renseigner'})[0]); let dialog=within(view.getByRole('dialog'));
+  for (const label of ['Via le site', 'Par WhatsApp']) {
+    const choice=dialog.getByRole('button',{name:label});
+    assert.ok(choice.querySelector('svg')); assert.equal(choice.querySelector('span').textContent,label);
+  }
   fireEvent.click(dialog.getByRole('button',{name:'Via le site'})); assert.deepEqual(contact,[part.id]);
   fireEvent.click(view.getAllByRole('button',{name:'Se renseigner'})[0]); dialog=within(view.getByRole('dialog'));
   fireEvent.click(dialog.getByRole('button',{name:'Par WhatsApp'})); fireEvent.click(dialog.getByRole('button',{name:'Informations'}));
