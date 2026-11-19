@@ -50,7 +50,8 @@ if (file_exists($file)) {
     $raw = @file_get_contents($file); $current = $raw === false ? null : json_decode($raw, true);
     if (!validWhatsappData($current, $defaults)) funbikeJsonResponse(500, ['error' => 'Réglages WhatsApp invalides. Restaurez une sauvegarde.']);
 }
-$revision = hash('sha256', json_encode($current, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+// La révision ne sert qu'aux administrateurs : éviter son calcul pour chaque visiteur.
+$revision = $admin ? hash('sha256', json_encode($current, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) : null;
 if ($method === 'PUT') {
     $body = funbikeReadJsonBody();
     if (!is_string($body['revision'] ?? null) || !hash_equals($revision, $body['revision'])) funbikeJsonResponse(409, ['error' => 'Les réglages ont changé. Rechargez avant de réenregistrer.']);
@@ -69,6 +70,8 @@ if ($admin) funbikeJsonResponse(200, ['data' => $current, 'revision' => $revisio
 $public = ['enabled' => $current['enabled'], 'askIntent' => $current['askIntent'], 'texts' => $current['texts']];
 foreach (['sales', 'parts'] as $team) {
     $public[$team] = null;
-    foreach ($current[$team]['people'] as $person) if ($person['id'] === $current[$team]['activeId']) { $public[$team] = ['phone' => $person['phone']]; break; }
+    if ($current[$team]['activeId'] !== null) {
+        foreach ($current[$team]['people'] as $person) if ($person['id'] === $current[$team]['activeId']) { $public[$team] = ['phone' => $person['phone']]; break; }
+    }
 }
 funbikeJsonResponse(200, ['data' => $public]);

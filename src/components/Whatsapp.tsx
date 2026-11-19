@@ -12,18 +12,20 @@ const WhatsappContext = createContext<PublicWhatsappSettings | null>(null);
 export function WhatsappProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<PublicWhatsappSettings | null>(null);
   useEffect(() => {
-    let active = true; let sequence = 0;
+    let active = true; let sequence = 0; let controller: AbortController | undefined;
     async function load() {
+      controller?.abort();
+      controller = new AbortController();
       const current = ++sequence;
       try {
-        const res = await fetch('/server/api/whatsapp-settings.php', {credentials:'same-origin',cache:'no-store'});
+        const res = await fetch('/server/api/whatsapp-settings.php', {credentials:'same-origin',cache:'no-store',signal:controller.signal});
         const body = res.ok ? await res.json() : null;
         if (active && current === sequence) setSettings(validPublicSettings(body?.data) ? body.data : null);
       } catch { if (active && current === sequence) setSettings(null); }
     }
     const visible = () => { if (document.visibilityState === 'visible') void load(); };
     void load(); document.addEventListener('visibilitychange', visible);
-    return () => { active = false; document.removeEventListener('visibilitychange', visible); };
+    return () => { active = false; controller?.abort(); document.removeEventListener('visibilitychange', visible); };
   }, []);
   return <WhatsappContext.Provider value={settings}>{children}</WhatsappContext.Provider>;
 }
