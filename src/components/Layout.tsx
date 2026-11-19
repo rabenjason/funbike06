@@ -19,7 +19,7 @@ import {
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { AnimatePresence, motion } from "framer-motion";
-import { LOGO, brands } from "../catalog";
+import { DISPLAY_LOGO, LOGO, brands } from "../catalog";
 import { siteLogo } from "../content/homepage";
 import { usePromotions } from "./PromotionsContext";
 import { content } from "../constants/content";
@@ -41,7 +41,7 @@ export const NAV = [
 function BrandMark({ large = false }: { large?: boolean }) {
   return (
     <img
-      src={siteLogo}
+      src={siteLogo === LOGO ? DISPLAY_LOGO : siteLogo}
       onError={(event) => { if (event.currentTarget.getAttribute("src") !== LOGO) event.currentTarget.src = LOGO; }}
       alt={content.site.logoAlt}
       className={

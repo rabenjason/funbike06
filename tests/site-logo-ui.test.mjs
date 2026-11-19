@@ -7,6 +7,7 @@ import defaults from '../src/content/homepage-defaults.json' with { type:'json' 
 let dom, server, render, fireEvent, waitFor, cleanup, AdminSiteLogo, ConfirmationProvider, Header, Footer, homepage;
 let originalFetch, originalFormData, originalCreateObjectURL, originalRevokeObjectURL;
 const original = '/server/public/assets/company/logo-funbike-720-a3ab2dc4.png';
+const displayLogo = '/server/public/assets/company/logo-funbike-360-c4c49168.webp';
 let images, selected, version, requests;
 const revision = () => String(version).padStart(64,'0');
 const snapshot = () => ({data:{images:structuredClone(images),selected},revision:revision(),defaultLogo:original});
@@ -75,7 +76,7 @@ test('logo sélectionné sur en-tête et pied de page, repli sur original et ic�
   fireEvent.error(logos[0]); assert.equal(logos[0].getAttribute('src'),original);
   assert.equal(view.container.querySelector('link[rel="icon"]'),null);
   selected=null; await homepage.loadHomepageData(); view.rerender(React.createElement(React.Fragment,null,React.createElement(Header,{route:{page:'home'},go:()=>{},dark:false,toggle:()=>{}}),React.createElement(Footer,{go:()=>{},onCookies:()=>{}})));
-  assert.ok(view.getAllByAltText('Funbike Madagascar').every(img=>img.getAttribute('src')===original));
+  assert.ok(view.getAllByAltText('Funbike Madagascar').every(img=>img.getAttribute('src')===displayLogo));
 });
 
 test('fichier refusé et conflit de révision : rien n’est supprimé ou activé', async()=>{

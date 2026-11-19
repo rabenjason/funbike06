@@ -24,11 +24,13 @@ test('accueil complet sans attendre modèles et catégories, échec secondaire p
     const catalog=await server.ssrLoadModule('/src/catalog/index.ts');
     const preloaded=await loader.loadInitialCatalog('/');
     assert.equal(calls.includes('models.php'),false); assert.equal(calls.includes('categories.php'),false);
-    assert.equal(catalog.products.length,Object.keys(files).filter(p=>p.startsWith('products/')).reduce((n,p)=>n+data[p].filter(x=>x.status==='PUBLISHED').length,0));
-    const selections=catalog.getEquipementsAccueil().map(x=>x.id);
+    assert.equal(catalog.products.length,data['products/motorcycles.php'].filter(x=>x.status==='PUBLISHED').length);
+    assert.equal(calls.includes('products/riding-gear.php'),false);
+    assert.equal(calls.includes('product-types.php'),false);
+    const selections=data['products/helmets.php'].concat(data['products/riding-gear.php']).filter(x=>x.status==='PUBLISHED' && x.isEquipementAccueil===true).slice(0,4).map(x=>x.id);
     await assert.rejects(loader.startBackgroundCatalog(preloaded));
     assert.equal(loader.getBackgroundStatus(),'error');
-    assert.deepEqual(catalog.getEquipementsAccueil().map(x=>x.id),selections,'la panne secondaire ne modifie pas les sélections déjà affichées');
+    assert.deepEqual(catalog.getEquipementsAccueil(),[],'les sections non chargées restent en attente, sans données partielles');
     fail=false; await loader.startBackgroundCatalog();
     assert.equal(loader.getBackgroundStatus(),'ready'); assert.ok(catalog.categories.length); assert.ok(catalog.models.length);
     assert.deepEqual(catalog.getEquipementsAccueil().map(x=>x.id),selections);

@@ -2,10 +2,9 @@ import { CatFace } from "./CatFace";
 export { CatFace } from "./CatFace";
 import { getProductFamily, categories, families, models, productTypes, productDetailPage, products } from "../catalog";
 import { CONTACT_ADDRESS, CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_WHATSAPP } from "../catalog/contact";
-import { DEALERS } from "../catalog/dealers";
-import { refreshAssistantData } from "../catalog/refreshAssistantData";
-import { loadAssistantPromotions } from "../lib/assistant-promotions";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { DEALERS, dealerStatus, subscribeDealerStatus } from "../catalog/dealers";
+import { getBackgroundStatus, subscribeBackgroundStatus } from "../catalog/loadServerData";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -34,14 +33,12 @@ import {
   EMPTY_MEMORY,
   greetingText,
   initialQuick,
-  needsPromotionData,
-  respond,
   typingDelay,
   type BotReply,
   type ChatAction,
   type ChatActionIcon,
   type Memory,
-} from "../lib/assistant";
+} from "../lib/assistant-shared";
 
 /* ------------------------------------------------------------------ */
 /*  Launcher positioning (stays just above the hero buttons on mobile) */
@@ -413,7 +410,12 @@ export default function CatChat({
   go: (page: string, id?: string) => void;
   hiddenOnMobile?: boolean;
 }) {
-  const [stored] = useState(loadStored);
+  const background = useSyncExternalStore(subscribeBackgroundStatus, getBackgroundStatus, getBackgroundStatus);
+  const dealers = useSyncExternalStore(subscribeDealerStatus, dealerStatus, dealerStatus);
+  const complete = background === "ready" && dealers === "ready";
+  const [stored] = useState(() => complete ? loadStored() : null);
+  const [hydrated, setHydrated] = useState(complete);
+  const interacted = useRef(false);
   const [messages, setMessages] = useState<Msg[]>(() => stored?.messages ?? [greetMsg()]);
   const [memory, setMemory] = useState<Memory>(() => stored?.memory ?? EMPTY_MEMORY);
   const [quick, setQuick] = useState<string[]>(() => (stored ? stored.quick : initialQuick()));
@@ -438,14 +440,25 @@ export default function CatChat({
 
   openRef.current = open;
 
+  // Ne pas effacer une conversation à partir d'un catalogue encore incomplet.
+  useEffect(() => {
+    if (!complete || hydrated) return;
+    if (!interacted.current) {
+      const restored = loadStored();
+      if (restored) { setMessages(restored.messages); setMemory(restored.memory); memoryRef.current = restored.memory; setQuick(restored.quick); setTeaser(false); setUnread(0); }
+    }
+    setHydrated(true);
+  }, [complete, hydrated]);
+
   /* Persist the conversation */
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({ messages: messages.slice(-40), memory, quick, catalogVersion: catalogVersion() }));
     } catch {
       /* private mode: ignore */
     }
-  }, [messages, memory, quick]);
+  }, [messages, memory, quick, hydrated]);
 
   /* Clean timers on unmount */
   useEffect(() => () => { requestVersion.current++; refreshController.current?.abort(); timers.current.forEach((t) => window.clearTimeout(t)); }, []);
@@ -495,6 +508,7 @@ export default function CatChat({
   async function send(text: string) {
     const value = text.trim();
     if (!value || refreshController.current || pending.current > 0) return;
+    interacted.current = true;
     const controller = new AbortController(); refreshController.current = controller;
     const version = ++requestVersion.current;
     const currentCatalog = catalogVersion();
@@ -505,6 +519,9 @@ export default function CatChat({
     const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
       // Les réponses ne reposent jamais sur un catalogue dont la mise à jour a échoué.
+      const [{ refreshAssistantData }, { needsPromotionData, respond }] = await Promise.all([
+        import("../catalog/refreshAssistantData"), import("../lib/assistant"),
+      ]);
       await refreshAssistantData(controller.signal);
       if (version !== requestVersion.current) return;
       if (catalogVersion() !== currentCatalog) {
@@ -513,7 +530,7 @@ export default function CatChat({
         setMemory(memoryRef.current);
         setMessages([greetMsg(), botMsg({ text: "Le catalogue a changé : je repars des informations à jour." }), userMessage]);
       }
-      const promotions = needsPromotionData(value, memoryRef.current) ? await loadAssistantPromotions(controller.signal) : undefined;
+      const promotions = needsPromotionData(value, memoryRef.current) ? await (await import("../lib/assistant-promotions")).loadAssistantPromotions(controller.signal) : undefined;
       if (version !== requestVersion.current) return;
       if (controller.signal.aborted) throw new Error("Chargement annulé");
       const result = respond(value, memoryRef.current, promotions);
@@ -557,6 +574,7 @@ export default function CatChat({
   }
 
   function reset() {
+    interacted.current = true;
     requestVersion.current++; refreshController.current?.abort(); refreshController.current = null; setRefreshing(false);
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
