@@ -50,6 +50,11 @@ test('moto : carte cliquable, galerie indépendante, choix, message modifiable e
   assert.ok(view.getByRole('dialog').classList.contains('fb-whatsapp-dialog'));
   const cancel=dialog.getByRole('button',{name:'Annuler'}); cancel.focus(); fireEvent.keyDown(document,{key:'Tab'});
   assert.equal(document.activeElement,dialog.getByRole('button',{name:'Prix et disponibilité'}));
+  for (const label of ['Prix et disponibilité', 'Informations']) {
+    const choice=dialog.getByRole('button',{name:label});
+    assert.ok(choice.classList.contains('fb-whatsapp-intent-choice'));
+    assert.equal(choice.querySelector('span').textContent,label);
+  }
   fireEvent.click(dialog.getByRole('button',{name:'Prix et disponibilité'}));
   const textarea=dialog.getByLabelText('Votre message'); assert.match(textarea.value,/TVS HLX test/); assert.match(textarea.value,/https:\/\/funbike.test\/motos\//);
   fireEvent.change(textarea,{target:{value:'Bonjour, une question ?'}});
