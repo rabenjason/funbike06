@@ -28,6 +28,14 @@ test('comparaison simulée du chemin critique moto, latence identique à chaque 
     calls=[]; start=performance.now();
     await Promise.all([loadInitialCatalog('/motos'),readPublicJson('homepage-content.php')]);
     const optimized=Math.round(performance.now()-start); assert.equal(calls.length,6);
-    t.diagnostic(`Simulation à 120 ms par lecture, concurrence 3 : ancien chemin ${previous} ms / nouveau ${optimized} ms (hors téléchargements et rendu).`);
+    const motoCalls = calls.length;
+    calls=[]; start=performance.now();
+    const oldHomePaths=['brands.php','families.php','product-types.php','products/motorcycles.php','products/helmets.php','products/riding-gear.php','products/spare-parts.php','contacts.php','homepage-content.php'];
+    await Promise.all(oldHomePaths.map(path=>readPublicJson(path)));
+    const previousHome=Math.round(performance.now()-start); assert.equal(calls.length,9);
+    calls=[]; start=performance.now();
+    await Promise.all([loadInitialCatalog('/'),readPublicJson('homepage-content.php')]);
+    const home=Math.round(performance.now()-start); assert.equal(calls.length,4);
+    t.diagnostic(`Simulation à 120 ms par lecture, concurrence 3 : accueil avant ${previousHome} ms (9 lectures) / après ${home} ms (4 lectures) ; ancien chemin complet ${previous} ms / moto (${motoCalls} lectures) ${optimized} ms. Hors téléchargements et rendu.`);
   } finally {globalThis.fetch=oldFetch;await server.close();}
 });

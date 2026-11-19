@@ -1,6 +1,6 @@
 # Le nom contient l'empreinte du fichier ; changer le nom si son contenu change.
 <IfModule mod_headers.c>
-  <Files "logo-funbike-720-a3ab2dc4.png">
+  <FilesMatch "^(logo-funbike-720-a3ab2dc4\.png|logo-funbike-360-c4c49168\.webp)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
-  </Files>
+  </FilesMatch>
 </IfModule>

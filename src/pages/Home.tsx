@@ -1,5 +1,5 @@
 import { homepageContent, homepageCategories } from "../content/homepage";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -13,6 +13,8 @@ import {
 import { getHomepageHeroProducts, getMotosAccueil, getEquipementsAccueil, getEquipmentBrandsByProductCount, brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import { Section } from "../components/Layout";
+import { PageLoading } from "../components/Loaders";
+import { getBackgroundStatus, subscribeBackgroundStatus, startBackgroundCatalog } from "../catalog/loadServerData";
 import { BikeCard, PartCard } from "../components/Cards";
 import { AccessoryBrandQuickLinks } from "../components/AccessoryBrands";
 import ShercoBanner from "../components/ShercoBanner";
@@ -25,7 +27,22 @@ const brandName = (product: Product) => brands.find((brand) => brand.id === prod
 
 const CATEGORY_ICONS = { moto: faMotorcycle, helmet: faHelmetSafety, parts: faGears, gear: faShirt };
 
+/** La photo du bandeau reste prioritaire et peut récupérer d'une panne temporaire. */
+function HeroImage({ src, alt, priority }: { src: string; alt: string; priority: boolean }) {
+  const [attempt, setAttempt] = useState(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return <motion.img
+    key={attempt} src={src} alt={alt} fetchPriority={priority ? "high" : "auto"}
+    onError={() => { if (attempt < 2) { clearTimeout(timer.current); timer.current = setTimeout(() => setAttempt((value) => value + 1), attempt === 0 ? 1000 : 3000); } }}
+    initial={{ opacity: 0, scale: 1.035 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+    transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
+    className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
+  />;
+}
+
 export default function Home({ go }: { go: (p: string, id?: string) => void }) {
+  const status = useSyncExternalStore(subscribeBackgroundStatus, getBackgroundStatus, getBackgroundStatus);
   const hasBrand = (id: string) => brands.some((brand) => brand.id === id && brand.isPublished !== false);
   const partners = brands.filter((brand) => brand.isPublished !== false && brand.isPartner === true && brand.logo);
   const heroProducts = getHomepageHeroProducts();
@@ -50,17 +67,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
       <section className="relative isolate min-h-[max(560px,calc(100svh-64px))] overflow-hidden bg-[#22231f] sm:min-h-[720px] lg:min-h-[min(820px,calc(100svh-68px))]">
         <AnimatePresence initial={false} mode="sync">
           {current && heroImage && (
-            <motion.img
-              key={current.id}
-              src={heroImage.url}
-              alt={heroImage.altText || current.name}
-              fetchPriority={activeIndex === 0 ? "high" : "auto"}
-              initial={{ opacity: 0, scale: 1.035 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ opacity: { duration: 0.7 }, scale: { duration: 7, ease: "linear" } }}
-              className="absolute inset-0 h-full w-full object-cover object-[center_52%]"
-            />
+            <HeroImage key={current.id} src={heroImage.url} alt={heroImage.altText || current.name} priority={activeIndex === 0} />
           )}
         </AnimatePresence>
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/20 lg:via-black/70" />
@@ -162,6 +169,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         </div>
       </section>
 
+      {status === "ready" ? <>
       {/* Category index: compact links instead of large category tiles */}
       <section className="mx-auto w-full max-w-(--container-site) px-4 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-16">
         <div className="grid gap-5 border-t border-black/15 pt-4 dark:border-white/15 sm:grid-cols-[0.75fr_1.25fr] sm:gap-8">
@@ -262,6 +270,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
           <PartnerMarquee partners={partners} />
         </div>
       </section>}
+      </> : status === "error" ? <div role="alert" className="p-8">Impossible de charger les autres sections. <button type="button" className="underline" onClick={() => void startBackgroundCatalog().catch(() => {})}>Réessayer</button></div> : <PageLoading />}
     </div>
   );
 }

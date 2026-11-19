@@ -3,7 +3,7 @@ import { categories } from "./categories";
 import { families } from "./families";
 import { models } from "./models";
 import { productTypes } from "./productTypes";
-import { motorcycles, helmets, ridingGear, spareParts, products } from "./products";
+import { motorcycles, helmets, ridingGear, spareParts, products, mainProductImage } from "./products";
 import { DEALERS, dealerStatus, setDealerStatus } from "./dealers";
 import { readPublicJson } from "../lib/publicDataRequest";
 import { setContactInfo } from "./contact";
@@ -37,6 +37,17 @@ function validContact(data: Record<string, unknown>) {
   if (!contact || typeof contact.email !== "string" || typeof contact.phone !== "string" || typeof contact.phoneHref !== "string" || typeof contact.address !== "string" || typeof contact.hours !== "string") throw new Error("Les coordonnées sont invalides.");
   return contact;
 }
+// Lance le téléchargement de la première image pendant que les autres données arrivent.
+function preloadHomepageHero(data: Record<string, unknown>, signal?: AbortSignal) {
+  if (typeof document === "undefined" || signal?.aborted) return;
+  const bike = normalizeProducts(list<Product>(data, "data")).find((item) => item.categoryId === "motos" && item.isHomepageHero === true);
+  const url = bike && mainProductImage(bike)?.url;
+  if (!url) return;
+  let link = document.querySelector<HTMLLinkElement>('link[data-homepage-hero]');
+  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.homepageHero = ""; document.head.appendChild(link); }
+  link.setAttribute("fetchpriority", "high");
+  link.href = url;
+}
 type Preloaded = Record<string, Record<string, unknown>>;
 type BackgroundStatus = "ready" | "loading" | "error";
 let backgroundStatus: BackgroundStatus = "ready";
@@ -49,25 +60,30 @@ function setBackgroundStatus(status: BackgroundStatus) { backgroundStatus = stat
 /** D'abord les seules données indispensables à la page directement ouverte. */
 export async function loadInitialCatalog(pathname: string, signal?: AbortSignal): Promise<Preloaded> {
   const path = pathname.replace(/\/+$/, "") || "/";
-  const productFiles = path === "/" ? ["motorcycles", "helmets", "riding-gear", "spare-parts"]
+  const productFiles = path === "/" ? ["motorcycles"]
     : /^\/motos(?:\/[^/]+)?$/.test(path) ? ["motorcycles"]
     : /^\/(?:equipements|casques)(?:\/[^/]+)?$/.test(path) ? ["helmets", "riding-gear"]
     : /^\/pieces-detachees(?:\/[^/]+)?$/.test(path) ? ["spare-parts"]
     : ["motorcycles", "helmets", "riding-gear", "spare-parts"];
-  const paths = ["brands.php", "families.php", "product-types.php", ...productFiles.map((name) => `products/${name}.php`), "contacts.php"];
+  // Le bandeau d'accueil ne dépend ni des familles/types ni des autres produits.
+  const classifications = path === "/" ? [] : ["families.php", "product-types.php"];
+  const paths = ["brands.php", ...classifications, ...productFiles.map((name) => `products/${name}.php`), "contacts.php"];
   const batch = new AbortController();
   const abort = () => batch.abort();
   if (signal?.aborted) throw new Error("Chargement annulé.");
   signal?.addEventListener("abort", abort, { once: true });
-  const tasks = paths.map((name) => read(name, batch.signal));
+  const tasks = paths.map((name) => read(name, batch.signal).then((result) => {
+    if (path === "/" && name === "products/motorcycles.php" && !batch.signal.aborted) preloadHomepageHero(result, batch.signal);
+    return result;
+  }));
   let values: Record<string, unknown>[];
   try { values = await Promise.all(tasks); }
   catch (error) { batch.abort(); await Promise.allSettled(tasks); throw error; }
   finally { signal?.removeEventListener("abort", abort); }
   const data: Preloaded = Object.fromEntries(paths.map((name, index) => [name, values[index]]));
   const newBrands = list<Brand>(data["brands.php"], "brands");
-  const newFamilies = list<{ id: string; name: string; categoryId: string }>(data["families.php"], "families");
-  const newTypes = list<ProductType>(data["product-types.php"], "productTypes");
+  const newFamilies = data["families.php"] ? list<{ id: string; name: string; categoryId: string }>(data["families.php"], "families") : [];
+  const newTypes = data["product-types.php"] ? list<ProductType>(data["product-types.php"], "productTypes") : [];
   const contact = validContact(data["contacts.php"]);
   const lists = ["motorcycles", "helmets", "riding-gear", "spare-parts"].map((name) => data[`products/${name}.php`] ? normalizeProducts(list<Product>(data[`products/${name}.php`], "data")) : []);
   if (signal?.aborted) throw new Error("Chargement annulé.");

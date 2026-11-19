@@ -5,6 +5,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
+import { gzipSync } from 'node:zlib';
 
 const wasm = resolve('node_modules/.bin/php-wasm-cli');
 const php = process.env.PHP_BINARY || (spawnSync('php', ['-v'], { stdio: 'ignore' }).status === 0 ? 'php' : existsSync(wasm) ? wasm : null);
@@ -32,7 +33,19 @@ test('build versionné : assets séparés et SEO PHP sans JavaScript', { timeout
       initial.add(key);
       for (const dependency of manifest[key].imports ?? []) collect(dependency);
     }
-    for (const key of ['index.html', 'src/App.tsx', 'src/pages/Home.tsx', 'src/content/homepage.ts']) collect(key);
+    // Rollup peut représenter App comme entrée dynamique ou comme chunk partagé
+    // lorsque le moteur de l’assistant est lui-même chargé à la demande.
+    const appKey = manifest['src/App.tsx'] ? 'src/App.tsx' : (manifest['index.html'].dynamicImports ?? []).find((key) => key.startsWith('_App-'));
+    assert.ok(appKey, 'le code public App reste chargé dynamiquement');
+    for (const key of ['index.html', appKey, 'src/pages/Home.tsx', 'src/content/homepage.ts']) collect(key);
+    assert.equal(initial.has('src/lib/assistant.ts'), false, 'le moteur du chatbot ne charge qu’à la première question');
+    // Budget de code et médias de base, en supposant une compression gzip côté hébergement.
+    // Les photos du catalogue, données publiques et images personnalisées ne sont pas comprises.
+    const assets = new Set([...initial].flatMap((key) => [manifest[key].file, ...(manifest[key].css ?? [])]).filter(Boolean));
+    const codeGzip = [...assets].reduce((sum, asset) => sum + gzipSync(readFileSync(join(dir, asset))).length, 0);
+    const staticBytes = ['src/assets/fonts/dm-sans-latin-wght-normal.woff2', 'src/assets/fonts/space-grotesk-latin-wght-normal.woff2', 'server/public/assets/company/logo-funbike-360-c4c49168.webp'].reduce((sum, asset) => sum + readFileSync(asset).length, 0);
+    t.diagnostic(`Budget estimé code gzip + deux polices latines + logo : ${codeGzip + staticBytes} octets, hors données et photos.`);
+    assert.ok(codeGzip + staticBytes < 350000, 'le code et les médias de base restent sous 350 Ko estimés');
     for (const page of ['Catalog', 'Product', 'AccessoryDetail', 'Promotions', 'Contact', 'Dealers', 'Admin']) {
       assert.ok(manifest[`src/pages/${page}.tsx`], `page ${page} séparée`);
       assert.equal(initial.has(`src/pages/${page}.tsx`), false, `page ${page} non chargée à l’accueil`);
