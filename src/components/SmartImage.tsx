@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { twMerge } from "tailwind-merge";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -17,6 +17,9 @@ type Props = {
 function Inner({ src, alt, className = "", imgClassName = "", eager = false }: Props) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(!src);
+  const [attempt, setAttempt] = useState(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
 
   return (
     <div className={twMerge("relative overflow-hidden", className)}>
@@ -27,6 +30,7 @@ function Inner({ src, alt, className = "", imgClassName = "", eager = false }: P
         </div>
       ) : (
         <motion.img
+          key={attempt}
           ref={(el: HTMLImageElement | null) => {
             if (el && !loaded && el.complete && el.naturalWidth > 0) setLoaded(true);
           }}
@@ -36,8 +40,10 @@ function Inner({ src, alt, className = "", imgClassName = "", eager = false }: P
           decoding="async"
           onLoad={() => setLoaded(true)}
           onError={() => {
-            setFailed(true);
-            setLoaded(true);
+            if (attempt < 2) {
+              clearTimeout(timer.current);
+              timer.current = setTimeout(() => setAttempt((current) => current + 1), attempt === 0 ? 1000 : 3000);
+            } else { setFailed(true); setLoaded(true); }
           }}
           initial={false}
           animate={{ opacity: loaded ? 1 : 0 }}

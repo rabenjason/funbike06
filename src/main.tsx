@@ -27,12 +27,13 @@ function initializePublicData() {
   if (!publicData) {
     const controller = new AbortController();
     publicData = Promise.all([
-      import("./catalog/loadServerData").then(({ loadServerData, reloadDealers }) => {
-        void reloadDealers(controller.signal);
-        return loadServerData(controller.signal, undefined, true);
-      }),
+      import("./catalog/loadServerData").then(async (catalog) => ({ catalog, data: await catalog.loadInitialCatalog(location.pathname, controller.signal) })),
       import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(controller.signal); document.documentElement.dataset.siteTheme = homepage.siteTheme; }),
-    ]).then(() => {}).catch((error) => { controller.abort(); publicData = undefined; throw error; });
+    ]).then(([{ catalog, data }]) => {
+      // Les autres sources ne retardent pas la première page ; leur résultat est partagé à la navigation.
+      void catalog.startBackgroundCatalog(data).catch(() => {});
+      void catalog.reloadDealers();
+    }).catch((error) => { controller.abort(); publicData = undefined; throw error; });
   }
   return publicData;
 }
