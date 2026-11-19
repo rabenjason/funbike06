@@ -1,3 +1,4 @@
+import { readPublicJson } from "../lib/publicDataRequest";
 // Copie des valeurs d'installation PHP, gardée synchronisée par un test.
 // Ne pas importer depuis /server : Vite transmet ce chemin au serveur PHP.
 import defaults from "./homepage-defaults.json";
@@ -53,10 +54,10 @@ export function setHomepage(data: HomepageData) {
 }
 
 /** Chargé au démarrage ; Piston actualise le catalogue séparément. */
+let homepageSequence = 0;
 export async function loadHomepageData(signal?: AbortSignal) {
-  const res = await fetch("/server/api/homepage-content.php", { credentials: "same-origin", cache: "no-store", signal });
-  if (!res.ok) throw new Error("Impossible de charger le contenu de l’accueil.");
-  const value: unknown = await res.json();
+  const current = ++homepageSequence;
+  const value = await readPublicJson("homepage-content.php", signal);
   if (!value || typeof value !== "object" || !validHomepage((value as { data?: unknown }).data)) throw new Error("Données de l’accueil invalides.");
   const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown; chatbotEnabled?: unknown; chatbotName?: unknown; chatbotLogo?: unknown; siteLogo?: unknown };
   let image = "https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg" as string | null;
@@ -64,7 +65,7 @@ export async function loadHomepageData(signal?: AbortSignal) {
     if (response.shercoBannerImage !== null && (typeof response.shercoBannerImage !== "string" || !/^\/server\/uploads\/homepage\/sherco-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.shercoBannerImage))) throw new Error("Image de bannière invalide.");
     image = response.shercoBannerImage as string | null;
   } else if (response.shercoBannerConfigured !== undefined && response.shercoBannerConfigured !== false) throw new Error("Configuration de bannière invalide.");
-  if (signal?.aborted) throw new Error("Chargement annulé.");
+  if (signal?.aborted || current !== homepageSequence) throw new Error("Chargement annulé.");
   if (response.siteTheme !== undefined && response.siteTheme !== "funbike" && response.siteTheme !== "tvs") throw new Error("Thème du site invalide.");
   if (response.chatbotEnabled !== undefined && typeof response.chatbotEnabled !== "boolean") throw new Error("Réglage du chatbot invalide.");
   if (response.chatbotName !== undefined && (typeof response.chatbotName !== "string" || !response.chatbotName.trim() || response.chatbotName.trim() !== response.chatbotName || [...response.chatbotName].length > 40 || /[\x00-\x1f\x7f<>*]/.test(response.chatbotName))) throw new Error("Nom du chatbot invalide.");

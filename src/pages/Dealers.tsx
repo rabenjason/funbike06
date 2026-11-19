@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -16,7 +16,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import type { Dealer } from "../types";
-import { DEALERS } from "../catalog/dealers";
+import { DEALERS, dealerStatus, subscribeDealerStatus } from "../catalog/dealers";
+import { reloadDealers } from "../catalog/loadServerData";
 
 export type { Dealer };
 export { DEALERS };
@@ -43,6 +44,9 @@ const ICON = "w-4 shrink-0 text-[#98741b] dark:text-[#ffd100]";
 const LABEL = "text-[10px] font-semibold uppercase tracking-[0.1em] text-black/40 dark:text-white/40";
 
 export default function Dealers(props: { go: (p: string, id?: string) => void; initialCity?: string }) {
+  const status = useSyncExternalStore(subscribeDealerStatus, dealerStatus, dealerStatus);
+  if (status === "loading") return <div className="mx-auto max-w-5xl p-8 text-sm" role="status">Chargement des revendeurs…</div>;
+  if (status === "error") return <div className="mx-auto max-w-5xl p-8 text-sm" role="alert">Impossible de charger les revendeurs. <button type="button" onClick={() => void reloadDealers()}>Réessayer</button></div>;
   if (DEALERS.length === 0) return <div className="mx-auto max-w-5xl p-8 text-sm">Aucun revendeur renseigné pour le moment.</div>;
   return <DealerContent {...props} />;
 }

@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import { schedulePublicOperation } from "./publicDataRequest";
 
 export const openingsClientEnabled = import.meta.env.VITE_COUNT_SITE_OPENINGS !== "0";
 const BROWSER_ID = "fb_stats_browser_v1";
@@ -28,8 +29,12 @@ export function recordSiteOpening(enabled = openingsClientEnabled, send: typeof 
   if (!enabled || attempted) return;
   attempted = true; // Une seule tentative par chargement, y compris avec React StrictMode.
   const browserId = getBrowserId();
-  void send("/server/api/openings.php", {
-    method: "POST", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", keepalive: true,
-    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "opening", ...(browserId ? { browserId } : {}) }),
+  // Une seule écriture : la file ne réessaie jamais les opérations qu'elle reçoit.
+  void schedulePublicOperation(async () => {
+    const response = await send("/server/api/openings.php", {
+      method: "POST", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", keepalive: true,
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "opening", ...(browserId ? { browserId } : {}) }),
+    });
+    try { await response.body?.cancel(); } catch { /* réponse déjà terminée */ }
   }).catch(() => {});
 }

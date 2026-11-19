@@ -1,12 +1,16 @@
+import { schedulePublicOperation } from "./publicDataRequest";
 import { calculatePromotionPrice, isPromotionActive, type Promotion } from "./promotions";
 
 export type PromotionSnapshot = { campaigns: Promotion[]; now: number };
 /** Une lecture fraîche et indépendante : une panne des promotions ne bloque pas les autres sujets. */
 export async function loadAssistantPromotions(signal: AbortSignal): Promise<PromotionSnapshot | null> {
   try {
-    const response = await fetch('/server/api/promotions.php', { credentials: 'same-origin', cache: 'no-store', signal });
-    if (!response.ok) return null;
-    const value = await response.json();
+    const value = await schedulePublicOperation(async () => {
+      const response = await fetch('/server/api/promotions.php', { credentials: 'same-origin', cache: 'no-store', signal });
+      if (!response.ok) { try { await response.body?.cancel(); } catch { /* réponse déjà terminée */ } return null; }
+      return await response.json();
+    }, signal);
+    if (!value) return null;
     const now = Date.parse(value.serverTime);
     if (!Number.isFinite(now) || !Array.isArray(value.campaigns)) return null;
     const campaigns: Promotion[] = [];
