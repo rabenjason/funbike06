@@ -26,10 +26,10 @@ test('WhatsApp : droits, confidentialité, validation, sauvegarde et conflit de 
     let ready=false; for(let i=0;i<100;i++){try{if((await fetch(base+'brands.php')).ok){ready=true;break;}}catch{} await new Promise(r=>setTimeout(r,100));} assert.ok(ready);
     assert.equal((await call('whatsapp-settings.php?admin=1','GET',undefined,false)).status,401);
     assert.equal((await call('whatsapp-settings.php','PUT',{},false)).status,401);
-    const empty=await call('whatsapp-settings.php','GET',undefined,false); assert.equal(empty.status,200); assert.equal(empty.body.data.enabled,false); assert.equal(empty.body.data.sales,null); assert.equal(empty.body.data.parts,null);
+    const empty=await call('whatsapp-settings.php','GET',undefined,false); assert.equal(empty.status,200); assert.equal(empty.body.data.enabled,false); assert.equal(empty.body.data.sales,null); assert.equal(empty.body.data.parts,null); assert.equal('revision' in empty.body,false);
     assert.equal((await call('auth/login.php','POST',{username:'admin-test',password:initial})).status,200);
     assert.equal((await call('auth/change-password.php','POST',{currentPassword:initial,newPassword:next,newPasswordConfirmation:next})).status,200);
-    const start=await call('whatsapp-settings.php?admin=1'); assert.equal(start.status,200); const data=start.body.data;
+    const start=await call('whatsapp-settings.php?admin=1'); assert.equal(start.status,200); assert.match(start.body.revision,/^[0-9a-f]{64}$/); const data=start.body.data;
     data.enabled=true; data.sales={activeId:'john',people:[{id:'john',name:'John',phone:'+261 34 00 111 11'},{id:'sarah',name:'Sarah',phone:'+261 34 00 222 22'}]}; data.parts={activeId:'pierre',people:[{id:'pierre',name:'Pierre',phone:'+261 34 00 333 33'}]};
     assert.equal((await call('whatsapp-settings.php','PUT',{revision:start.body.revision,data},true,{Origin:'https://evil.example'})).status,403);
     const invalid=structuredClone(data); invalid.sales.people[0].phone='0340011111'; assert.equal((await call('whatsapp-settings.php','PUT',{revision:start.body.revision,data:invalid})).status,400);
@@ -41,6 +41,8 @@ test('WhatsApp : droits, confidentialité, validation, sauvegarde et conflit de 
     assert.doesNotMatch(JSON.stringify(pub.body),/Sarah|222 22|John|Pierre/);
     data.sales.activeId='sarah'; const update=await call('whatsapp-settings.php','PUT',{revision:saved.body.revision,data}); assert.equal(update.status,200);
     assert.equal((await call('whatsapp-settings.php','GET',undefined,false)).body.data.sales.phone,'+261 34 00 222 22');
+    data.sales.activeId=null; const deactivated=await call('whatsapp-settings.php','PUT',{revision:update.body.revision,data}); assert.equal(deactivated.status,200);
+    const noSales=await call('whatsapp-settings.php','GET',undefined,false); assert.equal(noSales.body.data.sales,null); assert.deepEqual(noSales.body.data.parts,{phone:'+261 34 00 333 33'}); assert.equal('revision' in noSales.body,false);
     const file=join(root,'storage/private/whatsapp-settings.json'); assert.equal(JSON.parse(readFileSync(file)).parts.activeId,'pierre');
     writeFileSync(file,'{invalide'); const broken=await call('whatsapp-settings.php?admin=1'); assert.equal(broken.status,500); assert.equal(readFileSync(file,'utf8'),'{invalide');
     assert.equal((await fetch(`http://127.0.0.1:${port}/server/storage/private/whatsapp-settings.json`)).status,404);

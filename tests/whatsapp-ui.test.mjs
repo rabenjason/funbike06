@@ -88,6 +88,26 @@ test('désactivation, mode direct, numéro absent et échec réseau conservent u
   await waitFor(()=>assert.ok(view.getByRole('button',{name:'Découvrir'})));
 });
 
+test('chargements WhatsApp : la dernière réponse gagne et les requêtes devenues inutiles sont annulées',async()=>{
+  setup(); const pending=[];
+  globalThis.fetch=(url,options)=>new Promise((resolve,reject)=>pending.push({options,resolve,reject}));
+  const view=render(wrap(React.createElement(BikeCard,{bike:catalog.motorcycles[0],go(){}})));
+  await waitFor(()=>assert.equal(pending.length,1));
+  fireEvent(document,new window.Event('visibilitychange'));
+  await waitFor(()=>assert.equal(pending.length,2));
+  assert.equal(pending[0].options.signal.aborted,true);
+  const data={enabled:true,askIntent:true,texts:structuredClone(config.texts),sales:{phone:'+261 34 00 111 11'},parts:null};
+  pending[1].resolve({ok:true,json:async()=>({data})});
+  await waitFor(()=>assert.ok(view.getByRole('button',{name:/WhatsApp/})));
+  // Même si une implémentation de fetch ignore l'annulation, une réponse ancienne ne doit pas écraser la nouvelle.
+  pending[0].resolve({ok:true,json:async()=>({data:{...data,enabled:false}})});
+  await new Promise(r=>setTimeout(r,0));
+  assert.ok(view.getByRole('button',{name:/WhatsApp/}));
+  fireEvent(document,new window.Event('visibilitychange'));
+  await waitFor(()=>assert.equal(pending.length,3));
+  view.unmount(); assert.equal(pending[2].options.signal.aborted,true);
+});
+
 test('administration : listes indépendantes, choix actif, textes, sauvegarde et suppression confirmée',async()=>{
   setup(); let dirty=false, saving=false; const view=render(React.createElement(ConfirmationProvider,null,React.createElement(AdminWhatsapp,{onDirtyChange:v=>{dirty=v;},onSavingChange:v=>{saving=v;}})));
   await waitFor(()=>view.getByRole('heading',{name:'Commerciaux — motos et équipements'}));
