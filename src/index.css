@@ -491,6 +491,21 @@ textarea.chat-composer:focus-visible {
   background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.08), transparent);
 }
 
+/* Les images occupent leur emplacement pendant tout le chargement. */
+.skeleton.absolute { position: absolute; }
+.skeleton.hero-image-skeleton {
+  position: absolute;
+  inset: 0;
+  background: #3c3e37;
+}
+.skeleton.hero-image-skeleton::after,
+.dark .skeleton.hero-image-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.24), transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton.hero-image-skeleton::after { animation: none; transform: none; }
+}
+
 /* Two identical halves; each is repeated as needed to fill the viewport. */
 .fb-partner-track {
   will-change: transform;
