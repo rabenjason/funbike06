@@ -456,3 +456,51 @@ test('Tous : pagination commune et retour à la première page', async () => {
   assert.equal(results.querySelectorAll('article').length, 0);
   assert.ok(results.textContent.includes('Aucun produit ne correspond'));
 });
+
+test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé après rechargement', async () => {
+  let setting = 'motos', revision = 'r1'; const writes = [];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('promotions-display.php')) {
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); setting = body.preferredCategory; revision = 'r2'; }
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting }, revision }) };
+    }
+    return { ok: true, json: async () => ({ campaigns: [] }) };
+  };
+  const adminCatalog = { products: [], brands: [], categories: [], families: [], types: [], models: [] };
+  const component = () => React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotions, { catalog: adminCatalog, onDirtyChange() {}, onSavingChange() {}, productEditor: () => null }));
+  let view = render(component());
+  await waitFor(() => assert.ok(view.getByLabelText('Catégorie affichée en premier')));
+  const select = view.getByLabelText('Catégorie affichée en premier');
+  assert.deepEqual([...select.options].map(option => option.textContent), ['Tous', 'Motos', 'Équipements et casques', 'Pièces détachées']);
+  fireEvent.change(select, { target: { value: 'tous' } });
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
+  await waitFor(() => assert.ok(view.getByText('Catégorie enregistrée.')));
+  assert.deepEqual(writes, [{ preferredCategory: 'tous', revision: 'r1' }]);
+  view.unmount(); view = render(component());
+  await waitFor(() => assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'tous'));
+  assert.equal(writes.length, 1);
+});
+
+test('Tous par défaut : les motos TVS en premier, puis autres motos et les autres produits', async () => {
+  const tvs = catalog.motorcycles.filter(p => p.brandId === 'tvs').slice(0, 2);
+  const other = catalog.motorcycles.filter(p => p.brandId !== 'tvs').slice(0, 2);
+  const [gear, helmet, part] = [catalog.ridingGear[0], catalog.helmets[0], catalog.spareParts[0]];
+  assert.equal(tvs.length, 2); assert.equal(other.length, 2);
+  const campaign = (id, list) => ({ id, name: `Promotion ${id}`, description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: list.map(p => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 10000, discountPercent: 20 })) });
+  const campaigns = [campaign('A', [gear, other[0], tvs[0], part]), campaign('B', [helmet, other[1], tvs[1]])];
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns, preferredCategory: 'tous', serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Tous', exact: true })));
+  assert.equal(view.getByRole('button', { name: 'Tous', exact: true }).getAttribute('aria-pressed'), 'true');
+  const results = view.getByRole('region', { name: 'Produits en promotion' });
+  const names = () => [...results.querySelectorAll('article')].map(article => article.querySelector('h3, h4').textContent);
+  assert.deepEqual(names(), [tvs[0], tvs[1], other[0], other[1], gear, part, helmet].map(p => p.name));
+  assert.equal(results.querySelectorAll('[aria-label="Réduction de 20 %"]').length, 7);
+  fireEvent.click(view.getByRole('button', { name: 'Motos' }));
+  assert.deepEqual(names(), [other[0], tvs[0], other[1], tvs[1]].map(p => p.name), 'ordre de l’onglet Motos inchangé');
+  fireEvent.click(view.getByRole('button', { name: 'Tous', exact: true }));
+  assert.deepEqual(names(), [tvs[0], tvs[1], other[0], other[1], gear, part, helmet].map(p => p.name));
+  fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: tvs[0].name } });
+  assert.equal(results.querySelectorAll('article').length, 1);
+  assert.equal(names()[0], tvs[0].name);
+});

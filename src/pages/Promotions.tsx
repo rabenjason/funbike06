@@ -46,7 +46,7 @@ function CampaignHeader({ campaign, clockOffset }: { campaign: Promotion; clockO
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
   const { campaigns, status, clockOffset, preferredCategory } = usePromotions();
-  const [chosenCategory, setChosenCategory] = useState<PromotionCategory | "tous" | null>(null);
+  const [chosenCategory, setChosenCategory] = useState<PromotionCategory | null>(null);
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -56,9 +56,17 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   }));
   const categories = groups.filter((group) => items.some(({ product }) => group.categories.includes(product.categoryId)));
   const available = categories.length ? [allGroup, ...categories] : [];
-  // Le choix initial défini dans l’administration reste inchangé ; « Tous » est un onglet supplémentaire.
-  const active = available.find((group) => group.key === chosenCategory) ?? categories.find((group) => group.key === preferredCategory) ?? categories[0];
+  const active = available.find((group) => group.key === chosenCategory) ?? available.find((group) => group.key === preferredCategory) ?? categories[0];
   const inCategory = items.filter(({ product }) => active?.categories.includes(product.categoryId));
+  if (active?.key === "tous") {
+    // Tri stable : motos TVS d'abord, autres motos ensuite, puis les autres produits.
+    const priority = (product: Product) => {
+      if (product.categoryId !== "motos") return 2;
+      const brand = brands.find((entry) => entry.id === product.brandId);
+      return normalize(product.brandId).trim() === "tvs" || (brand && normalize(brand.name).trim() === "tvs") ? 0 : 1;
+    };
+    inCategory.sort((a, b) => priority(a.product) - priority(b.product));
+  }
   const types = productTypes.filter((entry) => inCategory.some(({ product }) => product.categoryId === entry.categoryId && product.productTypeId === entry.id));
   const selectedType = types.some((entry) => `${entry.categoryId}:${entry.id}` === type) ? type : "";
   const terms = normalize(search).trim().split(/\s+/).filter(Boolean);
