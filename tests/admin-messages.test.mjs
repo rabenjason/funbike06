@@ -179,7 +179,7 @@ test('une ancienne réponse ne remplace pas un compteur plus récent', async () 
 
 test('le compteur ne se charge pas sans session ou avant le changement du mot de passe', async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async (url, options) => String(url).endsWith('auth/me.php') ? { ok: false, json: async () => ({ error: 'Connexion requise' }) } : original(url, options);
+  globalThis.fetch = async (url, options) => String(url).endsWith('auth/me.php') ? { ok: false, status: 401, json: async () => ({ error: 'Connexion requise' }) } : original(url, options);
   const loggedOut = render(React.createElement(Admin));
   await waitFor(() => assert.ok(loggedOut.getByRole('button', { name: 'Se connecter' })));
   assert.ok(!calls.some((call) => call.path === 'messages.php?count=unread'));

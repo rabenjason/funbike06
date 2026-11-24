@@ -8,6 +8,7 @@ import { useImageOptimization } from "../lib/useImageOptimization";
 import { ProductList, type AdminCatalog, type HomepageField, type BulkDeleteResult } from "./AdminCatalog";
 import { ConfirmationProvider, useConfirmation } from "../components/ConfirmationModal";
 import { request, json } from "../lib/adminApi";
+import { AdminReadError, readAdmin, readAdminCatalog } from "../lib/adminRead";
 import { DealersManager, ContactManager } from "./AdminLocations";
 import { AdminMessages } from "./AdminMessages";
 import { useUnreadMessages } from "../lib/useUnreadMessages";
@@ -40,9 +41,9 @@ function PasswordForm({ onDone, mandatory }: { onDone: (u: User) => void; mandat
 type Catalog = AdminCatalog;
 const emptyCatalog: Catalog = { brands: [], categories: [], families: [], types: [], models: [], products: [] };
 async function readCatalog(): Promise<Catalog> {
-  const [b, c, f, t, m, ...p] = await Promise.all([
-    request("brands.php?includeDrafts=1"), request("categories.php"), request("families.php"), request("product-types.php"), request("models.php?includeDrafts=1"),
-    ...Object.values(paths).map((name) => request(`products/${name}.php?includeDrafts=1`)),
+  const [b, c, f, t, m, ...p] = await readAdminCatalog([
+    "brands.php?includeDrafts=1", "categories.php", "families.php", "product-types.php", "models.php?includeDrafts=1",
+    ...Object.values(paths).map((name) => `products/${name}.php?includeDrafts=1`),
   ]);
   if (![b.brands, c.categories, f.families, t.productTypes, m.models, ...p.map((v) => v.data)].every(Array.isArray)) throw new Error("Données du catalogue invalides.");
   return { brands: b.brands, categories: c.categories, families: f.families, types: t.productTypes, models: m.models, products: p.flatMap((v) => v.data) };
@@ -312,6 +313,11 @@ export default function Admin() {
 function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
   const confirm = useConfirmation();
   const [user, setUser] = useState<User | null>(null); const [checking, setChecking] = useState(true); const [section, setSection] = useState<"products" | "promotions" | "home" | "settings" | "users" | "theme" | "password" | "dealers" | "contact" | "messages" | "openings" | "history">("products"); const [catalog, setCatalog] = useState<Catalog>(emptyCatalog); const [error, setError] = useState(""); const [editing, setEditing] = useState<Product | "new" | null>(null); const [bulkBusy, setBulkBusy] = useState(false); const [loggingOut, setLoggingOut] = useState(false); const logoutPending = useRef(false);
+  const [sessionError, setSessionError] = useState("");
+  const [sessionAttempt, setSessionAttempt] = useState(0);
+  const [catalogStatus, setCatalogStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const unread = useUnreadMessages(user && !user.mustChangePassword ? user.id : null);
   const [homeDirty, setHomeDirty] = useState(false);
   const [promotionsDirty, setPromotionsDirty] = useState(false);
@@ -329,9 +335,26 @@ function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
     if ((homeDirty || promotionsDirty) && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
     setHomeDirty(false); setSection(next); setError(""); setEditing(null);
   }
-  useEffect(() => { request("auth/me.php").then((r) => setUser(r.user)).catch(() => setUser(null)).finally(() => setChecking(false)); }, []);
+  useEffect(() => {
+    let active = true;
+    setChecking(true); setSessionError("");
+    readAdmin("auth/me.php").then((r) => { if (active) setUser(r.user); }).catch((err) => {
+      if (!active) return;
+      if (err instanceof AdminReadError && (err.status === 401 || err.status === 403)) setUser(null);
+      else setSessionError("Impossible de vérifier la session. " + ((err as Error).message || "Vérifiez votre connexion."));
+    }).finally(() => { if (active) setChecking(false); });
+    return () => { active = false; };
+  }, [sessionAttempt]);
   const refresh = useCallback(async () => { const result = await readCatalog(); setCatalog(result); }, []);
-  useEffect(() => { if (user && !user.mustChangePassword) { refresh().catch((err) => setError((err as Error).message)); } }, [user, refresh]);
+  useEffect(() => {
+    if (!user || user.mustChangePassword) return;
+    let active = true;
+    setCatalogStatus("loading"); setCatalogError("");
+    readCatalog().then((result) => { if (active) { setCatalog(result); setCatalogStatus("ready"); } }).catch((err) => {
+      if (active) { setCatalogError((err as Error).message || "Vérifiez votre connexion."); setCatalogStatus("error"); }
+    });
+    return () => { active = false; };
+  }, [user, catalogAttempt]);
   async function logout() {
     if (logoutPending.current || homeSaving || promotionsSaving || themeSaving) return;
     logoutPending.current = true;
@@ -339,7 +362,7 @@ function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
       if (!await confirm({ title: "Voulez-vous vous déconnecter ?", description: (homeDirty || promotionsDirty) ? "Les modifications non enregistrées seront perdues. Vous devrez vous reconnecter pour accéder à l’administration." : "Vous devrez vous reconnecter pour accéder à l’administration.", confirmLabel: "Oui", cancelLabel: "Non" })) return;
       setLoggingOut(true); setError("");
       await request("auth/logout.php", json("POST"));
-      setUser(null); setCatalog(emptyCatalog); setEditing(null); setHomeDirty(false);
+      setUser(null); setCatalog(emptyCatalog); setCatalogStatus("loading"); setCatalogError(""); setEditing(null); setHomeDirty(false);
     } catch (err) { setError((err as Error).message); }
     finally { logoutPending.current = false; setLoggingOut(false); }
   }
@@ -372,23 +395,27 @@ function AdminContent({ themeButton }: { themeButton: React.ReactNode }) {
     setCatalog((previous) => ({ ...previous, products: previous.products.map((p) => p.id === product.id && p.categoryId === product.categoryId ? result.data : p) }));
   }
   if (checking) return <main className="grid min-h-screen place-items-center bg-[#171816] text-white">Vérification de la session…</main>;
+  if (sessionError) return <main className="grid min-h-screen place-items-center bg-[#171816] p-6 text-center text-white"><div role="alert"><p>{sessionError}</p><button type="button" className={`${primary} mt-5`} onClick={() => setSessionAttempt((value) => value + 1)}>Réessayer</button></div></main>;
   if (!user) return <Login onLogin={setUser} themeButton={themeButton} />;
   return <main className="min-h-screen bg-[#f5f3eb] text-[#171816]">
     <header className="border-b border-white/10 bg-[#171816] px-5 py-5 text-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#ffd100]">Funbike / Administration</p><p className="mt-1 text-sm text-white/60">{user.username} · {user.role}</p></div><div className="flex flex-wrap gap-3">{themeButton}<a href="/" className="rounded-md border border-white/30 px-3 py-2 text-sm">Voir le site</a><button disabled={bulkBusy || loggingOut || homeSaving || promotionsSaving || themeSaving} className="rounded-md border border-white/30 px-3 py-2 text-sm disabled:opacity-50" onClick={logout}>{loggingOut ? "Déconnexion…" : "Déconnexion"}</button></div></div></header>
     <div className="mx-auto max-w-7xl px-5 py-7">{error && <p role="alert" className="mb-5 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{user.mustChangePassword ? <PasswordForm mandatory onDone={setUser} /> : <>
       <nav className="mb-7 flex flex-wrap gap-2" aria-label="Administration">{([{ id: "products", name: "Produits" }, { id: "promotions", name: "Promotions" }, { id: "home", name: "Accueil" }, { id: "theme", name: "Thème du site" }, { id: "settings", name: "Marques et classement" }, { id: "dealers", name: "Revendeurs" }, { id: "contact", name: "Contact" }, { id: "messages", name: "Messages" }, ...(user.role === "superadmin" ? [{ id: "openings" as const, name: "Statistiques" }, { id: "history" as const, name: "Historique" }, { id: "users" as const, name: "Administrateurs" }] : []), { id: "password", name: "Mot de passe" }] as const).map((tab) => <button key={tab.id} type="button" disabled={bulkBusy || homeSaving || promotionsSaving || themeSaving} aria-describedby={tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) ? "unread-messages-description" : undefined} title={tab.id === "messages" && unread.failed ? "Compteur indisponible : réessayez dans quelques instants." : undefined} onClick={() => void changeSection(tab.id)} className={section === tab.id ? primary : secondary}>{tab.name}{tab.id === "messages" && (unread.failed || (unread.count !== null && unread.count > 0)) && <><span aria-hidden="true" className={`ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ${unread.failed ? "bg-neutral-600" : "bg-red-700"}`}>{unread.failed ? "!" : unread.count! > 99 ? "99+" : unread.count}</span></>}</button>)}{(unread.failed || (unread.count !== null && unread.count > 0)) && <span id="unread-messages-description" className="sr-only">{unread.failed ? "Compteur de messages non lus indisponible" : `${unread.count} message${unread.count === 1 ? "" : "s"} non lu${unread.count === 1 ? "" : "s"}`}</span>}</nav>
+      {["products", "promotions", "home", "settings"].includes(section) && catalogStatus !== "ready" && (catalogStatus === "loading"
+        ? <p role="status" className="p-5 text-sm">Chargement du catalogue…</p>
+        : <div role="alert" className="rounded-md bg-red-50 p-4 text-sm text-red-700"><p>Impossible de charger le catalogue. Les données ne sont pas affichées comme vides. {catalogError}</p><button type="button" className={`${primary} mt-3`} onClick={() => setCatalogAttempt((value) => value + 1)}>Réessayer le chargement</button></div>)}
       {section === "password" && <PasswordForm mandatory={false} onDone={(u) => { setUser(u); setSection("products"); }} />}
       {section === "users" && user.role === "superadmin" && <UserManager user={user} onUserChanged={setUser} />}
       {section === "theme" && <AdminSiteTheme onSavingChange={setThemeSaving} />}
-      {section === "settings" && <CatalogSettings catalog={catalog} refresh={refresh} />}
+      {section === "settings" && catalogStatus === "ready" && <CatalogSettings catalog={catalog} refresh={refresh} />}
       {section === "dealers" && <DealersManager />}
       {section === "contact" && <ContactManager />}
       {section === "messages" && <AdminMessages onChanged={unread.refresh} />}
       {section === "openings" && user.role === "superadmin" && <AdminOpenings />}
       {section === "history" && user.role === "superadmin" && <AdminHistory />}
-      {section === "promotions" && <AdminPromotions catalog={catalog} onDirtyChange={setPromotionsDirty} onSavingChange={setPromotionsSaving} productEditor={(close, saved, onBusy) => <ProductEditor catalog={catalog} close={close} refresh={refresh} onSaved={saved} onBusyChange={onBusy} />} />}
-      {section === "home" && <AdminHomepage catalog={catalog} onToggle={toggleHomepage} dirty={homeDirty} saving={homeSaving} onDirtyChange={setHomeDirty} onSavingChange={setHomeSaving} />}
-      {section === "products" && <ProductList catalog={catalog} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={remove} onDeleteSelected={removeSelected} editor={editing ? <ProductEditor key={editing === "new" ? "new" : editing.id} catalog={catalog} current={editing === "new" ? undefined : editing} close={() => setEditing(null)} refresh={refresh} /> : undefined} />}
+      {section === "promotions" && catalogStatus === "ready" && <AdminPromotions catalog={catalog} onDirtyChange={setPromotionsDirty} onSavingChange={setPromotionsSaving} productEditor={(close, saved, onBusy) => <ProductEditor catalog={catalog} close={close} refresh={refresh} onSaved={saved} onBusyChange={onBusy} />} />}
+      {section === "home" && catalogStatus === "ready" && <AdminHomepage catalog={catalog} onToggle={toggleHomepage} dirty={homeDirty} saving={homeSaving} onDirtyChange={setHomeDirty} onSavingChange={setHomeSaving} />}
+      {section === "products" && catalogStatus === "ready" && <ProductList catalog={catalog} onAdd={() => setEditing("new")} onEdit={setEditing} onDelete={remove} onDeleteSelected={removeSelected} editor={editing ? <ProductEditor key={editing === "new" ? "new" : editing.id} catalog={catalog} current={editing === "new" ? undefined : editing} close={() => setEditing(null)} refresh={refresh} /> : undefined} />}
     </>}</div>
   </main>;
 }
