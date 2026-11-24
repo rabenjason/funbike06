@@ -13,6 +13,7 @@ const groups: { key: PromotionCategory; label: string; categories: string[] }[] 
   { key: "equipements", label: "Équipements et casques", categories: ["equipements", "casques"] },
   { key: "pieces", label: "Pièces détachées", categories: ["pieces-detachees"] },
 ];
+const allGroup = { key: "tous" as const, label: "Tous", categories: groups.flatMap((group) => group.categories) };
 const perPage = 8;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const typeKey = (product: Product) => `${product.categoryId}:${product.productTypeId}`;
@@ -45,7 +46,7 @@ function CampaignHeader({ campaign, clockOffset }: { campaign: Promotion; clockO
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
   const { campaigns, status, clockOffset, preferredCategory } = usePromotions();
-  const [chosenCategory, setChosenCategory] = useState<PromotionCategory | null>(null);
+  const [chosenCategory, setChosenCategory] = useState<PromotionCategory | "tous" | null>(null);
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -53,8 +54,10 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
     const product = products.find((p) => p.id === item.productId && p.categoryId === item.categoryId);
     return product ? [{ product, campaign }] : [];
   }));
-  const available = groups.filter((group) => items.some(({ product }) => group.categories.includes(product.categoryId)));
-  const active = available.find((group) => group.key === chosenCategory) ?? available.find((group) => group.key === preferredCategory) ?? available[0];
+  const categories = groups.filter((group) => items.some(({ product }) => group.categories.includes(product.categoryId)));
+  const available = categories.length ? [allGroup, ...categories] : [];
+  // Le choix initial défini dans l’administration reste inchangé ; « Tous » est un onglet supplémentaire.
+  const active = available.find((group) => group.key === chosenCategory) ?? categories.find((group) => group.key === preferredCategory) ?? categories[0];
   const inCategory = items.filter(({ product }) => active?.categories.includes(product.categoryId));
   const types = productTypes.filter((entry) => inCategory.some(({ product }) => product.categoryId === entry.categoryId && product.productTypeId === entry.id));
   const selectedType = types.some((entry) => `${entry.categoryId}:${entry.id}` === type) ? type : "";
