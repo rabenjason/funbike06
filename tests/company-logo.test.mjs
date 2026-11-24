@@ -26,7 +26,10 @@ test('logo Funbike local pour l’en-tête, le pied de page, le chargement et le
   const footer = renderToStaticMarkup(React.createElement(Footer, { go() {}, onCookies() {} }));
   for (const markup of [header, footer]) assert.ok(markup.includes(`src="${displayLogoUrl}"`));
   const html = await readFile('index.html', 'utf8');
-  assert.match(html, new RegExp(`<link rel="icon"[^>]+href="${displayLogoUrl}"`));
+  const faviconUrl = '/server/public/assets/company/logo-funbike.png';
+  const favicon = await readFile(`.${faviconUrl}`);
+  assert.deepEqual([...favicon.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.ok(html.includes(`<link rel="icon" type="image/png" href="${faviconUrl}"`));
   assert.match(html, new RegExp(`<div id="funbike-boot"[\\s\\S]*?<img[^>]+src="${displayLogoUrl}"`));
   assert.ok(!html.includes('wp-content/themes/funbike/images/logo-funbike.png'));
 });
