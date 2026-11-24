@@ -101,7 +101,7 @@ export function BikeCard({ bike, go, uniformLayout = false, alignActions = false
             <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="text-[10px]" />
           </motion.button>}
           {bottomPromotion && <span className="ml-auto min-w-0 max-w-full flex-1 text-right"><PromotionPrice product={bike} card align="right" /></span>}
-          {!onPromotion && <span className={"text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60 " + (aligned ? "max-w-[45%] min-w-0 break-words text-right" : "shrink-0")}>
+          {!onPromotion && <span className="max-w-[45%] min-w-0 break-words text-right text-[10px] font-bold uppercase tracking-[0.14em] text-black/55 dark:text-white/60">
             <PromotionPrice product={bike} />
           </span>}
         </div>

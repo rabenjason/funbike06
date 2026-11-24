@@ -29,7 +29,7 @@ export function getPublicDataGeneration() { return dataGeneration; }
 function replace<T>(target: T[], values: T[]) { target.splice(0, target.length, ...values); }
 
 const normalizeProducts = (input: Product[]) => input.filter((product) => product.status === "PUBLISHED").map((product) => ({
-  ...product, price: "Sur devis", description: product.description ?? "", images: Array.isArray(product.images) ? product.images : [],
+  ...product, price: typeof product.price === "string" && product.price.trim() ? product.price.trim() : "Sur devis", description: product.description ?? "", images: Array.isArray(product.images) ? product.images : [],
   specifications: Array.isArray(product.specifications) ? product.specifications : [], isNewArrival: product.isNewArrival === true,
 }));
 function validContact(data: Record<string, unknown>) {

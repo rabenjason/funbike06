@@ -52,7 +52,7 @@ test('nouveautés : badge sur la photo, prix adaptés et disparition après la p
     assert.match(card(bike).textContent.replace(/\s/g, ''), /4002Ar/);
     assert.match(card(helmet).textContent.replace(/\s/g, ''), /800000000000Ar/);
     assert.equal(within(card(part)).queryByLabelText('Réduction de 20 %'), null);
-    assert.match(card(part).textContent, /Sur devis/);
+    assert.ok(card(part).textContent.includes(part.price?.trim() || 'Sur devis'));
     fireEvent.click(within(card(bike)).getByRole('button', { name: /Découvrir/i }));
     assert.deepEqual(calls.pop(), ['product', bike.id]);
     fireEvent.click(within(card(helmet)).getByRole('button', { name: /Découvrir/i }));
@@ -60,8 +60,8 @@ test('nouveautés : badge sur la photo, prix adaptés et disparition après la p
     active = false;
     fireEvent(document, new window.Event('visibilitychange'));
     await waitFor(() => assert.equal(view.queryByLabelText('Réduction de 20 %'), null));
-    assert.match(card(bike).textContent, /Sur devis/);
+    assert.ok(card(bike).textContent.includes(bike.price?.trim() || 'Sur devis'));
     assert.equal(card(bike).querySelector('del'), null);
-    assert.match(card(helmet).textContent, /Sur devis/);
+    assert.ok(card(helmet).textContent.includes(helmet.price?.trim() || 'Sur devis'));
   } finally { catalog.products.forEach((product, index) => { product.isNewArrival = old[index]; }); }
 });

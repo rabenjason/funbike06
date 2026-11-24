@@ -370,3 +370,29 @@ test('bannière de promotion : optimisation avant envoi, limite et conservation 
   assert.equal(uploads[0].get('banner').name,'petite.png'); assert.match(view.container.textContent,/Original conservé/);
   assert.ok(view.getByAltText('Bannière de la campagne')); assert.equal(light.name,'petite.png');
 });
+
+test('prix saisi hors promotion : retour au prix normal après la fin de l’offre', async () => {
+  const product = { ...catalog.ridingGear[0], price: '150 000 Ar' };
+  const { PartCard } = await server.ssrLoadModule('/src/components/Cards.tsx');
+  const campaign = { id: 'regular-price', name: 'Promo équipement', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: product.id, categoryId: product.categoryId, originalPrice: 150000, discountPercent: 20 }] };
+  let active = true;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: active ? [campaign] : [], serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(PartCard, { part: product, go() {} })));
+  await waitFor(() => assert.match(view.container.textContent, /120\s?000 Ar/));
+  assert.match(view.container.textContent, /150\s?000 Ar/);
+  active = false; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.ok(!view.queryByLabelText('Réduction de 20 %')));
+  assert.ok(view.container.textContent.includes('150 000 Ar'));
+  assert.ok(!view.container.textContent.includes('120 000 Ar'));
+  assert.ok(!view.container.textContent.includes('Sur devis'));
+});
+
+test('prix vide, mention personnalisée et valeur invalide : repli sûr sans promotion', async () => {
+  const { PromotionPrice } = await server.ssrLoadModule('/src/components/PromotionsContext.tsx');
+  const p = catalog.ridingGear[0];
+  for (const [price, expected] of [['', 'Sur devis'], ['  ', 'Sur devis'], [null, 'Sur devis'], ['  150 000 Ar  ', '150 000 Ar'], ['Sur demande', 'Sur demande']]) {
+    const view = render(React.createElement(PromotionPrice, { product: { ...p, price } }));
+    assert.equal(view.container.textContent, expected);
+    view.unmount();
+  }
+});
