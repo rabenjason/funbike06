@@ -13,7 +13,7 @@ if ($method === 'GET') funbikeJsonResponse(200, ['data' => $current, 'revision' 
 $body = funbikeReadJsonBody();
 if (!is_string($body['revision'] ?? null) || !hash_equals($revision, $body['revision'])) funbikeJsonResponse(409, ['error' => 'Le réglage a changé. Rechargez avant de réenregistrer.']);
 $category = $body['preferredCategory'] ?? null;
-if (!in_array($category, ['motos', 'equipements', 'pieces'], true)) funbikeJsonResponse(400, ['error' => 'Catégorie invalide.']);
+if (!in_array($category, ['tous', 'motos', 'equipements', 'pieces'], true)) funbikeJsonResponse(400, ['error' => 'Catégorie invalide.']);
 $data = ['preferredCategory' => $category];
 $file = dirname(__DIR__) . '/storage/data/promotions-display.json';
 if (!funbikeAtomicWrite($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le réglage.']);

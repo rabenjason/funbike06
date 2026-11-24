@@ -238,6 +238,12 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal(displaySaved.status, 200); assert.equal(displaySaved.body.data.preferredCategory, 'equipements');
     assert.equal((await call('promotions.php')).body.preferredCategory, 'equipements');
     assert.equal((await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: initialDisplay.body.revision, preferredCategory: 'pieces' } })).status, 409);
+    const savedAll = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: displaySaved.body.revision, preferredCategory: 'tous' } });
+    assert.equal(savedAll.status, 200); assert.equal(savedAll.body.data.preferredCategory, 'tous');
+    assert.equal((await call('promotions-display.php', { authenticated: true })).body.data.preferredCategory, 'tous');
+    assert.equal((await call('promotions.php')).body.preferredCategory, 'tous');
+    assert.equal((await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: displaySaved.body.revision, preferredCategory: 'pieces' } })).status, 409);
+    assert.equal((await call('promotions-display.php', { authenticated: true })).body.data.preferredCategory, 'tous');
     assert.equal(readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8'), campaignBeforeDisplay);
     const displayCorrupt = '{invalid'; writeFileSync(displayFile, displayCorrupt);
     assert.equal((await call('promotions-display.php', { authenticated: true })).status, 500);

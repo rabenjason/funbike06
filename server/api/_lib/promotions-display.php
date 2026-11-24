@@ -5,7 +5,7 @@ function funbikePromotionDisplayRead() {
     if (!file_exists($file)) return ['preferredCategory' => 'motos'];
     $raw = @file_get_contents($file);
     $data = $raw === false ? null : json_decode($raw, true);
-    if (!is_array($data) || !in_array($data['preferredCategory'] ?? null, ['motos', 'equipements', 'pieces'], true)) return null;
+    if (!is_array($data) || !in_array($data['preferredCategory'] ?? null, ['tous', 'motos', 'equipements', 'pieces'], true)) return null;
     return ['preferredCategory' => $data['preferredCategory']];
 }
 function funbikePromotionDisplayRevision($data) {

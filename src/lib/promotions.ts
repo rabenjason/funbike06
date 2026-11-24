@@ -1,5 +1,5 @@
-export type PromotionCategory = "motos" | "equipements" | "pieces";
-export const isPromotionCategory = (value: unknown): value is PromotionCategory => value === "motos" || value === "equipements" || value === "pieces";
+export type PromotionCategory = "tous" | "motos" | "equipements" | "pieces";
+export const isPromotionCategory = (value: unknown): value is PromotionCategory => value === "tous" || value === "motos" || value === "equipements" || value === "pieces";
 
 export interface PromotionProduct {
   productId: string;
