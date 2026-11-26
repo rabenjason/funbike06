@@ -585,6 +585,11 @@ test('cartes promotions : structure commune et contacts WhatsApp selon catégori
   const actionStyle = css.match(/\.fb-promotion-action\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.match(actionStyle, /font-size:\s*0\.625rem/); assert.match(actionStyle, /line-height:\s*1\.15/);
   fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
+  assert.ok(within(view.getByRole('dialog')).getByText(products[0].name));
+  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Via le site' }));
+  assert.deepEqual(calls.pop(), ['contact', products[0].id]);
+  fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
+  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Par WhatsApp' }));
   fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
   assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, '/261340011111');
   fireEvent.keyDown(document, { key: 'Escape' });
@@ -646,4 +651,42 @@ test('descriptions : masquées par défaut ou affichées sur chaque carte Promot
   fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: products[1].description.split(' ')[0] } });
   assert.ok(view.getByRole('region', { name: 'Produits en promotion' }).textContent.includes(products[1].name), 'la recherche reste possible même si le texte est masqué');
   } finally { products.forEach((p, i) => { p.description = originals[i]; }); }
+});
+
+test('motos Promotions : modal commun avec WhatsApp direct, indisponible et textes administrables', async () => {
+  const { WhatsappProvider } = await server.ssrLoadModule('/src/components/Whatsapp.tsx');
+  const { defaultWhatsappSettings } = await server.ssrLoadModule('/src/lib/whatsappSettings.ts');
+  const moto = catalog.motorcycles[0];
+  const campaign = { id: 'moto-modal', name: 'Promo moto', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: moto.id, categoryId: moto.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
+  const settings = { enabled: true, askIntent: false, texts: { ...structuredClone(defaultWhatsappSettings.texts), choiceTitle: 'Choisissez votre contact', siteLabel: 'Contacter sur le site', whatsappLabel: 'Écrire sur WhatsApp' }, sales: { phone: '+261 34 00 111 11' }, parts: { phone: '+261 34 00 333 33' } };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: structuredClone(settings) } : { campaigns: [campaign], serverTime: new Date().toISOString() } });
+  const calls = []; const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go: (...args) => calls.push(args) }))));
+  const action = await view.findByRole('button', { name: 'WhatsApp' });
+  fireEvent.click(action);
+  let dialog = within(view.getByRole('dialog'));
+  assert.ok(dialog.getByText('Choisissez votre contact')); assert.ok(dialog.getByText(moto.name));
+  const direct = dialog.getByRole('link', { name: 'Écrire sur WhatsApp' });
+  const url = new URL(direct.href); assert.equal(url.pathname, '/261340011111');
+  assert.ok(url.searchParams.get('text').includes(moto.name)); assert.ok(url.searchParams.get('text').includes('/motos/'));
+  assert.equal(direct.target, '_blank'); assert.match(direct.rel, /noopener/);
+  fireEvent.click(dialog.getByRole('button', { name: 'Contacter sur le site' })); assert.deepEqual(calls.pop(), ['contact', moto.id]);
+  action.focus(); fireEvent.click(action); fireEvent.keyDown(document, { key: 'Escape' }); assert.equal(view.queryByRole('dialog'), null); assert.ok(document.activeElement === action);
+  settings.sales = null; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Découvrir' })));
+  fireEvent.click(view.getByRole('button', { name: 'Découvrir' })); assert.deepEqual(calls.pop(), ['product', moto.id]);
+});
+
+test('contact depuis une promotion moto : sujet et message adaptés, sans changer les pièces', async () => {
+  const { default: Contact } = await server.ssrLoadModule('/src/pages/Contact.tsx');
+  const moto = catalog.motorcycles.find(p => p.brandId === 'tvs');
+  const part = catalog.spareParts.find(p => p.brandId !== 'tvs');
+  assert.ok(moto); assert.ok(part);
+  let view = render(React.createElement(Contact, { inquiryId: moto.id }));
+  assert.equal(view.getByLabelText('Sujet').value, 'tvs');
+  assert.ok(view.getByLabelText('Votre message').value.includes(moto.name));
+  assert.doesNotMatch(view.getByLabelText('Votre message').value, /compatibilité/);
+  view.unmount(); view = render(React.createElement(Contact, { inquiryId: part.id }));
+  assert.equal(view.getByLabelText('Sujet').value, 'pieces');
+  assert.ok(view.getByLabelText('Votre message').value.includes(part.name));
+  assert.match(view.getByLabelText('Votre message').value, /compatibilité/);
 });
