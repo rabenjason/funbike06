@@ -1,6 +1,7 @@
 <?php
 // Réception publique limitée ; consultation et gestion strictement administrateur.
 require_once __DIR__ . '/_lib/auth.php';
+require_once __DIR__ . '/_lib/promotion-pricing.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if (!in_array($method, ['GET', 'POST', 'PUT', 'DELETE'], true)) funbikeJsonResponse(405, ['error' => 'Méthode non autorisée.']);
@@ -79,15 +80,16 @@ if ($method === 'POST') {
     $product = funbikeFindRecord($products, $productId);
     if (!$offer || !$product || ($product['categoryId'] ?? null) !== $categoryId) funbikeJsonResponse(409, ['error' => 'Ce produit n’est plus disponible dans la promotion.']);
     $price = $offer['originalPrice'] ?? null; $discount = $offer['discountPercent'] ?? null;
-    if (!is_int($price) || $price <= 0 || $price > 1000000000000 || !is_numeric($discount) || $discount <= 0 || $discount > 100 || abs($discount * 100 - round($discount * 100)) > 0.00000001) funbikeJsonResponse(409, ['error' => 'Prix promotionnel indisponible.']);
-    if (($body['originalPrice'] ?? null) !== $price || !is_numeric($body['discountPercent'] ?? null) || (float)$body['discountPercent'] !== (float)$discount) funbikeJsonResponse(409, ['error' => 'Le prix de la promotion a changé. Actualisez avant de continuer.']);
+    $finalPrice = funbikePromotionPrice($offer); $mode = $offer['pricingMode'] ?? 'percent';
+    if ($finalPrice === null) funbikeJsonResponse(409, ['error' => 'Prix promotionnel indisponible.']);
+    if (($body['originalPrice'] ?? null) !== $price || !is_numeric($body['discountPercent'] ?? null) || (float)$body['discountPercent'] !== (float)$discount || (($mode !== 'percent' || array_key_exists('pricingMode', $body) || array_key_exists('promotionalPrice', $body)) && (($body['pricingMode'] ?? null) !== $mode || ($body['promotionalPrice'] ?? null) !== $finalPrice))) funbikeJsonResponse(409, ['error' => 'Le prix de la promotion a changé. Actualisez avant de continuer.']);
     $brand = funbikeFindRecord(funbikeCatalogRecords('brands.json', 'brands'), $product['brandId'] ?? '');
     $images = is_array($product['images'] ?? null) ? $product['images'] : []; $image = '';
     foreach ($images as $entry) if (!empty($entry['isMain'])) { $image = $entry['url'] ?? ''; break; }
     if (!$image && isset($images[0]['url'])) $image = $images[0]['url'];
     if (!is_string($image) || !preg_match('#^/server/(uploads|public)/[^\s?\#]*$#D', $image) || strpos($image, '..') !== false) $image = '';
     $prefix = ['motos' => 'motos', 'casques' => 'casques', 'equipements' => 'equipements', 'pieces-detachees' => 'pieces-detachees'][$categoryId];
-    $snapshot = ['product' => ['id' => $productId, 'categoryId' => $categoryId, 'name' => $product['name'], 'brand' => $brand['name'] ?? '', 'path' => '/' . $prefix . '/' . rawurlencode($productId), 'image' => $image], 'promotion' => ['id' => $campaignId, 'name' => $campaign['name'], 'startDate' => $campaign['startDate'], 'endDate' => $campaign['endDate'], 'originalPrice' => $price, 'promotionalPrice' => $price - intdiv($price * (int) round($discount * 100) + 5000, 10000), 'discountPercent' => (float)$discount]];
+    $snapshot = ['product' => ['id' => $productId, 'categoryId' => $categoryId, 'name' => $product['name'], 'brand' => $brand['name'] ?? '', 'path' => '/' . $prefix . '/' . rawurlencode($productId), 'image' => $image], 'promotion' => ['id' => $campaignId, 'name' => $campaign['name'], 'startDate' => $campaign['startDate'], 'endDate' => $campaign['endDate'], 'originalPrice' => $price, 'promotionalPrice' => $finalPrice, 'discountPercent' => (float)$discount, 'pricingMode' => $mode]];
     // Les deux parcours utilisent le même contact actif ; le formulaire reste utilisable si WhatsApp est désactivé.
     $phone = null;
     $settingsFile = $dir . '/whatsapp-settings.json'; $settings = is_file($settingsFile) ? json_decode((string) @file_get_contents($settingsFile), true) : null;

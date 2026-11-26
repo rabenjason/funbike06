@@ -2,6 +2,7 @@
 // Campagnes séparées du catalogue : seules des références aux fiches sont stockées.
 require_once __DIR__ . '/_lib/auth.php';
 require_once __DIR__ . '/_lib/promotions-display.php';
+require_once __DIR__ . '/_lib/promotion-pricing.php';
 funbikeBootstrapApi();
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 funbikeProtectWriteMethods($method);
@@ -85,15 +86,20 @@ if ($appearance !== null) {
     if (!is_bool($titleItalic)) funbikeJsonResponse(400, ['error' => 'Style italique invalide.']);
     $appearance = ['titleItalic' => $titleItalic, 'style' => $appearance['style'], 'showBanner' => $appearance['showBanner'], 'showDescription' => $appearance['showDescription'], 'titleColor' => $appearance['titleColor'], 'highlight' => $appearance['highlight'], 'highlightColor' => $appearance['highlightColor']];
 }
-$seen = []; $items = [];
+$seen = []; $items = []; $existingManual = [];
+foreach (($existing['products'] ?? []) as $previous) if (in_array($previous['pricingMode'] ?? 'percent', ['price', 'price_percent'], true)) $existingManual[($previous['categoryId'] ?? '') . ':' . ($previous['productId'] ?? '')] = true;
 foreach ($c['products'] as $p) {
-    if (!is_array($p) || !is_string($p['categoryId'] ?? null) || !isset($files[$p['categoryId']]) || !is_string($p['productId'] ?? null) || $p['productId'] === '' || !is_int($p['originalPrice'] ?? null) || $p['originalPrice'] <= 0 || $p['originalPrice'] > 1000000000000 || !is_numeric($p['discountPercent'] ?? null) || $p['discountPercent'] <= 0 || $p['discountPercent'] > 100 || abs($p['discountPercent'] * 100 - round($p['discountPercent'] * 100)) > 0.00000001) funbikeJsonResponse(400, ['error' => 'Prix ou réduction invalide : renseignez un prix positif et une réduction entre 0,01 et 100 %.']);
+    if (!is_array($p) || !is_string($p['categoryId'] ?? null) || !isset($files[$p['categoryId']]) || !is_string($p['productId'] ?? null) || $p['productId'] === '' || funbikePromotionPrice($p) === null) funbikeJsonResponse(400, ['error' => 'Prix ou réduction invalide. Vérifiez les valeurs et le mode de promotion.']);
     $key = $p['categoryId'] . ':' . $p['productId'];
     if (isset($seen[$key])) funbikeJsonResponse(400, ['error' => 'Produit ajouté deux fois.']);
     $seen[$key] = true;
     $product = funbikeFindRecord(funbikeCatalogRecords('products/' . $files[$p['categoryId']] . '.json', 'products'), $p['productId']);
     if (!$product || ($product['categoryId'] ?? null) !== $p['categoryId']) funbikeJsonResponse(400, ['error' => 'Un produit est introuvable dans le catalogue.']);
-    $items[] = ['categoryId' => $p['categoryId'], 'productId' => $p['productId'], 'originalPrice' => $p['originalPrice'], 'discountPercent' => (float)$p['discountPercent']];
+    // Un ancien client ne doit pas convertir silencieusement un prix manuel.
+    if (!array_key_exists('pricingMode', $p) && isset($existingManual[$key])) funbikeJsonResponse(409, ['error' => 'Actualisez l’administration avant de modifier cette promotion.']);
+    $item = ['categoryId' => $p['categoryId'], 'productId' => $p['productId'], 'originalPrice' => $p['originalPrice'], 'discountPercent' => (float)$p['discountPercent']];
+    if (($p['pricingMode'] ?? 'percent') !== 'percent') { $item['pricingMode'] = $p['pricingMode']; $item['promotionalPrice'] = $p['promotionalPrice']; }
+    $items[] = $item;
 }
 if ($c['enabled'] && $c['published']) foreach ($campaigns as $other) {
     if (($other['id'] ?? '') === $id || ($other['enabled'] ?? false) !== true || ($other['published'] ?? false) !== true || ($other['endDate'] ?? '') < $c['startDate'] || ($other['startDate'] ?? '') > $c['endDate']) continue;

@@ -8,7 +8,7 @@ import SmartImage from "./SmartImage";
 import { PromotionBadge, PromotionPrice } from "./PromotionsContext";
 import { useWhatsapp, whatsappForProduct } from "./Whatsapp";
 import { PromotionReservationDialog } from "./PromotionReservationDialog";
-import { calculatePromotionPrice, type Promotion } from "../lib/promotions";
+import { resolvePromotionPrice, type Promotion } from "../lib/promotions";
 
 /** Carte commune réservée à la page Promotions, sans modifier les cartes du catalogue. */
 export function PromotionCard({ product, campaign, go, showDescription = false, originalPriceColor = "" }: { product: Product; campaign: Promotion; showDescription?: boolean; originalPriceColor?: string; go: (page: string, id?: string, categoryId?: string) => void }) {
@@ -20,7 +20,7 @@ export function PromotionCard({ product, campaign, go, showDescription = false, 
   const isMoto = product.categoryId === "motos";
   const offer = campaign.products.find((item) => item.productId === product.id && item.categoryId === product.categoryId);
   let validOffer = false;
-  try { if (offer) { calculatePromotionPrice(offer.originalPrice, offer.discountPercent); validOffer = true; } } catch { /* Une offre invalide ne peut pas être réservée. */ }
+  try { if (offer) { resolvePromotionPrice(offer); validOffer = true; } } catch { /* Une offre invalide ne peut pas être réservée. */ }
   const page = isMoto ? "product" : "accessory";
   const routeCategory = isMoto ? undefined : product.categoryId;
   const gallery = isMoto ? productGallery(product) : [];

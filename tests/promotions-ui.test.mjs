@@ -344,10 +344,10 @@ test('la date disparaît automatiquement quand le compteur commence', async () =
   try {
     const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
     await waitFor(() => assert.ok(view.getByText('Offre du 01/11/2026 au 10/11/2026 inclus.')));
-    assert.equal(view.queryByRole('timer'), null);
+    assert.ok(!view.queryByRole('timer'));
     now += 1000;
     act(() => { for (const tick of timers.values()) tick(); });
-    assert.equal(view.queryByText('Offre du 01/11/2026 au 10/11/2026 inclus.'), null);
+    assert.ok(!view.queryByText('Offre du 01/11/2026 au 10/11/2026 inclus.'));
     assert.equal(view.getByRole('timer').textContent, '2 j 00:00:00');
     view.unmount(); assert.equal(timers.size, 0);
   } finally { Date.now = realNow; window.setInterval = realInterval; window.clearInterval = realClear; }
@@ -926,4 +926,61 @@ test('admin : texte et activation du panneau, annulation et validation', async (
   fireEvent.change(view.getByLabelText('Texte du panneau'), { target: { value: 'Nos bonnes affaires !' } });
   fireEvent.click(view.getByLabelText('Afficher le panneau sur l’accueil')); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await view.findByText('Affichage enregistré.'); assert.equal(writes.length, 1); assert.equal(data.homeSignText, 'Nos bonnes affaires !'); assert.equal(data.homeSignEnabled, false);
+});
+
+test('dashboard : prix manuel seul ou prix et pourcentage indépendants', async () => {
+  const { PromotionProducts } = await server.ssrLoadModule('/src/pages/PromotionProducts.tsx');
+  const p = catalog.motorcycles[0];
+  const adminCatalog = { products: [p], brands: catalog.brands, categories: [], families: [], types: [], models: [] };
+  let latest;
+  function Editor() {
+    const [items, setItems] = React.useState([{ productId: p.id, categoryId: p.categoryId, originalPrice: 86300, discountPercent: 39.75 }]);
+    latest = items[0];
+    return React.createElement(ConfirmationProvider, null, React.createElement(PromotionProducts, { catalog: adminCatalog, items, onChange: setItems, onCreate() {} }));
+  }
+  const view = render(React.createElement(Editor));
+  fireEvent.change(view.getByLabelText('Type de promotion'), { target: { value: 'price' } });
+  fireEvent.change(view.getByLabelText('Prix promotionnel (Ar)'), { target: { value: '52000' } });
+  assert.equal(latest.promotionalPrice, 52000); assert.equal(latest.discountPercent, 0);
+  assert.equal(view.queryByLabelText('Réduction (%)'), null); assert.match(view.container.textContent, /52\s?000 Ar/);
+  fireEvent.change(view.getByLabelText('Type de promotion'), { target: { value: 'price_percent' } });
+  fireEvent.click(view.getByRole('button', { name: 'Calculer le pourcentage à partir des prix' }));
+  assert.equal(latest.discountPercent, 39.75); assert.equal(latest.promotionalPrice, 52000);
+  fireEvent.change(view.getByLabelText('Pourcentage affiché (%)'), { target: { value: '40' } });
+  assert.equal(latest.discountPercent, 40); assert.equal(latest.promotionalPrice, 52000);
+  fireEvent.change(view.getByLabelText('Prix promotionnel (Ar)'), { target: { value: '51000' } });
+  assert.equal(latest.discountPercent, 40); assert.equal(latest.promotionalPrice, 51000);
+  fireEvent.change(view.getByLabelText('Type de promotion'), { target: { value: 'percent' } });
+  assert.equal(latest.pricingMode, 'percent'); assert.equal(latest.promotionalPrice, undefined);
+});
+
+test('site et WhatsApp : prix manuel exact, avec ou sans pourcentage', async () => {
+  const { PromotionReservationDialog } = await server.ssrLoadModule('/src/components/PromotionReservationDialog.tsx');
+  const p = catalog.motorcycles[0];
+  for (const mode of ['price', 'price_percent']) {
+    const offer = { productId: p.id, categoryId: p.categoryId, originalPrice: 86300, promotionalPrice: 52000, pricingMode: mode, discountPercent: mode === 'price' ? 0 : 40 };
+    const campaign = { id: 'c'.repeat(32), name: 'Offres', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [offer] };
+    let written, opened;
+    globalThis.fetch = async (url, options = {}) => {
+      if (options.method === 'POST') { written = JSON.parse(options.body); return { ok: true, status: 201, json: async () => ({ id: 'f'.repeat(32), phone: '+261 34 00 111 11', product: { name: p.name, brand: 'TVS', path: `/motos/${p.id}` }, promotion: { name: campaign.name, originalPrice: 86300, promotionalPrice: 52000, discountPercent: offer.discountPercent, pricingMode: mode } }) }; }
+      return { ok: true, json: async () => ({ campaigns: [campaign], serverTime: new Date().toISOString() }) };
+    };
+    const page = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+    const results = await page.findByRole('region', { name: 'Produits en promotion' });
+    await waitFor(() => assert.ok(results.querySelector('article')));
+    const card = results.querySelector('article');
+    assert.match(card.textContent, /52\s?000 Ar/);
+    if (mode === 'price') assert.ok(!within(card).queryByLabelText(/Réduction de/));
+    else assert.ok(within(card).getByLabelText('Réduction de 40 %'));
+    page.unmount();
+    const dialog = render(React.createElement(PromotionReservationDialog, { product: p, campaign, offer, canWhatsapp: true, navigateWhatsapp: url => { opened = url; }, onClose() {} }));
+    assert.match(dialog.getByRole('dialog').textContent, /52\s?000 Ar/);
+    if (mode === 'price') assert.doesNotMatch(dialog.getByRole('dialog').textContent, /0 %/);
+    fireEvent.click(dialog.getByRole('button', { name: 'Contacter un commercial' }));
+    await dialog.findByRole('link', { name: 'Ouvrir WhatsApp' });
+    assert.equal(written.promotionalPrice, 52000); assert.equal(written.pricingMode, mode);
+    const text = new URL(opened).searchParams.get('text'); assert.match(text, /52\s?000 Ar/);
+    if (mode === 'price') assert.doesNotMatch(text, /Réduction :/); else assert.match(text, /Réduction : -40 %/);
+    dialog.unmount();
+  }
 });

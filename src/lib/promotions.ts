@@ -9,6 +9,9 @@ export interface PromotionProduct {
   categoryId: string;
   originalPrice: number;
   discountPercent: number;
+  /** Absent pour les promotions historiques calculées par pourcentage. */
+  pricingMode?: "percent" | "price" | "price_percent";
+  promotionalPrice?: number;
 }
 export type PromotionStyle = "sobre" | "sportif" | "festif" | "black-friday";
 export interface PromotionAppearance {
@@ -84,3 +87,14 @@ export function calculatePromotionPrice(originalPrice: number, discountPercent: 
   return { reduction, finalPrice: originalPrice - reduction };
 }
 export const formatAriary = (value: number) => `${new Intl.NumberFormat("fr-FR").format(value)} Ar`;
+
+/** Résout les trois modes sans modifier les anciennes offres. */
+export function resolvePromotionPrice(offer: PromotionProduct): { reduction: number; finalPrice: number; showPercent: boolean } {
+  const mode = offer.pricingMode ?? "percent";
+  if (mode === "percent") return { ...calculatePromotionPrice(offer.originalPrice, offer.discountPercent), showPercent: true };
+  if (mode !== "price" && mode !== "price_percent") throw new RangeError("Mode de promotion invalide.");
+  if (!Number.isSafeInteger(offer.originalPrice) || offer.originalPrice <= 0 || offer.originalPrice > 1_000_000_000_000 || !Number.isSafeInteger(offer.promotionalPrice) || offer.promotionalPrice! < 0 || offer.promotionalPrice! >= offer.originalPrice) throw new RangeError("Prix promotionnel invalide.");
+  if (mode === "price_percent") calculatePromotionPrice(offer.originalPrice, offer.discountPercent);
+  else if (offer.discountPercent !== 0) throw new RangeError("Pourcentage inattendu.");
+  return { reduction: offer.originalPrice - offer.promotionalPrice!, finalPrice: offer.promotionalPrice!, showPercent: mode === "price_percent" };
+}

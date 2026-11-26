@@ -3,7 +3,7 @@ import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS, CONTACT_HOURS, CONTACT_W
 import { DEALERS } from "../catalog/dealers";
 import type { Product } from "../types/product";
 import type { Dealer } from "../types";
-import { calculatePromotionPrice, formatAriary, madagascarDate } from "./promotions";
+import { resolvePromotionPrice, formatAriary, madagascarDate } from "./promotions";
 import type { PromotionSnapshot } from "./assistant-promotions";
 
 import { initialQuick, type BotReply, type ChatAction, type Memory } from "./assistant-shared";
@@ -325,10 +325,10 @@ export function respond(raw: string, previous: Memory, promotions?: PromotionSna
       const campaign = promotions?.campaigns.find((c) => c.products.some((item) => item.productId === p.id && item.categoryId === p.categoryId));
       const offer = campaign?.products.find((item) => item.productId === p.id && item.categoryId === p.categoryId);
       if (isPrice && offer && campaign) {
-        const { finalPrice } = calculatePromotionPrice(offer.originalPrice, offer.discountPercent);
+        const { finalPrice, showPercent } = resolvePromotionPrice(offer);
         const end = campaign.endDate.split("-").reverse().join("/");
         const checked = madagascarDate(new Date(promotions!.now)).split("-").reverse().join("/");
-        return done({ text: `Prix promotionnel de **${p.name}** vérifié le ${checked} : **${formatAriary(finalPrice)}** au lieu de ${formatAriary(offer.originalPrice)} (−${offer.discountPercent} %), promotion prévue jusqu’au ${end} inclus à Madagascar. Vérifiez la promotion et la disponibilité auprès de l’équipe.`, productIds: [p.id], actions: [PROMO_ACTION, CONTACT] });
+        return done({ text: `Prix promotionnel de **${p.name}** vérifié le ${checked} : **${formatAriary(finalPrice)}** au lieu de ${formatAriary(offer.originalPrice)}${showPercent ? ` (−${offer.discountPercent} %)` : ""}, promotion prévue jusqu’au ${end} inclus à Madagascar. Vérifiez la promotion et la disponibilité auprès de l’équipe.`, productIds: [p.id], actions: [PROMO_ACTION, CONTACT] });
       }
       if (isPrice) return done({ text: p.price?.trim().toLowerCase() === "sur devis" ? `Pour connaître le prix actuel de **${p.name}**, consultez sa fiche ou demandez un devis à l’équipe.` : p.price?.trim() ? `Prix indiqué pour **${p.name}** : **${p.price.trim()}**. L’équipe peut confirmer le tarif et la disponibilité.` : `Le prix de **${p.name}** n’est pas renseigné. L’équipe peut vous établir un devis.`, productIds: [p.id], actions: [CONTACT] });
       const match = (p.specifications ?? []).find((s) => spec!.keys.some((key) => norm(s.key).includes(key)) && s.value.trim());
