@@ -11,7 +11,7 @@ import { PromotionReservationDialog } from "./PromotionReservationDialog";
 import { calculatePromotionPrice, type Promotion } from "../lib/promotions";
 
 /** Carte commune réservée à la page Promotions, sans modifier les cartes du catalogue. */
-export function PromotionCard({ product, campaign, go, showDescription = false }: { product: Product; campaign: Promotion; showDescription?: boolean; go: (page: string, id?: string, categoryId?: string) => void }) {
+export function PromotionCard({ product, campaign, go, showDescription = false, originalPriceColor = "" }: { product: Product; campaign: Promotion; showDescription?: boolean; originalPriceColor?: string; go: (page: string, id?: string, categoryId?: string) => void }) {
   const settings = useWhatsapp();
   const phone = whatsappForProduct(settings, product);
   const [open, setOpen] = useState(false);
@@ -44,7 +44,7 @@ export function PromotionCard({ product, campaign, go, showDescription = false }
       <p className="line-clamp-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55 dark:text-white/55"><span aria-hidden="true" className="mr-2 inline-block h-1 w-4 rounded-full bg-[#ffd100] align-middle" />{category}</p>
       <button type="button" className="mt-2 min-w-0 text-left" onClick={goDetail} aria-label={product.name}><h4 className="line-clamp-2 min-h-[2.4em] break-words font-display text-sm font-bold leading-[1.2] text-[#171816] dark:text-white">{product.name}</h4></button>
       {showDescription && <p className="mt-2 line-clamp-2 min-h-[2.5rem] break-words text-xs leading-5 text-black/55 dark:text-white/55">{product.description}</p>}
-      <div className="mt-auto min-h-10 min-w-0 pt-2 sm:[&_strong]:text-lg"><PromotionPrice product={product} card /></div>
+      <div className="mt-auto min-h-10 min-w-0 pt-2 sm:[&_strong]:text-lg"><PromotionPrice product={product} card originalPriceColor={originalPriceColor} /></div>
       <div className="mt-3 flex min-w-0 gap-2">
         <button type="button" className={actionClass} disabled={!validOffer} onClick={() => setOpen(true)}><span>Réserver</span></button>
         <a href={productPath(product)} onClick={(event) => navigateLink(event, go, page, product.id, routeCategory)} aria-label={`Voir la fiche de ${product.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-black/25 text-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]"><FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></a>

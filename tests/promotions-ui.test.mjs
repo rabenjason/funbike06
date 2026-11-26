@@ -189,7 +189,7 @@ test('dashboard : choix global enregistré sans modifier les campagnes', async (
     requests.push({ url: String(url), options });
     if (String(url).endsWith('promotions-display.php')) {
       if (options.method === 'PUT') { const body = JSON.parse(options.body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription }, revision }) };
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '' }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -463,7 +463,7 @@ test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé ap
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).endsWith('promotions-display.php')) {
       if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription }, revision }) };
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '' }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -476,7 +476,7 @@ test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé ap
   fireEvent.change(select, { target: { value: 'tous' } });
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
-  assert.deepEqual(writes, [{ preferredCategory: 'tous', showCardDescription: false, revision: 'r1' }]);
+  assert.deepEqual(writes, [{ preferredCategory: 'tous', showCardDescription: false, originalPriceColor: '', revision: 'r1' }]);
   view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'tous'));
   assert.equal(writes.length, 1);
@@ -602,7 +602,7 @@ test('descriptions : réglage global, annulation et sauvegarde sans autre écrit
   const writes = [];
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).endsWith('promotions-display.php')) {
-      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); data = { preferredCategory: body.preferredCategory, showCardDescription: body.showCardDescription }; revision = 'r2'; }
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); data = { preferredCategory: body.preferredCategory, showCardDescription: body.showCardDescription, originalPriceColor: body.originalPriceColor }; revision = 'r2'; }
       return { ok: true, json: async () => ({ data, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
@@ -616,12 +616,16 @@ test('descriptions : réglage global, annulation et sauvegarde sans autre écrit
   assert.equal(view.getByLabelText(label).checked, false);
   fireEvent.click(view.getByLabelText(label)); assert.equal(dirty, true);
   fireEvent.click(view.getByRole('button', { name: 'Annuler' })); assert.equal(view.getByLabelText(label).checked, false); assert.equal(dirty, false);
+  fireEvent.change(view.getByLabelText('Couleur du prix barré'), { target: { value: '#ff0000' } }); assert.equal(dirty, true);
+  fireEvent.click(view.getByRole('button', { name: 'Annuler' })); assert.equal(view.getByLabelText('Couleur du prix barré').value, '#808080');
+  fireEvent.change(view.getByLabelText('Couleur du prix barré'), { target: { value: '#ff0000' } });
   fireEvent.click(view.getByLabelText(label)); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
-  assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, revision: 'r1' }]);
+  assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, originalPriceColor: '#ff0000', revision: 'r1' }]);
   await waitFor(() => assert.equal(dirty, false)); view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText(label).checked, true));
-  assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'equipements'); assert.equal(writes.length, 1);
+  assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'equipements'); assert.equal(view.getByLabelText('Couleur du prix barré').value, '#ff0000'); assert.equal(writes.length, 1);
+  fireEvent.click(view.getByRole('button', { name: 'Couleur par défaut' })); assert.equal(view.getByLabelText('Couleur du prix barré').value, '#808080'); assert.equal(dirty, true);
 });
 
 test('descriptions : masquées par défaut ou affichées sur chaque carte Promotions uniquement', async () => {
@@ -793,4 +797,25 @@ test('admin : tout supprimer exige confirmation et protège contre une liste pé
   fireEvent.click(view.getByRole('button', { name: 'Tout supprimer (2)' }));
   confirmation = within(await view.findByRole('alertdialog')); fireEvent.click(confirmation.getByRole('button', { name: 'Tout supprimer' }));
   await view.findByText('Toutes les réservations ont été supprimées.'); assert.equal(attempts.length, 2); assert.equal(records.length, 0);
+});
+
+
+test('Promotions : bannière pleine largeur et prix barré coloré uniquement sur les cartes Promotions', async () => {
+  const p = catalog.motorcycles[0];
+  const campaign = { id: 'wide', name: 'Promotions', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, appearance: { style: 'festif', showBanner: false, showDescription: false, titleColor: '', highlight: '', highlightColor: '' }, products: [{ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
+  let color = '';
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], originalPriceColor: color, serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} }), React.createElement('aside', { 'aria-label': 'Catalogue' }, React.createElement(BikeCard, { bike: p, go() {} }))));
+  await view.findByRole('region', { name: 'Produits en promotion' });
+  const banner = view.getByRole('region', { name: 'Promotions' });
+  assert.equal(banner.parentElement.parentElement.classList.contains('max-w-(--container-site)'), false);
+  assert.equal(banner.parentElement.parentElement.classList.contains('px-4'), false);
+  assert.equal(banner.classList.contains('rounded-xl'), false);
+  const del = view.getByRole('region', { name: 'Produits en promotion' }).querySelector('del');
+  assert.equal(del.style.color, '');
+  color = '#ff0000'; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.equal(del.style.color, 'rgb(255, 0, 0)'));
+  assert.equal(view.getByLabelText('Catalogue').querySelector('del').style.color, '');
+  color = 'red; background: red'; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.equal(del.style.color, ''));
 });

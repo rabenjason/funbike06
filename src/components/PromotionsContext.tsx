@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { readPublicJson } from "../lib/publicDataRequest";
 import type { Product } from "../types/product";
 import { products } from "../catalog/products";
-import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
+import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, isPromotionPriceColor, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; originalPriceColor: string; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, originalPriceColor: "", offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Promotion[]>([]);
@@ -12,17 +12,18 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [offset, setOffset] = useState(0);
   const [preferredCategory, setPreferredCategory] = useState<PromotionCategory>("motos");
   const [showCardDescription, setShowCardDescription] = useState(false);
+  const [originalPriceColor, setOriginalPriceColor] = useState("");
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     let alive = true; let sequence = 0; let midnight: number | undefined;
     async function refresh() {
       const number = ++sequence;
       try {
-        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown };
+        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown; originalPriceColor?: unknown };
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
         if (alive && number === sequence) {
           const serverNow = Date.parse(result.serverTime);
-          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
+          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setOriginalPriceColor(isPromotionPriceColor(result.originalPriceColor) ? result.originalPriceColor : ""); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
           window.clearTimeout(midnight);
           const elapsed = ((serverNow + 3 * 3600000) % 86400000 + 86400000) % 86400000;
           midnight = window.setTimeout(() => { setClock(Date.now()); void refresh(); }, 86400000 - elapsed + 1000);
@@ -39,8 +40,8 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     const now = new Date(clock + offset);
     const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription };
-  }, [data, offset, clock, status, preferredCategory, showCardDescription]);
+    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription, originalPriceColor };
+  }, [data, offset, clock, status, preferredCategory, showCardDescription, originalPriceColor]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function PromotionBadge({ product, className = "" }: { product: Product; className?: string }) {
@@ -50,13 +51,13 @@ export function PromotionBadge({ product, className = "" }: { product: Product; 
   return <span className={`pointer-events-none absolute right-3 top-3 z-10 bg-[#ffd100] px-3 py-1.5 text-sm font-extrabold tracking-tight text-[#171816] shadow-sm ${className}`} aria-label={`Réduction de ${item.discountPercent} %`}>−{item.discountPercent} %</span>;
 }
 
-export function PromotionPrice({ product, card = false, align = "left" }: { product: Product; card?: boolean; align?: "left" | "right" }) {
+export function PromotionPrice({ product, card = false, align = "left", originalPriceColor = "" }: { product: Product; card?: boolean; align?: "left" | "right"; originalPriceColor?: string }) {
   const item = usePromotions().offer(product);
   const regularPrice = typeof product.price === "string" && product.price.trim() ? product.price.trim() : "Sur devis";
   if (!item) return <>{regularPrice}</>;
   try {
     const { finalPrice } = calculatePromotionPrice(item.originalPrice, item.discountPercent);
-    if (card) return <span className={"inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 normal-case tracking-normal " + (align === "right" ? "justify-end" : "")}><del className="min-w-0 text-xs font-medium text-black/50 [overflow-wrap:anywhere] dark:text-white/55"><span className="sr-only">Prix original : </span>{formatAriary(item.originalPrice)}</del><strong className="min-w-0 text-base font-extrabold text-[#171816] [overflow-wrap:anywhere] dark:text-[#ffd100]"><span className="sr-only">Prix promotionnel : </span>{formatAriary(finalPrice)}</strong></span>;
+    if (card) return <span className={"inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 normal-case tracking-normal " + (align === "right" ? "justify-end" : "")}><del style={isPromotionPriceColor(originalPriceColor) && originalPriceColor ? { color: originalPriceColor } : undefined} className="min-w-0 text-xs font-medium text-black/50 [overflow-wrap:anywhere] dark:text-white/55"><span className="sr-only">Prix original : </span>{formatAriary(item.originalPrice)}</del><strong className="min-w-0 text-base font-extrabold text-[#171816] [overflow-wrap:anywhere] dark:text-[#ffd100]"><span className="sr-only">Prix promotionnel : </span>{formatAriary(finalPrice)}</strong></span>;
     return <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1"><del>{formatAriary(item.originalPrice)}</del><strong>{formatAriary(finalPrice)}</strong><span className="bg-[#ffd100] px-1.5 py-0.5 font-bold text-[#171816]">−{item.discountPercent} %</span></span>;
   } catch { return <>{regularPrice}</>; }
 }
