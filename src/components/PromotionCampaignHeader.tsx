@@ -44,7 +44,7 @@ export function PromotionCampaignHeader({ campaign, clockOffset = 0, preview = f
     <div className="relative mx-auto flex min-w-0 w-full max-w-(--container-site) flex-wrap items-center justify-between gap-x-5 gap-y-3 px-4 py-5 sm:px-6 sm:py-6 md:px-8 lg:px-10">
       <div className="min-w-0 max-w-3xl">
         <span aria-hidden="true" className="mb-2 block h-1 w-9 rounded-full bg-[#ffd100]" />
-        <h2 id={id} style={titleStyle} className={`min-w-0 break-words font-display text-[clamp(1.35rem,4vw,2.75rem)] font-bold leading-tight ${isSport || appearance.style === "black-friday" ? "uppercase" : ""} ${darkBackground ? "text-white" : "text-[#171816] dark:text-white"}`}>{heading}</h2>
+        <h2 id={id} style={titleStyle} className={`min-w-0 break-words font-display text-[clamp(1.35rem,4vw,2.75rem)] font-bold leading-tight ${isSport || appearance.style === "black-friday" ? "uppercase" : ""} ${appearance.titleItalic ? "italic" : ""} ${darkBackground ? "text-white" : "text-[#171816] dark:text-white"}`}>{heading}</h2>
         {appearance.showDescription && campaign.description.trim() && <p className={`mt-2 max-w-2xl break-words text-sm leading-relaxed ${darkBackground ? "text-white/85" : "text-black/70 dark:text-white/75"}`}>{campaign.description}</p>}
       </div>
       {remaining ? <p className={`text-sm ${darkBackground ? "text-white/85" : "text-black/60 dark:text-white/70"}`}>Se termine dans <strong role="timer" aria-live="off" aria-label={spoken} className={`font-display font-bold tabular-nums ${darkBackground ? "text-[#ffd100]" : "text-[#98741b] dark:text-[#ffd100]"}`}>{days > 0 && `${days} j `}{clock}</strong> <span className="text-xs">(heure de Madagascar)</span></p>

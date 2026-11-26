@@ -80,7 +80,10 @@ if ($appearance !== null) {
         || !is_string($appearance['highlightColor'] ?? null) || !preg_match('/^(?:|#[0-9a-fA-F]{6})$/D', $appearance['highlightColor'])) {
         funbikeJsonResponse(400, ['error' => 'Style de campagne invalide.']);
     }
-    $appearance = ['style' => $appearance['style'], 'showBanner' => $appearance['showBanner'], 'showDescription' => $appearance['showDescription'], 'titleColor' => $appearance['titleColor'], 'highlight' => $appearance['highlight'], 'highlightColor' => $appearance['highlightColor']];
+    // Un client ancien qui envoie la présentation sans cette option conserve le choix existant.
+    $titleItalic = array_key_exists('titleItalic', $appearance) ? $appearance['titleItalic'] : ($existing['appearance']['titleItalic'] ?? false);
+    if (!is_bool($titleItalic)) funbikeJsonResponse(400, ['error' => 'Style italique invalide.']);
+    $appearance = ['titleItalic' => $titleItalic, 'style' => $appearance['style'], 'showBanner' => $appearance['showBanner'], 'showDescription' => $appearance['showDescription'], 'titleColor' => $appearance['titleColor'], 'highlight' => $appearance['highlight'], 'highlightColor' => $appearance['highlightColor']];
 }
 $seen = []; $items = [];
 foreach ($c['products'] as $p) {

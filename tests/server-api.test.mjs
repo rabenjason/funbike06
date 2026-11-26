@@ -338,8 +338,8 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const withBanner = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url } } });
     assert.equal(withBanner.status, 200, JSON.stringify(withBanner.body));
     assert.equal((await call('promotions.php')).body.campaigns[0].bannerUrl, uploaded.body.url);
-    const appearance = { style: 'festif', showBanner: true, showDescription: true, titleColor: '#ffffff', highlight: 'ssai', highlightColor: '#ffd100' };
-    for (const invalid of [{ ...appearance, style: 'inconnu' }, { ...appearance, showBanner: 1 }, { ...appearance, titleColor: 'red' }, { ...appearance, highlightColor: '#fff' }, { ...appearance, highlight: 'x'.repeat(151) }, []]) {
+    const appearance = { style: 'festif', showBanner: true, showDescription: true, titleItalic: true, titleColor: '#ffffff', highlight: 'ssai', highlightColor: '#ffd100' };
+    for (const invalid of [{ ...appearance, style: 'inconnu' }, { ...appearance, showBanner: 1 }, { ...appearance, titleItalic: 'true' }, { ...appearance, titleItalic: null }, { ...appearance, titleColor: 'red' }, { ...appearance, highlightColor: '#fff' }, { ...appearance, highlight: 'x'.repeat(151) }, []]) {
       const before = readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8');
       assert.equal((await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: invalid } } })).status, 400);
       assert.equal(readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8'), before);
@@ -349,6 +349,11 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.deepEqual((await call('promotions.php')).body.campaigns[0].appearance, appearance);
     const oldClient = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url } } });
     assert.deepEqual(oldClient.body.campaign.appearance, appearance, 'un ancien client ne perd pas le style');
+    const { titleItalic: ignoredItalic, ...legacyAppearance } = appearance;
+    const oldStyledClient = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: legacyAppearance } } });
+    assert.equal(oldStyledClient.status, 200); assert.equal(oldStyledClient.body.campaign.appearance.titleItalic, true, 'un ancien client conserve le choix italique');
+    const upright = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: { ...appearance, titleItalic: false } } } });
+    assert.equal(upright.status, 200); assert.equal((await call('promotions.php')).body.campaigns[0].appearance.titleItalic, false);
     const resetAppearance = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: null } } });
     assert.equal(resetAppearance.status, 200); assert.equal(resetAppearance.body.campaign.appearance, undefined);
     assert.equal(resetAppearance.body.campaign.bannerUrl, uploaded.body.url);

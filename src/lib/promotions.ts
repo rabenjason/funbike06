@@ -13,16 +13,19 @@ export interface PromotionAppearance {
   style: PromotionStyle;
   showBanner: boolean;
   showDescription: boolean;
+  /** Absente sur les campagnes créées avant cette option. */
+  titleItalic?: boolean;
   titleColor: string;
   highlight: string;
   highlightColor: string;
 }
-export const defaultPromotionAppearance = (): PromotionAppearance => ({ style: "sobre", showBanner: false, showDescription: false, titleColor: "", highlight: "", highlightColor: "" });
+export const defaultPromotionAppearance = (): PromotionAppearance => ({ style: "sobre", showBanner: false, showDescription: false, titleItalic: false, titleColor: "", highlight: "", highlightColor: "" });
 export function isPromotionAppearance(value: unknown): value is PromotionAppearance {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
   return typeof item.style === "string" && ["sobre", "sportif", "festif", "black-friday"].includes(item.style)
     && typeof item.showBanner === "boolean" && typeof item.showDescription === "boolean"
+    && (item.titleItalic === undefined || typeof item.titleItalic === "boolean")
     && typeof item.highlight === "string" && Array.from(item.highlight).length <= 150
     && typeof item.titleColor === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(item.titleColor)
     && typeof item.highlightColor === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(item.highlightColor);

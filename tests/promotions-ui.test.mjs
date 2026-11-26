@@ -522,6 +522,10 @@ test('bannières : styles, photo locale facultative, couleurs, description et ch
     assert.equal(view.container.querySelector('img').getAttribute('src'), banner);
     assert.equal(view.getByText('Noël').style.color, 'rgb(255, 0, 0)');
     assert.equal(view.getByRole('heading').style.color, 'rgb(255, 255, 255)');
+    assert.equal(view.getByRole('heading').classList.contains('italic'), false);
+    view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, appearance: { ...appearance, titleItalic: true } }, clockOffset: offset }));
+    assert.equal(view.getByRole('heading').classList.contains('italic'), true);
+    assert.equal(view.getByText('Noël').style.color, 'rgb(255, 0, 0)');
   }
   const appearance = { ...defaultPromotionAppearance(), showBanner: true, highlight: 'absent' };
   view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, bannerUrl: 'https://bad.invalid/x.jpg', appearance }, clockOffset: offset }));
@@ -552,13 +556,18 @@ test('dashboard : personnalisation par campagne, aperçu et enregistrement sans 
   fireEvent.change(view.getByLabelText('Couleur du titre'), { target: { value: '#ffffff' } });
   fireEvent.change(view.getByLabelText('Couleur des mots mis en valeur'), { target: { value: '#ff0000' } });
   fireEvent.change(view.getByLabelText('Mots du titre à mettre en valeur (facultatif)'), { target: { value: 'Noël' } });
+  assert.equal(view.getByLabelText('Mettre le titre en italique').checked, false);
+  fireEvent.click(view.getByLabelText('Mettre le titre en italique'));
   const preview = view.container.querySelector('.fb-promotion-preview');
   assert.equal(preview.querySelector('section').dataset.promotionStyle, 'festif');
+  assert.ok(preview.querySelector('h2').classList.contains('italic'));
+  fireEvent.click(view.getByLabelText('Mettre le titre en italique')); assert.equal(preview.querySelector('h2').classList.contains('italic'), false);
+  fireEvent.click(view.getByLabelText('Mettre le titre en italique'));
   assert.equal(preview.querySelector('img').getAttribute('src'), campaign.bannerUrl);
   assert.ok(preview.textContent.includes('Description Noël')); assert.equal(preview.querySelector('h2 span').textContent, 'Noël');
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer la campagne' }));
   await waitFor(() => assert.ok(saved));
-  assert.deepEqual(saved.appearance, { style: 'festif', showBanner: true, showDescription: true, titleColor: '#ffffff', highlight: 'Noël', highlightColor: '#ff0000' });
+  assert.deepEqual(saved.appearance, { style: 'festif', showBanner: true, showDescription: true, titleItalic: true, titleColor: '#ffffff', highlight: 'Noël', highlightColor: '#ff0000' });
   assert.equal(saved.enabled, false); assert.equal(saved.published, false); assert.equal(saved.bannerUrl, campaign.bannerUrl);
 });
 
