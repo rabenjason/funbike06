@@ -895,6 +895,9 @@ test('accueil : panneau disponible seulement avec promotions actives et réglage
   const css = readFileSync('src/styles/home-promotion-sign.css', 'utf8');
   assert.match(css, /prefers-reduced-motion:\s*reduce/); assert.match(css, /animation:\s*none/);
   assert.doesNotMatch(css, /position:\s*fixed/);
+  assert.match(css, /animation:\s*fb-promo-swing\s+2\.8s\s+ease-in-out\s+infinite/);
+  assert.match(css, /@media\s*\(max-width:\s*639px\)[\s\S]*?\.fb-home-promo--home\s*\{\s*margin-top:\s*clamp\(/);
+  assert.ok(sign.classList.contains('fb-home-promo--home'));
 });
 
 test('admin : texte et activation du panneau, annulation et validation', async () => {

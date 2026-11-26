@@ -10,5 +10,5 @@ export function HomePromotionSignVisual({ text }: { text: string }) {
 export function HomePromotionSign({ go }: { go: (page: string) => void }) {
   const { campaigns, status, homeSignEnabled, homeSignText } = usePromotions();
   if (status !== "ready" || !homeSignEnabled || campaigns.length === 0) return null;
-  return <a href="/promotions" onClick={(event) => navigateLink(event, go, "promotions")} className="fb-home-promo" aria-label={`${homeSignText} — Voir les promotions`}><HomePromotionSignVisual text={homeSignText} /></a>;
+  return <a href="/promotions" onClick={(event) => navigateLink(event, go, "promotions")} className="fb-home-promo fb-home-promo--home" aria-label={`${homeSignText} — Voir les promotions`}><HomePromotionSignVisual text={homeSignText} /></a>;
 }

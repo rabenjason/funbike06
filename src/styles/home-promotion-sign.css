@@ -8,6 +8,10 @@
   color: #fff;
   text-decoration: none;
 }
+/* Sur mobile, descend le panneau dans l’espace de l’image sans recouvrir les commandes. */
+@media (max-width: 639px) {
+  .fb-home-promo--home { margin-top: clamp(4rem, 14svh, 8rem); }
+}
 .fb-home-promo:focus-visible { outline: 3px solid #ffd100; outline-offset: 5px; border-radius: 4px; }
 .fb-home-promo-sign {
   position: relative;
@@ -18,7 +22,7 @@
   align-items: flex-end;
   justify-content: center;
   transform-origin: 50% 4px;
-  animation: fb-promo-swing 2.8s ease-in-out 2;
+  animation: fb-promo-swing 2.8s ease-in-out infinite;
 }
 .fb-home-promo-cord {
   position: absolute;
