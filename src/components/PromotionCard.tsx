@@ -25,7 +25,7 @@ export function PromotionCard({ product, go, showDescription = false }: { produc
   const kind = isMoto ? getProductFamily(product)?.name : productTypes.find((entry) => entry.categoryId === product.categoryId && entry.id === product.productTypeId)?.name;
   const goDetail = () => isMoto ? go("product", product.id) : go("accessory", product.id, product.categoryId);
   const category = product.categoryId === "pieces-detachees" ? `Pièce ${brand}` : `${brand}${kind ? ` · ${kind}` : ""}`;
-  const actionClass = "flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-md border border-black/25 px-2 py-2 text-center text-[10px] font-bold uppercase tracking-wide text-[#171816] transition hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]";
+  const actionClass = "fb-promotion-action flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-black/25 px-1 text-center uppercase text-[#171816] transition [&_svg]:shrink-0 [&_span]:min-w-0 hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]";
 
   return <article className="fb-card group flex h-full min-w-0 flex-col overflow-hidden rounded-xl text-left">
     <div className="fb-stage-white relative aspect-[4/3] overflow-hidden">
@@ -41,9 +41,9 @@ export function PromotionCard({ product, go, showDescription = false }: { produc
       {showDescription && <p className="mt-2 line-clamp-2 min-h-[2.5rem] break-words text-xs leading-5 text-black/55 dark:text-white/55">{product.description}</p>}
       <div className="mt-auto min-h-10 min-w-0 pt-2 sm:[&_strong]:text-lg"><PromotionPrice product={product} card /></div>
       <div className="mt-3 flex min-w-0 gap-2">
-        {isMoto ? phone && settings ? (settings.askIntent ? <button type="button" className={actionClass} onClick={() => setOpen(true)}><WhatsAppIcon /> WhatsApp</button> : <a className={actionClass} href={preparedWhatsappUrl(settings, phone, product)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> WhatsApp</a>) : <button type="button" className={actionClass} onClick={goDetail}>Découvrir</button>
-          : <button type="button" className={actionClass} onClick={() => phone && settings ? setOpen(true) : go("contact", product.id)}>Se renseigner</button>}
-        <a href={productPath(product)} onClick={(event) => navigateLink(event, go, page, product.id, routeCategory)} aria-label={`Voir la fiche de ${product.name}`} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-black/25 text-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]"><FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></a>
+        {isMoto ? phone && settings ? (settings.askIntent ? <button type="button" className={actionClass} onClick={() => setOpen(true)}><WhatsAppIcon /><span>WhatsApp</span></button> : <a className={actionClass} href={preparedWhatsappUrl(settings, phone, product)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /><span>WhatsApp</span></a>) : <button type="button" className={actionClass} onClick={goDetail}><span>Découvrir</span></button>
+          : <button type="button" className={actionClass} onClick={() => phone && settings ? setOpen(true) : go("contact", product.id)}><span>Se renseigner</span></button>}
+        <a href={productPath(product)} onClick={(event) => navigateLink(event, go, page, product.id, routeCategory)} aria-label={`Voir la fiche de ${product.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-black/25 text-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]"><FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></a>
       </div>
     </div>
     {open && phone && settings && <WhatsappDialog settings={settings} product={product} phone={phone} offerSite={!isMoto} onSite={() => go("contact", product.id)} onClose={close} />}
