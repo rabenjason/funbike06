@@ -67,6 +67,20 @@ if (!is_string($banner) || ($banner !== '' && (!preg_match('#^/server/uploads/pr
 $id = $c['id'] ?? '';
 if ($method === 'POST') $id = bin2hex(random_bytes(16));
 elseif (!is_string($id) || !preg_match('/^[a-f0-9]{32}$/D', $id) || !funbikeFindRecord($campaigns, $id)) funbikeJsonResponse(404, ['error' => 'Promotion introuvable.']);
+// Les anciennes campagnes et clients restent compatibles. L'absence du champ
+// conserve le réglage existant ; null demande explicitement le rendu historique.
+$existing = $method === 'PUT' ? funbikeFindRecord($campaigns, $id) : null;
+$appearance = array_key_exists('appearance', $c) ? $c['appearance'] : ($existing['appearance'] ?? null);
+if ($appearance !== null) {
+    if (!is_array($appearance) || !in_array($appearance['style'] ?? null, ['sobre', 'sportif', 'festif', 'black-friday'], true)
+        || !is_bool($appearance['showBanner'] ?? null) || !is_bool($appearance['showDescription'] ?? null)
+        || !is_string($appearance['highlight'] ?? null) || ($highlightLength = preg_match_all('/./us', $appearance['highlight'])) === false || $highlightLength > 150
+        || !is_string($appearance['titleColor'] ?? null) || !preg_match('/^(?:|#[0-9a-fA-F]{6})$/D', $appearance['titleColor'])
+        || !is_string($appearance['highlightColor'] ?? null) || !preg_match('/^(?:|#[0-9a-fA-F]{6})$/D', $appearance['highlightColor'])) {
+        funbikeJsonResponse(400, ['error' => 'Style de campagne invalide.']);
+    }
+    $appearance = ['style' => $appearance['style'], 'showBanner' => $appearance['showBanner'], 'showDescription' => $appearance['showDescription'], 'titleColor' => $appearance['titleColor'], 'highlight' => $appearance['highlight'], 'highlightColor' => $appearance['highlightColor']];
+}
 $seen = []; $items = [];
 foreach ($c['products'] as $p) {
     if (!is_array($p) || !is_string($p['categoryId'] ?? null) || !isset($files[$p['categoryId']]) || !is_string($p['productId'] ?? null) || $p['productId'] === '' || !is_int($p['originalPrice'] ?? null) || $p['originalPrice'] <= 0 || $p['originalPrice'] > 1000000000000 || !is_numeric($p['discountPercent'] ?? null) || $p['discountPercent'] <= 0 || $p['discountPercent'] > 100 || abs($p['discountPercent'] * 100 - round($p['discountPercent'] * 100)) > 0.00000001) funbikeJsonResponse(400, ['error' => 'Prix ou réduction invalide : renseignez un prix positif et une réduction entre 0,01 et 100 %.']);
@@ -82,6 +96,7 @@ if ($c['enabled'] && $c['published']) foreach ($campaigns as $other) {
     foreach (($other['products'] ?? []) as $p) if (isset($seen[($p['categoryId'] ?? '') . ':' . ($p['productId'] ?? '')])) funbikeJsonResponse(409, ['error' => 'Un produit est déjà dans une autre promotion activée et publiée aux mêmes dates.']);
 }
 $clean = ['id' => $id, 'name' => trim($c['name']), 'description' => $c['description'], 'bannerUrl' => $banner, 'startDate' => $c['startDate'], 'endDate' => $c['endDate'], 'enabled' => $c['enabled'], 'published' => $c['published'], 'products' => $items];
+if ($appearance !== null) $clean['appearance'] = $appearance;
 $campaigns = array_values(array_filter($campaigns, function ($v) use ($id) { return ($v['id'] ?? '') !== $id; }));
 $campaigns[] = $clean; promotionSave($file, $campaigns);
 funbikeJsonResponse($method === 'POST' ? 201 : 200, ['campaign' => $clean, 'campaigns' => $campaigns]);

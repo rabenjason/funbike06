@@ -504,3 +504,87 @@ test('Tous par défaut : les motos TVS en premier, puis autres motos et les autr
   assert.equal(results.querySelectorAll('article').length, 1);
   assert.equal(names()[0], tvs[0].name);
 });
+
+test('bannières : styles, photo locale facultative, couleurs, description et chronomètre', async () => {
+  const { PromotionCampaignHeader } = await server.ssrLoadModule('/src/components/PromotionCampaignHeader.tsx');
+  const { defaultPromotionAppearance } = await server.ssrLoadModule('/src/lib/promotions.ts');
+  const banner = '/server/uploads/promotions/' + 'a'.repeat(32) + '.webp';
+  const base = { id: 'noel', name: 'Promotion Noël', description: 'Une offre spéciale', bannerUrl: banner, startDate: '2026-12-01', endDate: '2026-12-25', enabled: true, published: true, products: [] };
+  const offset = Date.parse('2026-12-24T12:00:00Z') - Date.now();
+  const view = render(React.createElement(PromotionCampaignHeader, { campaign: base, clockOffset: offset }));
+  assert.ok(view.getByRole('timer')); assert.equal(view.queryByText('Une offre spéciale'), null); assert.equal(view.container.querySelector('img'), null);
+  for (const style of ['sobre', 'sportif', 'festif', 'black-friday']) {
+    const appearance = { ...defaultPromotionAppearance(), style, showBanner: true, showDescription: true, titleColor: '#ffffff', highlight: 'Noël', highlightColor: '#ff0000' };
+    view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, appearance }, clockOffset: offset }));
+    assert.equal(view.container.querySelector('section').dataset.promotionStyle, style);
+    assert.ok(view.getByRole('timer')); assert.ok(view.getByText('Une offre spéciale'));
+    assert.equal(view.container.querySelector('img').getAttribute('src'), banner);
+    assert.equal(view.getByText('Noël').style.color, 'rgb(255, 0, 0)');
+    assert.equal(view.getByRole('heading').style.color, 'rgb(255, 255, 255)');
+  }
+  const appearance = { ...defaultPromotionAppearance(), showBanner: true, highlight: 'absent' };
+  view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, bannerUrl: 'https://bad.invalid/x.jpg', appearance }, clockOffset: offset }));
+  assert.equal(view.container.querySelector('img'), null); assert.equal(view.container.querySelector('section').dataset.promotionImage, 'false');
+  view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, appearance }, clockOffset: Date.parse('2026-12-01T12:00:00Z') - Date.now() }));
+  assert.equal(view.queryByRole('timer'), null); assert.ok(view.getByText(/Offre du 01\/12\/2026 au 25\/12\/2026/));
+  view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, appearance: { ...appearance, style: 'invalide' } }, clockOffset: offset }));
+  assert.equal(view.container.querySelector('[data-promotion-style]'), null); assert.ok(view.getByRole('timer'));
+});
+
+test('dashboard : personnalisation par campagne, aperçu et enregistrement sans publication automatique', async () => {
+  const campaign = { id: 'old', name: 'Promotion Noël', description: 'Description Noël', bannerUrl: '/server/uploads/promotions/' + 'b'.repeat(32) + '.jpg', startDate: '2026-12-01', endDate: '2026-12-25', enabled: false, published: false, products: [] };
+  let saved;
+  globalThis.fetch = async (url, options = {}) => {
+    if (options.method === 'PUT') { saved = JSON.parse(options.body).campaign; return { ok: true, json: async () => ({ campaigns: [saved] }) }; }
+    if (String(url).endsWith('promotions-display.php')) return { ok: true, json: async () => ({ data: { preferredCategory: 'motos' }, revision: 'r1' }) };
+    return { ok: true, json: async () => ({ campaigns: [campaign] }) };
+  };
+  const adminCatalog = { products: [], brands: [], categories: [], families: [], types: [], models: [] };
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotions, { catalog: adminCatalog, onDirtyChange() {}, onSavingChange() {}, productEditor: () => null })));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Modifier' })));
+  fireEvent.click(view.getByRole('button', { name: 'Modifier' }));
+  assert.equal(view.queryByText('Aperçu indicatif'), null);
+  fireEvent.click(view.getByLabelText('Personnaliser la présentation'));
+  fireEvent.change(view.getByLabelText('Style du titre'), { target: { value: 'festif' } });
+  fireEvent.change(view.getByLabelText('Fond'), { target: { value: 'photo' } });
+  fireEvent.click(view.getByLabelText('Afficher la description sous le titre'));
+  fireEvent.change(view.getByLabelText('Couleur du titre'), { target: { value: '#ffffff' } });
+  fireEvent.change(view.getByLabelText('Couleur des mots mis en valeur'), { target: { value: '#ff0000' } });
+  fireEvent.change(view.getByLabelText('Mots du titre à mettre en valeur (facultatif)'), { target: { value: 'Noël' } });
+  const preview = view.container.querySelector('.fb-promotion-preview');
+  assert.equal(preview.querySelector('section').dataset.promotionStyle, 'festif');
+  assert.equal(preview.querySelector('img').getAttribute('src'), campaign.bannerUrl);
+  assert.ok(preview.textContent.includes('Description Noël')); assert.equal(preview.querySelector('h2 span').textContent, 'Noël');
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer la campagne' }));
+  await waitFor(() => assert.ok(saved));
+  assert.deepEqual(saved.appearance, { style: 'festif', showBanner: true, showDescription: true, titleColor: '#ffffff', highlight: 'Noël', highlightColor: '#ff0000' });
+  assert.equal(saved.enabled, false); assert.equal(saved.published, false); assert.equal(saved.bannerUrl, campaign.bannerUrl);
+});
+
+test('cartes promotions : structure commune et contacts WhatsApp selon catégorie', async () => {
+  const { WhatsappProvider } = await server.ssrLoadModule('/src/components/Whatsapp.tsx');
+  const { defaultWhatsappSettings } = await server.ssrLoadModule('/src/lib/whatsappSettings.ts');
+  const products = [catalog.motorcycles[0], catalog.ridingGear[0], catalog.spareParts[0]];
+  const campaign = { id: 'mixte', name: 'Promo mixte', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: products.map((p) => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 })) };
+  const settings = { enabled: true, askIntent: true, texts: structuredClone(defaultWhatsappSettings.texts), sales: { phone: '+261 34 00 111 11' }, parts: { phone: '+261 34 00 333 33' } };
+  globalThis.fetch = async (url) => ({ ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: settings } : { campaigns: [campaign], preferredCategory: 'tous', serverTime: new Date().toISOString() } });
+  const calls = [];
+  const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go: (...args) => calls.push(args) }))));
+  await waitFor(() => assert.ok(view.getByRole('button', { name: /WhatsApp/ })));
+  const cards = [...view.container.querySelectorAll('article')]; assert.equal(cards.length, 3);
+  for (const card of cards) { assert.ok(card.querySelector('.aspect-\\[4\\/3\\]')); assert.ok(card.querySelector('img').className.includes('object-contain')); assert.ok(card.querySelector('[aria-label="Réduction de 20 %"]')); assert.ok(within(card).getByRole('link', { name: /Voir la fiche/ })); }
+  fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
+  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
+  assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, '/261340011111');
+  fireEvent.keyDown(document, { key: 'Escape' });
+  for (const [card, product, phone] of [[cards[1], products[1], '/261340011111'], [cards[2], products[2], '/261340033333']]) {
+    fireEvent.click(within(card).getByRole('button', { name: 'Se renseigner' }));
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Via le site' }));
+    assert.deepEqual(calls.pop(), ['contact', product.id]);
+    fireEvent.click(within(card).getByRole('button', { name: 'Se renseigner' }));
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Par WhatsApp' }));
+    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
+    assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, phone);
+    fireEvent.keyDown(document, { key: 'Escape' });
+  }
+});

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { promotionCountdown } from "../lib/promotions";
+import { PromotionCampaignHeader } from "../components/PromotionCampaignHeader";
 import { products } from "../catalog/products";
 import { brands } from "../catalog/brands";
 import { productTypes } from "../catalog/productTypes";
 import type { Product } from "../types/product";
-import { BikeCard, PartCard } from "../components/Cards";
+import { PromotionCard } from "../components/PromotionCard";
 import { usePromotions } from "../components/PromotionsContext";
 import type { Promotion, PromotionCategory } from "../lib/promotions";
 
@@ -17,32 +17,6 @@ const allGroup = { key: "tous" as const, label: "Tous", categories: groups.flatM
 const perPage = 8;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const typeKey = (product: Product) => `${product.categoryId}:${product.productTypeId}`;
-
-/** L’horloge est isolée pour ne pas réafficher toutes les cartes chaque seconde. */
-function CampaignHeader({ campaign, clockOffset }: { campaign: Promotion; clockOffset: number }) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const interval = window.setInterval(tick, 1000);
-    const visible = () => { if (document.visibilityState === "visible") tick(); };
-    document.addEventListener("visibilitychange", visible);
-    return () => { window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
-  }, []);
-  const remaining = promotionCountdown(campaign.endDate, now + clockOffset);
-  const [totalHours, minutes, seconds] = (remaining ?? "00:00:00").split(':').map(Number);
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  const clock = [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
-  const spoken = `${days ? `${days} jour${days > 1 ? 's' : ''}, ` : ''}${hours} heures, ${minutes} minutes et ${seconds} secondes restantes`;
-  return <section aria-labelledby={`promotion-${campaign.id}`}>
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <h2 id={`promotion-${campaign.id}`} className="fluid-h2 min-w-0 font-display font-semibold text-[#171816] dark:text-[#f2f0ea]">{campaign.name}</h2>
-      {remaining ? <p className="text-sm text-black/60 dark:text-white/60">Se termine dans <strong role="timer" aria-live="off" aria-label={spoken} className="font-display font-bold tabular-nums text-[#98741b] dark:text-[#ffd100]">{days > 0 && `${days} j `}{clock}</strong> <span className="text-xs">(heure de Madagascar)</span></p>
-        : <p className="text-sm text-black/60 dark:text-white/60">Offre du {campaign.startDate.split('-').reverse().join('/')} au {campaign.endDate.split('-').reverse().join('/')} inclus.</p>}
-    </div>
-  </section>;
-}
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
   const { campaigns, status, clockOffset, preferredCategory } = usePromotions();
@@ -89,7 +63,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
     {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
     {status === "ready" && campaigns.length === 0 && <div><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
     {status === "ready" && campaigns.length > 0 && <>
-      <div className="space-y-4">{campaigns.map((campaign) => <CampaignHeader key={campaign.id} campaign={campaign} clockOffset={clockOffset} />)}</div>
+      <div className="space-y-4">{campaigns.map((campaign) => <PromotionCampaignHeader key={campaign.id} campaign={campaign} clockOffset={clockOffset} />)}</div>
       {active && <section className="mt-4" aria-label="Produits en promotion">
         <div className="flex gap-5 overflow-x-auto border-b border-black/10 dark:border-white/10" aria-label="Catégories de promotions">
           {available.map((group) => <button key={group.key} type="button" aria-pressed={active.key === group.key} onClick={() => { setChosenCategory(group.key); setType(""); setPage(1); }} className={`shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${active.key === group.key ? "border-[#ffd100] text-[#171816] dark:text-white" : "border-transparent text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"}`}>{group.label}</button>)}
@@ -99,7 +73,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
           {types.length > 0 && <label className="min-w-0 text-xs font-semibold text-black/65 dark:text-white/65 sm:w-52">Filtrer par type<select className="mt-1 h-10 w-full rounded-md border border-black/20 bg-white px-3 text-sm text-[#171816] dark:border-white/20 dark:bg-[#1a1b18] dark:text-white" value={selectedType} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tous les types</option>{types.map((entry) => <option key={`${entry.categoryId}:${entry.id}`} value={`${entry.categoryId}:${entry.id}`}>{entry.name}</option>)}</select></label>}
         </div>
         <div className="my-4 flex items-baseline justify-between gap-3"><h3 className="font-display text-lg font-semibold text-[#171816] dark:text-[#f2f0ea]">{active.label}</h3></div>
-        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="min-w-0 [&>article]:h-full">{campaigns.length > 1 && <p className="mb-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}{product.categoryId === "motos" ? <BikeCard bike={product} go={go} uniformLayout compact /> : <PartCard part={product} go={go} compact />}</div>)}</div>}
+        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="flex min-w-0 flex-col">{campaigns.length > 1 && <p className="mb-2 min-h-8 line-clamp-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}<PromotionCard product={product} go={go} /></div>)}</div>}
         {totalPages > 1 && <nav aria-label="Pagination des promotions" className="mt-8 flex flex-wrap items-center justify-center gap-1 border-t border-black/10 pt-4 dark:border-white/10">
           <button type="button" className="min-h-11 rounded px-3 text-sm font-semibold disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Précédent</button>
           {pageNumbers.map((n) => <button key={n} type="button" aria-label={`Page ${n}`} aria-current={n === currentPage ? "page" : undefined} onClick={() => setPage(n)} className={`h-11 w-11 rounded text-sm font-semibold ${n === currentPage ? "bg-[#ffd100] text-[#171816]" : "text-black/65 hover:bg-black/5 dark:text-white/65 dark:hover:bg-white/10"}`}>{n}</button>)}
