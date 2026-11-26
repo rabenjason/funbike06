@@ -140,19 +140,19 @@ test('pastille absente à zéro, plafonnée visuellement à 99 et compteur exact
 test('rafraîchissement périodique et au retour, erreur signalée, puis rétablissement', async () => {
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
   const previousSet = window.setInterval; const previousClear = window.clearInterval;
-  let tick, delay, cleared = false;
-  window.setInterval = (callback, ms) => { tick = callback; delay = ms; return 1234; };
+  const ticks = []; let delay, cleared = false;
+  window.setInterval = (callback, ms) => { ticks.push(callback); delay = ms; return 1233 + ticks.length; };
   window.clearInterval = (id) => { if (id === 1234) cleared = true; };
   try {
     const view = await open();
     await waitFor(() => assert.equal(countDescription(view), '23 messages non lus'));
     assert.equal(delay, 30000);
     records.push(makeMessage(24));
-    act(() => tick());
+    act(() => ticks.forEach((tick) => tick()));
     await waitFor(() => assert.equal(countDescription(view), '24 messages non lus'));
     fireEvent.click(view.getByRole('button', { name: 'Actualiser' }));
     await waitFor(() => assert.ok(view.getByText('Client 24')));
-    fail = true; act(() => tick());
+    fail = true; act(() => ticks.forEach((tick) => tick()));
     await waitFor(() => assert.equal(countDescription(view), 'Compteur de messages non lus indisponible'));
     assert.match(badge(view).textContent, /!/);
     fail = false; fireEvent.focus(window);

@@ -135,7 +135,7 @@ test('onglets : catégories disponibles, filtre par type et prix/liens inchangé
   fireEvent.click(view.getByRole('button', { name: 'Motos' }));
   assert.equal(view.getByLabelText('Filtrer par type').value, '');
   assert.equal(results.querySelectorAll('article').length, 1);
-  fireEvent.click(within(results).getByRole('button', { name: /Découvrir/i }));
+  fireEvent.click(within(results).getByRole('button', { name: moto.name }));
   assert.deepEqual(calls.pop(), ['product', moto.id]);
   fireEvent.click(view.getByRole('button', { name: 'Pièces détachées' }));
   fireEvent.click(within(results).getByRole('button', { name: part.name }));
@@ -433,7 +433,7 @@ test('onglet Tous avant Motos : toutes les catégories et campagnes, filtres et 
   fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: '' } });
   fireEvent.click(view.getByRole('button', { name: 'Motos' }));
   assert.equal(results.querySelectorAll('article').length, 1);
-  fireEvent.click(within(results).getByRole('button', { name: /Découvrir/i }));
+  fireEvent.click(within(results).getByRole('button', { name: moto.name }));
   assert.deepEqual(calls.pop(), ['product', moto.id]);
 });
 
@@ -562,46 +562,38 @@ test('dashboard : personnalisation par campagne, aperçu et enregistrement sans 
   assert.equal(saved.enabled, false); assert.equal(saved.published, false); assert.equal(saved.bannerUrl, campaign.bannerUrl);
 });
 
-test('cartes promotions : structure commune et contacts WhatsApp selon catégorie', async () => {
+test('cartes promotions : structure commune et réservations par catégorie', async () => {
   const { WhatsappProvider } = await server.ssrLoadModule('/src/components/Whatsapp.tsx');
   const { defaultWhatsappSettings } = await server.ssrLoadModule('/src/lib/whatsappSettings.ts');
   const products = [catalog.motorcycles[0], catalog.ridingGear[0], catalog.spareParts[0]];
-  const campaign = { id: 'mixte', name: 'Promo mixte', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: products.map((p) => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 })) };
+  const campaign = { id: 'c'.repeat(32), name: 'Promo mixte', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: products.map((p) => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 })) };
   const settings = { enabled: true, askIntent: true, texts: structuredClone(defaultWhatsappSettings.texts), sales: { phone: '+261 34 00 111 11' }, parts: { phone: '+261 34 00 333 33' } };
-  globalThis.fetch = async (url) => ({ ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: settings } : { campaigns: [campaign], preferredCategory: 'tous', serverTime: new Date().toISOString() } });
-  const calls = [];
-  const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go: (...args) => calls.push(args) }))));
-  await waitFor(() => assert.ok(view.getByRole('button', { name: /WhatsApp/ })));
-  const cards = [...view.container.querySelectorAll('article')]; assert.equal(cards.length, 3);
-  for (const card of cards) { assert.ok(card.querySelector('.aspect-\\[4\\/3\\]')); assert.ok(card.querySelector('img').className.includes('object-contain')); assert.ok(card.querySelector('[aria-label="Réduction de 20 %"]')); assert.ok(within(card).getByRole('link', { name: /Voir la fiche/ })); }
-  for (const card of cards) {
-    const action = card.querySelector('.fb-promotion-action');
+  const writes = [];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes('promotion-reservations.php')) {
+      const body = JSON.parse(options.body); writes.push(body); const product = products.find(p => p.id === body.productId);
+      return { ok: true, status: 201, json: async () => ({ id: 'a'.repeat(32), phone: product.categoryId === 'pieces-detachees' ? settings.parts.phone : settings.sales.phone, product: { name: product.name, brand: product.brandId, path: `/${product.categoryId}/${product.id}` }, promotion: { name: campaign.name, originalPrice: 1000000, promotionalPrice: 800000, discountPercent: 20 } }) };
+    }
+    return { ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: settings } : { campaigns: [campaign], preferredCategory: 'tous', serverTime: new Date().toISOString() } };
+  };
+  const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go() {} }))));
+  await waitFor(() => assert.equal(view.container.querySelectorAll('article').length, 3));
+  const cards = [...view.container.querySelectorAll('article')];
+  for (const [index, card] of cards.entries()) {
+    const action = within(card).getByRole('button', { name: 'Réserver' });
     const details = within(card).getByRole('link', { name: /Voir la fiche/ });
-    assert.ok(action.classList.contains('h-11') && action.classList.contains('min-w-0'));
-    assert.ok(details.classList.contains('h-11') && details.classList.contains('w-11'));
-    assert.ok(action.querySelector('span'), 'le libellé reste centré et peut passer sur deux lignes');
-  }
-  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
-  const actionStyle = css.match(/\.fb-promotion-action\s*\{([^}]*)\}/)?.[1] ?? '';
-  assert.match(actionStyle, /font-size:\s*0\.625rem/); assert.match(actionStyle, /line-height:\s*1\.15/);
-  fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
-  assert.ok(within(view.getByRole('dialog')).getByText(products[0].name));
-  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Via le site' }));
-  assert.deepEqual(calls.pop(), ['contact', products[0].id]);
-  fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
-  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Par WhatsApp' }));
-  fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
-  assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, '/261340011111');
-  fireEvent.keyDown(document, { key: 'Escape' });
-  for (const [card, product, phone] of [[cards[1], products[1], '/261340011111'], [cards[2], products[2], '/261340033333']]) {
-    fireEvent.click(within(card).getByRole('button', { name: 'Se renseigner' }));
-    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Via le site' }));
-    assert.deepEqual(calls.pop(), ['contact', product.id]);
-    fireEvent.click(within(card).getByRole('button', { name: 'Se renseigner' }));
-    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Par WhatsApp' }));
-    fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
-    assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, phone);
-    fireEvent.keyDown(document, { key: 'Escape' });
+    assert.ok(action.classList.contains('h-11') && details.classList.contains('h-11'));
+    fireEvent.click(action); let dialog = within(view.getByRole('dialog'));
+    assert.ok(dialog.getByText(products[index].name)); assert.ok(dialog.getByRole('link', { name: 'Voir la fiche produit' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Contacter un commercial' }));
+    const link = await dialog.findByRole('link', { name: 'Ouvrir WhatsApp' }); const target = new URL(link.href);
+    assert.equal(target.pathname, index === 2 ? '/261340033333' : '/261340011111');
+    assert.ok(target.searchParams.get('text').includes('800'));
+    assert.ok(target.searchParams.get('text').includes(products[index].name));
+    assert.ok(target.searchParams.get('text').includes('a'.repeat(32)));
+    assert.equal(writes[index].source, 'whatsapp'); assert.equal(writes[index].productId, products[index].id);
+    assert.ok(dialog.getByText(/envoi n’est pas confirmé/));
+    fireEvent.click(dialog.getByRole('button', { name: 'Fermer', exact: true }));
   }
 });
 
@@ -627,7 +619,7 @@ test('descriptions : réglage global, annulation et sauvegarde sans autre écrit
   fireEvent.click(view.getByLabelText(label)); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
   assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, revision: 'r1' }]);
-  assert.equal(dirty, false); view.unmount(); view = render(component());
+  await waitFor(() => assert.equal(dirty, false)); view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText(label).checked, true));
   assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'equipements'); assert.equal(writes.length, 1);
 });
@@ -653,27 +645,32 @@ test('descriptions : masquées par défaut ou affichées sur chaque carte Promot
   } finally { products.forEach((p, i) => { p.description = originals[i]; }); }
 });
 
-test('motos Promotions : modal commun avec WhatsApp direct, indisponible et textes administrables', async () => {
+test('réservation : formulaire, confirmation et échec bloquant WhatsApp', async () => {
   const { WhatsappProvider } = await server.ssrLoadModule('/src/components/Whatsapp.tsx');
   const { defaultWhatsappSettings } = await server.ssrLoadModule('/src/lib/whatsappSettings.ts');
   const moto = catalog.motorcycles[0];
-  const campaign = { id: 'moto-modal', name: 'Promo moto', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: moto.id, categoryId: moto.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
-  const settings = { enabled: true, askIntent: false, texts: { ...structuredClone(defaultWhatsappSettings.texts), choiceTitle: 'Choisissez votre contact', siteLabel: 'Contacter sur le site', whatsappLabel: 'Écrire sur WhatsApp' }, sales: { phone: '+261 34 00 111 11' }, parts: { phone: '+261 34 00 333 33' } };
-  globalThis.fetch = async (url) => ({ ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: structuredClone(settings) } : { campaigns: [campaign], serverTime: new Date().toISOString() } });
-  const calls = []; const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go: (...args) => calls.push(args) }))));
-  const action = await view.findByRole('button', { name: 'WhatsApp' });
-  fireEvent.click(action);
+  const campaign = { id: 'c'.repeat(32), name: 'Promo moto', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: moto.id, categoryId: moto.categoryId, originalPrice: 1000000, discountPercent: 20 }] };
+  const settings = { enabled: true, askIntent: false, texts: structuredClone(defaultWhatsappSettings.texts), sales: { phone: '+261 34 00 111 11' }, parts: null };
+  let fail = false, writes = [];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).includes('promotion-reservations.php')) { writes.push(JSON.parse(options.body)); if (fail) return { ok: false, status: 409, json: async () => ({ error: 'Promotion expirée' }) }; return { ok: true, status: 201, json: async () => ({ id: 'b'.repeat(32), phone: null, product: { name: moto.name, brand: 'TVS', path: `/motos/${moto.id}` }, promotion: { name: campaign.name, originalPrice: 1000000, promotionalPrice: 800000, discountPercent: 20 } }) }; }
+    return { ok: true, json: async () => String(url).includes('whatsapp-settings.php') ? { data: settings } : { campaigns: [campaign], serverTime: new Date().toISOString() } };
+  };
+  const view = render(React.createElement(WhatsappProvider, null, React.createElement(Provider, null, React.createElement(Promotions, { go() {} }))));
+  const action = await view.findByRole('button', { name: 'Réserver' });
+  await waitFor(() => { fireEvent.click(action); assert.ok(within(view.getByRole('dialog')).queryByRole('button', { name: 'Contacter un commercial' })); });
   let dialog = within(view.getByRole('dialog'));
-  assert.ok(dialog.getByText('Choisissez votre contact')); assert.ok(dialog.getByText(moto.name));
-  const direct = dialog.getByRole('link', { name: 'Écrire sur WhatsApp' });
-  const url = new URL(direct.href); assert.equal(url.pathname, '/261340011111');
-  assert.ok(url.searchParams.get('text').includes(moto.name)); assert.ok(url.searchParams.get('text').includes('/motos/'));
-  assert.equal(direct.target, '_blank'); assert.match(direct.rel, /noopener/);
-  fireEvent.click(dialog.getByRole('button', { name: 'Contacter sur le site' })); assert.deepEqual(calls.pop(), ['contact', moto.id]);
-  action.focus(); fireEvent.click(action); fireEvent.keyDown(document, { key: 'Escape' }); assert.equal(view.queryByRole('dialog'), null); assert.ok(document.activeElement === action);
-  settings.sales = null; fireEvent(document, new window.Event('visibilitychange'));
-  await waitFor(() => assert.ok(view.getByRole('button', { name: 'Découvrir' })));
-  fireEvent.click(view.getByRole('button', { name: 'Découvrir' })); assert.deepEqual(calls.pop(), ['product', moto.id]);
+  fireEvent.click(dialog.getByRole('button', { name: 'Réserver via le formulaire' }));
+  for (const [label, value] of [['Nom complet', 'Jean Rakoto'], ['Numéro de téléphone', '0341234567'], ['Ville', 'Antananarivo'], ['Quantité', '2'], ['Message (facultatif)', 'Livraison ?']]) fireEvent.change(dialog.getByLabelText(label, { exact: false }), { target: { value } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Envoyer ma réservation' }));
+  await dialog.findByText('Votre demande a bien été reçue.');
+  assert.equal(writes.length, 1); assert.equal(writes[0].quantity, 2); assert.equal(writes[0].source, 'form'); assert.equal(writes[0].originalPrice, 1000000);
+  fireEvent.click(dialog.getByRole('button', { name: 'Fermer', exact: true }));
+  fail = true; action.focus(); fireEvent.click(action); dialog = within(view.getByRole('dialog'));
+  fireEvent.click(dialog.getByRole('button', { name: 'Contacter un commercial' }));
+  await dialog.findByRole('alert'); assert.ok(dialog.getByRole('alert').textContent.includes('Promotion expirée'));
+  assert.equal(dialog.queryByRole('link', { name: 'Ouvrir WhatsApp' }), null); assert.equal(writes.length, 2);
+  fireEvent.keyDown(document, { key: 'Escape' }); assert.ok(document.activeElement === action);
 });
 
 test('contact depuis une promotion moto : sujet et message adaptés, sans changer les pièces', async () => {
@@ -689,4 +686,51 @@ test('contact depuis une promotion moto : sujet et message adaptés, sans change
   assert.equal(view.getByLabelText('Sujet').value, 'pieces');
   assert.ok(view.getByLabelText('Votre message').value.includes(part.name));
   assert.match(view.getByLabelText('Votre message').value, /compatibilité/);
+});
+
+test('réservations admin : recherche, filtres, statut, note et suppression confirmée', async () => {
+  const { AdminPromotionReservations } = await server.ssrLoadModule('/src/pages/AdminPromotionReservations.tsx');
+  const make = (id, source, status, name) => ({ id: id.repeat(32), revision: 'r1', createdAt: new Date().toISOString(), source, status, product: { id: 'test', categoryId: 'motos', name: 'Moto Test', brand: 'TVS', path: '/motos/test', image: '/server/uploads/products/motorcycles/test/main.jpg' }, promotion: { id: 'c'.repeat(32), name: 'Noël', startDate: '2020-01-01', endDate: '2099-12-31', originalPrice: 1000000, promotionalPrice: 800000, discountPercent: 20 }, customer: { name, phone: '0341234567', city: 'Tana' }, quantity: 1, message: 'Bonjour', internalNotes: '' });
+  let records = [make('a', 'form', 'new', 'Jean'), make('b', 'whatsapp', 'whatsapp_initiated', '')], writes = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push({ method: 'PUT', body }); records = records.map(r => r.id === body.id ? { ...r, customer: body.customer, status: body.status, internalNotes: body.internalNotes, revision: 'r2' } : r); return { ok: true, json: async () => ({ reservation: records.find(r => r.id === body.id) }) }; }
+    if (options.method === 'DELETE') { const body = JSON.parse(options.body); writes.push({ method: 'DELETE', body }); records = records.filter(r => !body.ids.includes(r.id)); return { ok: true, json: async () => ({ deleted: body.ids.length }) }; }
+    return { ok: true, json: async () => ({ reservations: structuredClone(records) }) };
+  };
+  let dirty = false, refreshed = 0;
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotionReservations, { onChanged: () => refreshed++, onDirtyChange: v => { dirty = v; }, onSavingChange() {} })));
+  await view.findByText(/2 demande\(s\)/);
+  fireEvent.change(view.getByLabelText('Rechercher'), { target: { value: 'jean' } }); assert.ok(view.getByText(/1 demande\(s\)/));
+  fireEvent.change(view.getByLabelText('Rechercher'), { target: { value: '' } });
+  fireEvent.change(view.getByLabelText('Origine'), { target: { value: 'whatsapp' } }); assert.ok(view.getByText(/1 demande\(s\)/));
+  fireEvent.change(view.getByLabelText('Origine'), { target: { value: '' } });
+  fireEvent.click(view.getAllByRole('button', { name: 'Ouvrir' })[0]);
+  await waitFor(() => assert.ok(view.getByRole('region', { name: 'Détail de réservation' })));
+  fireEvent.change(view.getByLabelText('Notes internes (admin uniquement)'), { target: { value: 'Attente de stock' } });
+  const detail = within(view.getByRole('region', { name: 'Détail de réservation' }));
+  fireEvent.change(detail.getByLabelText('Statut'), { target: { value: 'confirmed' } }); assert.equal(dirty, true);
+  fireEvent.click(detail.getByRole('button', { name: 'Enregistrer' }));
+  await waitFor(() => assert.ok(view.getByText('Réservation enregistrée.')));
+  assert.equal(writes.length, 1); assert.equal(writes[0].body.internalNotes, 'Attente de stock'); assert.equal(writes[0].body.status, 'confirmed'); assert.equal(dirty, false); assert.equal(refreshed, 1);
+  assert.ok(detail.getByRole('link', { name: 'Voir la fiche produit' })); assert.ok(detail.getByRole('link', { name: 'WhatsApp client' })); assert.ok(detail.getByRole('link', { name: 'Appeler' }));
+  fireEvent.click(view.getByLabelText(`Sélectionner ${'a'.repeat(32)}`)); fireEvent.click(view.getByLabelText(`Sélectionner ${'b'.repeat(32)}`));
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer la sélection (2)' }));
+  await waitFor(() => assert.ok(view.getByRole('alertdialog')));
+  assert.equal(writes.length, 1); fireEvent.click(within(view.getByRole('alertdialog')).getByRole('button', { name: 'Annuler' }));
+  assert.equal(writes.length, 1);
+  fireEvent.click(view.getByRole('button', { name: 'Supprimer la sélection (2)' }));
+  await waitFor(() => assert.ok(view.getByRole('alertdialog'))); fireEvent.click(within(view.getByRole('alertdialog')).getByRole('button', { name: 'Supprimer' }));
+  await waitFor(() => assert.ok(view.getByText('Suppression effectuée.'))); assert.equal(writes.length, 2); assert.equal(records.length, 0);
+});
+
+test('réservation WhatsApp : échec réseau incertain, pas de lien ni de répétition automatique', async () => {
+  const { PromotionReservationDialog } = await server.ssrLoadModule('/src/components/PromotionReservationDialog.tsx');
+  const product = catalog.motorcycles[0]; const offer = { productId: product.id, categoryId: product.categoryId, originalPrice: 1000000, discountPercent: 20 };
+  const campaign = { id: 'c'.repeat(32), name: 'Promo', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [offer] };
+  let attempts = 0; globalThis.fetch = async () => { attempts++; throw new TypeError('connexion interrompue'); };
+  const view = render(React.createElement(PromotionReservationDialog, { product, campaign, offer, canWhatsapp: true, onClose() {} }));
+  fireEvent.click(view.getByRole('button', { name: 'Contacter un commercial' }));
+  await view.findByRole('alert'); assert.match(view.getByRole('alert').textContent, /non confirmée/);
+  assert.equal(view.queryByRole('link', { name: 'Ouvrir WhatsApp' }), null);
+  assert.equal(view.getByRole('button', { name: 'Contacter un commercial' }).disabled, true); assert.equal(attempts, 1);
 });

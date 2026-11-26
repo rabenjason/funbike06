@@ -6,16 +6,21 @@ import type { Product } from "../types/product";
 import { navigateLink, productPath } from "../lib/routes";
 import SmartImage from "./SmartImage";
 import { PromotionBadge, PromotionPrice } from "./PromotionsContext";
-import { WhatsAppIcon, WhatsappDialog, useWhatsapp, whatsappForProduct } from "./Whatsapp";
+import { useWhatsapp, whatsappForProduct } from "./Whatsapp";
+import { PromotionReservationDialog } from "./PromotionReservationDialog";
+import { calculatePromotionPrice, type Promotion } from "../lib/promotions";
 
 /** Carte commune réservée à la page Promotions, sans modifier les cartes du catalogue. */
-export function PromotionCard({ product, go, showDescription = false }: { product: Product; showDescription?: boolean; go: (page: string, id?: string, categoryId?: string) => void }) {
+export function PromotionCard({ product, campaign, go, showDescription = false }: { product: Product; campaign: Promotion; showDescription?: boolean; go: (page: string, id?: string, categoryId?: string) => void }) {
   const settings = useWhatsapp();
   const phone = whatsappForProduct(settings, product);
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const [activeImage, setActiveImage] = useState(0);
   const isMoto = product.categoryId === "motos";
+  const offer = campaign.products.find((item) => item.productId === product.id && item.categoryId === product.categoryId);
+  let validOffer = false;
+  try { if (offer) { calculatePromotionPrice(offer.originalPrice, offer.discountPercent); validOffer = true; } } catch { /* Une offre invalide ne peut pas être réservée. */ }
   const page = isMoto ? "product" : "accessory";
   const routeCategory = isMoto ? undefined : product.categoryId;
   const gallery = isMoto ? productGallery(product) : [];
@@ -41,11 +46,10 @@ export function PromotionCard({ product, go, showDescription = false }: { produc
       {showDescription && <p className="mt-2 line-clamp-2 min-h-[2.5rem] break-words text-xs leading-5 text-black/55 dark:text-white/55">{product.description}</p>}
       <div className="mt-auto min-h-10 min-w-0 pt-2 sm:[&_strong]:text-lg"><PromotionPrice product={product} card /></div>
       <div className="mt-3 flex min-w-0 gap-2">
-        {isMoto ? phone && settings ? <button type="button" className={actionClass} onClick={() => setOpen(true)}><WhatsAppIcon /><span>WhatsApp</span></button> : <button type="button" className={actionClass} onClick={goDetail}><span>Découvrir</span></button>
-          : <button type="button" className={actionClass} onClick={() => phone && settings ? setOpen(true) : go("contact", product.id)}><span>Se renseigner</span></button>}
+        <button type="button" className={actionClass} disabled={!validOffer} onClick={() => setOpen(true)}><span>Réserver</span></button>
         <a href={productPath(product)} onClick={(event) => navigateLink(event, go, page, product.id, routeCategory)} aria-label={`Voir la fiche de ${product.name}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-black/25 text-[#171816] hover:bg-[#171816] hover:text-white dark:border-white/35 dark:text-white dark:hover:bg-white dark:hover:text-[#171816]"><FontAwesomeIcon icon={faArrowUpRightFromSquare} aria-hidden="true" /></a>
       </div>
     </div>
-    {open && phone && settings && <WhatsappDialog settings={settings} product={product} phone={phone} offerSite onSite={() => go("contact", product.id)} onClose={close} />}
+    {open && offer && validOffer && <PromotionReservationDialog product={product} campaign={campaign} offer={offer} canWhatsapp={!!phone} messageTemplate={settings?.texts.directTemplate} onClose={close} />}
   </article>;
 }

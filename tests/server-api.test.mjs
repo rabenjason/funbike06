@@ -33,7 +33,8 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     const res = await fetch(base + path, { method, headers, body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined });
     const setCookie = res.headers.get('set-cookie'); if (setCookie) cookie = setCookie.split(';')[0];
-    return { status: res.status, body: await res.json() };
+    const text = await res.text(); let parsed; try { parsed = JSON.parse(text); } catch { throw new Error(`Réponse non JSON de ${path} (${res.status}) : ${text.slice(0, 2000)}`); }
+    return { status: res.status, body: parsed };
   }
   try {
     let ready = false;
@@ -220,6 +221,49 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     let promo = await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign } });
     assert.equal(promo.status, 201, JSON.stringify(promo.body));
     const promoId = promo.body.campaign.id;
+    // Réservations : écriture publique contrôlée, données privées, instantané fiable.
+    const reservationFile = join(serverDir, 'storage/private/promotion-reservations.json');
+    const reservationCookie = cookie;
+    assert.equal((await call('promotion-reservations.php')).status, 401);
+    assert.equal((await call('promotion-reservations.php', { method: 'PUT', body: {} })).status, 401);
+    assert.equal((await call('promotion-reservations.php', { method: 'DELETE', body: { ids: [] } })).status, 401);
+    cookie = reservationCookie;
+    const requestBody = { source: 'form', campaignId: promoId, productId: promoProduct.id, categoryId: 'motos', originalPrice: 1000000, discountPercent: 20, name: 'Jean Rakoto', phone: '0341234567', city: 'Antananarivo', quantity: 2, message: 'Une demande' };
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, originalPrice: 1 } })).status, 409);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, phone: 'incorrect' } })).status, 400);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, source: 'whatsapp' } })).status, 409);
+    assert.equal(existsSync(reservationFile), false);
+    const reserved = await call('promotion-reservations.php', { method: 'POST', body: requestBody });
+    assert.equal(reserved.status, 201, JSON.stringify(reserved.body)); assert.match(reserved.body.id, /^[a-f0-9]{32}$/);
+    assert.equal(reserved.body.promotion.promotionalPrice, 800000); assert.equal(reserved.body.customer, undefined); assert.equal(reserved.body.internalNotes, undefined);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/server/storage/private/promotion-reservations.json`)).status, 404);
+    const initialWhatsapp = await call('whatsapp-settings.php?admin=1', { authenticated: true });
+    const whatsappSettings = initialWhatsapp.body.data;
+    whatsappSettings.enabled = true;
+    whatsappSettings.sales = { activeId: 'commercial', people: [{ id: 'commercial', name: 'Commercial', phone: '+261 34 00 111 11' }] };
+    whatsappSettings.parts = { activeId: 'pieces', people: [{ id: 'pieces', name: 'Pièces', phone: '+261 34 00 333 33' }] };
+    assert.equal((await call('whatsapp-settings.php', { method: 'PUT', authenticated: true, body: { data: whatsappSettings, revision: initialWhatsapp.body.revision } })).status, 200);
+    const initiated = await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, source: 'whatsapp', name: '', phone: '', city: '' } });
+    assert.equal(initiated.status, 201, JSON.stringify(initiated.body)); assert.equal(initiated.body.phone, '+261 34 00 111 11');
+    assert.equal((await call('promotion-reservations.php?count=unread', { authenticated: true })).body.unreadCount, 2);
+    const list = await call('promotion-reservations.php', { authenticated: true }); assert.equal(list.status, 200); assert.equal(list.body.reservations.length, 2);
+    const first = list.body.reservations.find(r => r.id === reserved.body.id), second = list.body.reservations.find(r => r.id === initiated.body.id);
+    assert.equal(first.status, 'new'); assert.equal(first.customer.name, 'Jean Rakoto'); assert.equal(second.status, 'whatsapp_initiated');
+    const changed = await call('promotion-reservations.php', { method: 'PUT', authenticated: true, body: { id: first.id, revision: first.revision, status: 'confirmed', customer: first.customer, internalNotes: 'Note privée' } });
+    assert.equal(changed.status, 200, JSON.stringify(changed.body)); assert.equal(changed.body.reservation.internalNotes, 'Note privée');
+    assert.equal((await call('promotion-reservations.php?count=unread', { authenticated: true })).body.unreadCount, 1);
+    assert.equal((await call('promotion-reservations.php', { method: 'PUT', authenticated: true, body: { id: first.id, revision: first.revision, status: 'contacted', customer: first.customer, internalNotes: '' } })).status, 409);
+    assert.equal((await call('promotion-reservations.php', { method: 'DELETE', authenticated: true, body: { ids: [first.id, 'invalid'] } })).status, 400);
+    assert.equal((await call('promotion-reservations.php', { method: 'DELETE', authenticated: true, body: { ids: [first.id, second.id] } })).body.deleted, 2);
+    assert.equal((await call('promotion-reservations.php?count=unread', { authenticated: true })).body.unreadCount, 0);
+    const untrustedReservation = await fetch(base + 'promotion-reservations.php', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://malicious.invalid' }, body: JSON.stringify(requestBody) });
+    assert.equal(untrustedReservation.status, 403);
+    for (let n = 0; n < 8; n++) assert.equal((await call('promotion-reservations.php', { method: 'POST', body: requestBody })).status, 201);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: requestBody })).status, 429);
+    const beforeCorruption = readFileSync(reservationFile, 'utf8'); const corrupt = '{invalid'; writeFileSync(reservationFile, corrupt);
+    assert.equal((await call('promotion-reservations.php', { authenticated: true })).status, 500);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: requestBody })).status, 500);
+    assert.equal(readFileSync(reservationFile, 'utf8'), corrupt, 'les données invalides ne sont pas écrasées'); writeFileSync(reservationFile, beforeCorruption);
     // Préférence globale indépendante : lecture sans écriture, accès admin, validation et conflits.
     const displayFile = join(serverDir, 'storage/data/promotions-display.json');
     assert.equal(existsSync(displayFile), false);
