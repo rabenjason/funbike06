@@ -23,6 +23,7 @@ import PartnerMarquee from "../components/PartnerMarquee";
 import NewArrivals from "../components/NewArrivals";
 import TypedText from "../components/TypedText";
 import HeroImage from "../components/HeroImage";
+import { HomePromotionSign } from "../components/HomePromotionSign";
 
 const brandName = (product: Product) => brands.find((brand) => brand.id === product.brandId)?.name ?? "Marque non renseignée";
 
@@ -84,6 +85,7 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
               {homepageContent.hero.sloganPrefix}&nbsp;
               <TypedText strings={[...homepageContent.hero.usages]} className="font-semibold text-[#ffd100]" />
             </p>
+            <HomePromotionSign go={go} />
           </motion.div>
 
           {/* Buttons — mobile: full-width, stacked, anchored at the bottom (chat sits right above) */}

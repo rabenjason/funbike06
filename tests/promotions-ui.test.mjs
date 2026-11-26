@@ -189,7 +189,7 @@ test('dashboard : choix global enregistré sans modifier les campagnes', async (
     requests.push({ url: String(url), options });
     if (String(url).endsWith('promotions-display.php')) {
       if (options.method === 'PUT') { const body = JSON.parse(options.body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '' }, revision }) };
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '', homeSignEnabled: true, homeSignText: 'Promotions disponibles !' }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -463,7 +463,7 @@ test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé ap
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).endsWith('promotions-display.php')) {
       if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '' }, revision }) };
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription, originalPriceColor: '', homeSignEnabled: true, homeSignText: 'Promotions disponibles !' }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -476,7 +476,7 @@ test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé ap
   fireEvent.change(select, { target: { value: 'tous' } });
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
-  assert.deepEqual(writes, [{ preferredCategory: 'tous', showCardDescription: false, originalPriceColor: '', revision: 'r1' }]);
+  assert.deepEqual(writes, [{ preferredCategory: 'tous', showCardDescription: false, originalPriceColor: '', homeSignEnabled: true, homeSignText: 'Promotions disponibles !', revision: 'r1' }]);
   view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'tous'));
   assert.equal(writes.length, 1);
@@ -614,7 +614,7 @@ test('descriptions : réglage global, annulation et sauvegarde sans autre écrit
   const writes = [];
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).endsWith('promotions-display.php')) {
-      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); data = { preferredCategory: body.preferredCategory, showCardDescription: body.showCardDescription, originalPriceColor: body.originalPriceColor }; revision = 'r2'; }
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); data = { preferredCategory: body.preferredCategory, showCardDescription: body.showCardDescription, originalPriceColor: body.originalPriceColor, homeSignEnabled: body.homeSignEnabled, homeSignText: body.homeSignText }; revision = 'r2'; }
       return { ok: true, json: async () => ({ data, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
@@ -633,7 +633,7 @@ test('descriptions : réglage global, annulation et sauvegarde sans autre écrit
   fireEvent.change(view.getByLabelText('Couleur du prix barré'), { target: { value: '#ff0000' } });
   fireEvent.click(view.getByLabelText(label)); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
-  assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, originalPriceColor: '#ff0000', revision: 'r1' }]);
+  assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, originalPriceColor: '#ff0000', homeSignEnabled: true, homeSignText: 'Promotions disponibles !', revision: 'r1' }]);
   await waitFor(() => assert.equal(dirty, false)); view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText(label).checked, true));
   assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'equipements'); assert.equal(view.getByLabelText('Couleur du prix barré').value, '#ff0000'); assert.equal(writes.length, 1);
@@ -872,4 +872,51 @@ test('Promotions : pas de squelette infini si chargement vide ou en erreur', asy
   view.unmount(); globalThis.fetch = async () => { throw new Error('réseau'); };
   view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
   await view.findByRole('alert'); assert.equal(view.queryByRole('status', { name: 'Chargement des promotions' }), null);
+});
+
+
+test('accueil : panneau disponible seulement avec promotions actives et réglage actif, navigation normale', async () => {
+  const { HomePromotionSign } = await server.ssrLoadModule('/src/components/HomePromotionSign.tsx');
+  const p = catalog.motorcycles[0];
+  const campaign = { id: 'panel', name: 'Offre', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [{ productId: p.id, categoryId: p.categoryId, originalPrice: 1000, discountPercent: 10 }] };
+  let enabled = true, available = true, requests = 0, text = 'Profitez des offres !';
+  globalThis.fetch = async () => { requests++; return { ok: true, json: async () => ({ campaigns: available ? [campaign] : [], homeSignEnabled: enabled, homeSignText: text, serverTime: new Date().toISOString() }) }; };
+  const calls = []; const view = render(React.createElement(Provider, null, React.createElement(HomePromotionSign, { go: (...args) => calls.push(args) })));
+  const sign = await view.findByRole('link', { name: 'Profitez des offres ! — Voir les promotions' });
+  assert.equal(sign.getAttribute('href'), '/promotions'); assert.equal(requests, 1);
+  fireEvent.click(sign, { ctrlKey: true }); assert.equal(calls.length, 0);
+  fireEvent.click(sign); assert.deepEqual(calls, [['promotions', undefined, undefined]]);
+  enabled = false; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.ok(!view.queryByRole('link', { name: /Voir les promotions/ })));
+  enabled = true; available = false; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => assert.equal(requests, 3)); assert.ok(!view.queryByRole('link', { name: /Voir les promotions/ }));
+  available = true; text = 'Nouvelles offres'; fireEvent(document, new window.Event('visibilitychange'));
+  await view.findByRole('link', { name: 'Nouvelles offres — Voir les promotions' });
+  const css = readFileSync('src/styles/home-promotion-sign.css', 'utf8');
+  assert.match(css, /prefers-reduced-motion:\s*reduce/); assert.match(css, /animation:\s*none/);
+  assert.doesNotMatch(css, /position:\s*fixed/);
+});
+
+test('admin : texte et activation du panneau, annulation et validation', async () => {
+  let data = { preferredCategory: 'motos', showCardDescription: false, originalPriceColor: '', homeSignEnabled: true, homeSignText: 'Promotions disponibles !' }; let writes = [];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('promotions-display.php')) {
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); const { revision: _, ...newData } = body; data = newData; }
+      return { ok: true, json: async () => ({ data, revision: 'rev' }) };
+    }
+    return { ok: true, json: async () => ({ campaigns: [] }) };
+  };
+  const catalog = { products: [], brands: [], categories: [], families: [], types: [], models: [] };
+  const view = render(React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotions, { catalog, onDirtyChange() {}, onSavingChange() {}, productEditor: () => null })));
+  await view.findByLabelText('Texte du panneau');
+  fireEvent.click(view.getByLabelText('Afficher le panneau sur l’accueil'));
+  fireEvent.change(view.getByLabelText('Texte du panneau'), { target: { value: 'Nos bonnes affaires !' } });
+  assert.equal(view.getByText('Nos bonnes affaires !').tagName, 'STRONG');
+  fireEvent.click(view.getByRole('button', { name: 'Annuler' }));
+  assert.equal(view.getByLabelText('Afficher le panneau sur l’accueil').checked, true); assert.equal(view.getByLabelText('Texte du panneau').value, 'Promotions disponibles !');
+  fireEvent.change(view.getByLabelText('Texte du panneau'), { target: { value: '   ' } });
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' })); assert.match(view.getByRole('alert').textContent, /1 à 100 caractères/); assert.equal(writes.length, 0);
+  fireEvent.change(view.getByLabelText('Texte du panneau'), { target: { value: 'Nos bonnes affaires !' } });
+  fireEvent.click(view.getByLabelText('Afficher le panneau sur l’accueil')); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
+  await view.findByText('Affichage enregistré.'); assert.equal(writes.length, 1); assert.equal(data.homeSignText, 'Nos bonnes affaires !'); assert.equal(data.homeSignEnabled, false);
 });

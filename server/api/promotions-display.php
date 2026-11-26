@@ -20,7 +20,10 @@ if (!is_bool($showDescription)) funbikeJsonResponse(400, ['error' => 'Réglage d
 // Les anciens clients conservent également la couleur enregistrée.
 $priceColor = array_key_exists('originalPriceColor', $body) ? $body['originalPriceColor'] : $current['originalPriceColor'];
 if (!is_string($priceColor) || !preg_match('/^(?:|#[0-9a-fA-F]{6})$/D', $priceColor)) funbikeJsonResponse(400, ['error' => 'Couleur du prix barré invalide.']);
-$data = ['preferredCategory' => $category, 'showCardDescription' => $showDescription, 'originalPriceColor' => $priceColor];
+$signEnabled = array_key_exists('homeSignEnabled', $body) ? $body['homeSignEnabled'] : $current['homeSignEnabled'];
+$signText = array_key_exists('homeSignText', $body) ? $body['homeSignText'] : $current['homeSignText'];
+if (!is_bool($signEnabled) || !funbikeHomePromotionTextValid($signText)) funbikeJsonResponse(400, ['error' => 'Réglage du panneau de promotion invalide.']);
+$data = ['preferredCategory' => $category, 'showCardDescription' => $showDescription, 'originalPriceColor' => $priceColor, 'homeSignEnabled' => $signEnabled, 'homeSignText' => trim($signText)];
 $file = dirname(__DIR__) . '/storage/data/promotions-display.json';
 if (!funbikeAtomicWrite($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le réglage.']);
 funbikeJsonResponse(200, ['data' => $data, 'revision' => funbikePromotionDisplayRevision($data)]);

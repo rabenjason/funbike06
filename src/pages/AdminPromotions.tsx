@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminCatalog } from "./AdminCatalog";
 import type { Product } from "../types/product";
-import { defaultPromotionAppearance, isPromotionAppearance, isPromotionCategory, isPromotionPriceColor, type PromotionAppearance, type PromotionCategory, type Promotion } from "../lib/promotions";
+import { defaultPromotionAppearance, isPromotionAppearance, isPromotionCategory, isPromotionPriceColor, isHomeSignText, defaultHomeSignText, type PromotionAppearance, type PromotionCategory, type Promotion } from "../lib/promotions";
+import { HomePromotionSignVisual } from "../components/HomePromotionSign";
 import { PromotionCampaignHeader } from "../components/PromotionCampaignHeader";
 import { request, json } from "../lib/adminApi";
 import { optimizeProductImage, photoOptimizationMessage } from "../lib/optimizeProductImage";
@@ -26,10 +27,12 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   const [savedShowCardDescription, setSavedShowCardDescription] = useState(false);
   const [originalPriceColor, setOriginalPriceColor] = useState("");
   const [savedOriginalPriceColor, setSavedOriginalPriceColor] = useState("");
+  const [homeSignEnabled, setHomeSignEnabled] = useState(true); const [savedHomeSignEnabled, setSavedHomeSignEnabled] = useState(true);
+  const [homeSignText, setHomeSignText] = useState(defaultHomeSignText); const [savedHomeSignText, setSavedHomeSignText] = useState(defaultHomeSignText);
   const [displayRevision, setDisplayRevision] = useState("");
   const [displayError, setDisplayError] = useState("");
   const [displayNotice, setDisplayNotice] = useState("");
-  const displayDirty = !!displayRevision && (preferred !== savedPreferred || showCardDescription !== savedShowCardDescription || originalPriceColor !== savedOriginalPriceColor);
+  const displayDirty = !!displayRevision && (preferred !== savedPreferred || showCardDescription !== savedShowCardDescription || originalPriceColor !== savedOriginalPriceColor || homeSignEnabled !== savedHomeSignEnabled || homeSignText !== savedHomeSignText);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const [imageStatus, setImageStatus] = useState("");
   const uploadController = useRef<AbortController | null>(null);
@@ -41,16 +44,17 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
       const result = await request("promotions-display.php");
       if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.revision !== "string") throw new Error("Réponse de réglage invalide.");
       setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory);
-      setShowCardDescription(result.data.showCardDescription === true); setSavedShowCardDescription(result.data.showCardDescription === true); const color = isPromotionPriceColor(result.data.originalPriceColor) ? result.data.originalPriceColor : ""; setOriginalPriceColor(color); setSavedOriginalPriceColor(color); setDisplayRevision(result.revision);
+      setShowCardDescription(result.data.showCardDescription === true); setSavedShowCardDescription(result.data.showCardDescription === true); const color = isPromotionPriceColor(result.data.originalPriceColor) ? result.data.originalPriceColor : ""; setOriginalPriceColor(color); setSavedOriginalPriceColor(color); const enabled = result.data.homeSignEnabled !== false; const text = isHomeSignText(result.data.homeSignText) ? result.data.homeSignText : defaultHomeSignText; setHomeSignEnabled(enabled); setSavedHomeSignEnabled(enabled); setHomeSignText(text); setSavedHomeSignText(text); setDisplayRevision(result.revision);
     } catch (err) { setDisplayError((err as Error).message); }
   }
   async function saveDisplay() {
     if (!displayRevision || busy) return;
+    if (!isHomeSignText(homeSignText)) { setDisplayError("Saisissez un texte de 1 à 100 caractères pour le panneau."); return; }
     setBusy(true); setDisplayError(""); setDisplayNotice("");
     try {
-      const result = await request("promotions-display.php", json("PUT", { preferredCategory: preferred, showCardDescription, originalPriceColor, revision: displayRevision }));
-      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.data?.showCardDescription !== "boolean" || !isPromotionPriceColor(result.data?.originalPriceColor) || typeof result.revision !== "string") throw new Error("Réponse invalide. Rechargez pour vérifier l’enregistrement.");
-      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setShowCardDescription(result.data.showCardDescription); setSavedShowCardDescription(result.data.showCardDescription); setOriginalPriceColor(result.data.originalPriceColor); setSavedOriginalPriceColor(result.data.originalPriceColor); setDisplayRevision(result.revision); setDisplayNotice("Affichage enregistré.");
+      const result = await request("promotions-display.php", json("PUT", { preferredCategory: preferred, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText: homeSignText.trim(), revision: displayRevision }));
+      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.data?.showCardDescription !== "boolean" || !isPromotionPriceColor(result.data?.originalPriceColor) || typeof result.data?.homeSignEnabled !== "boolean" || !isHomeSignText(result.data?.homeSignText) || typeof result.revision !== "string") throw new Error("Réponse invalide. Rechargez pour vérifier l’enregistrement.");
+      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setShowCardDescription(result.data.showCardDescription); setSavedShowCardDescription(result.data.showCardDescription); setOriginalPriceColor(result.data.originalPriceColor); setSavedOriginalPriceColor(result.data.originalPriceColor); setHomeSignEnabled(result.data.homeSignEnabled); setSavedHomeSignEnabled(result.data.homeSignEnabled); setHomeSignText(result.data.homeSignText); setSavedHomeSignText(result.data.homeSignText); setDisplayRevision(result.revision); setDisplayNotice("Affichage enregistré.");
     } catch (err) { setDisplayError((err as Error).message); } finally { setBusy(false); }
   }
   useEffect(() => { void load(); void loadDisplay(); }, []);
@@ -104,10 +108,16 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
     {loaded && !draft && <div className="rounded-lg bg-white p-4">
       <h2 className="font-bold">Affichage de la page Promotions</h2>
       <p className="mt-1 text-sm text-black/60">Choisissez la catégorie affichée en premier pour toutes les campagnes. Si elle est vide, une catégorie disponible sera affichée.</p>
-      {displayRevision && <div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm font-semibold">Catégorie affichée en premier<select disabled={busy} className={input} value={preferred} onChange={(e) => { const value = e.target.value; if (isPromotionCategory(value)) setPreferred(value); setDisplayNotice(""); }}><option value="tous">Tous</option><option value="motos">Motos</option><option value="equipements">Équipements et casques</option><option value="pieces">Pièces détachées</option></select></label><button type="button" className={primary} disabled={!displayDirty || busy} onClick={() => void saveDisplay()}>Enregistrer l’affichage</button>{displayDirty && <button type="button" className={button} disabled={busy} onClick={() => { setPreferred(savedPreferred); setShowCardDescription(savedShowCardDescription); setOriginalPriceColor(savedOriginalPriceColor); setDisplayError(""); }}>Annuler</button>}</div>}
+      {displayRevision && <div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm font-semibold">Catégorie affichée en premier<select disabled={busy} className={input} value={preferred} onChange={(e) => { const value = e.target.value; if (isPromotionCategory(value)) setPreferred(value); setDisplayNotice(""); }}><option value="tous">Tous</option><option value="motos">Motos</option><option value="equipements">Équipements et casques</option><option value="pieces">Pièces détachées</option></select></label><button type="button" className={primary} disabled={!displayDirty || busy} onClick={() => void saveDisplay()}>Enregistrer l’affichage</button>{displayDirty && <button type="button" className={button} disabled={busy} onClick={() => { setPreferred(savedPreferred); setShowCardDescription(savedShowCardDescription); setOriginalPriceColor(savedOriginalPriceColor); setHomeSignEnabled(savedHomeSignEnabled); setHomeSignText(savedHomeSignText); setDisplayError(""); }}>Annuler</button>}</div>}
       {displayRevision && <label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" disabled={busy} checked={showCardDescription} onChange={(e) => { setShowCardDescription(e.target.checked); setDisplayNotice(""); }} /> Afficher la description sur toutes les cartes Promotions</label>}
       <p className="mt-1 text-xs text-black/60">Ce réglage concerne toutes les catégories de la page Promotions, sans modifier les descriptions enregistrées ni les autres pages.</p>
       {displayRevision && <div className="mt-4 flex flex-wrap items-center gap-3"><label className="flex items-center gap-2 text-sm font-semibold">Couleur du prix barré<input aria-label="Couleur du prix barré" type="color" disabled={busy} value={originalPriceColor || "#808080"} onChange={(e) => { setOriginalPriceColor(e.target.value); setDisplayNotice(""); }} /></label><del style={originalPriceColor ? { color: originalPriceColor } : undefined} className="text-sm text-black/50">1 000 000 Ar</del><button type="button" className={button} disabled={busy || !originalPriceColor} onClick={() => { setOriginalPriceColor(""); setDisplayNotice(""); }}>Couleur par défaut</button><p className="text-xs text-black/60">Pour les cartes Promotions uniquement ; vérifiez la lisibilité en clair et en sombre.</p></div>}
+      {displayRevision && <div className="mt-5 border-t border-black/10 pt-4"><h3 className="font-bold">Panneau animé sur l’accueil</h3>
+        <label className="mt-3 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" disabled={busy} checked={homeSignEnabled} onChange={(e) => { setHomeSignEnabled(e.target.checked); setDisplayNotice(""); }} /> Afficher le panneau sur l’accueil</label>
+        <label className="mt-3 block max-w-lg text-sm font-semibold">Texte du panneau<input className={input} maxLength={100} disabled={busy} value={homeSignText} onChange={(e) => { setHomeSignText(e.target.value); setDisplayNotice(""); }} /></label>
+        <p className="mt-2 text-xs text-black/60">Il apparaît uniquement sur l’accueil lorsqu’une promotion est active et publiée. Le lien mène à la page Promotions, sans masquer les commandes.</p>
+        <div className="mt-3 rounded bg-[#20211e] p-3"><p className="text-xs text-white/70">Aperçu indicatif</p><div className="fb-home-promo"><HomePromotionSignVisual text={homeSignText || defaultHomeSignText} /></div></div>
+      </div>}
       {displayError && <p role="alert" className="mt-2 text-sm text-red-700">{displayError}{!displayRevision && <> <button type="button" className="underline" onClick={() => void loadDisplay()}>Réessayer</button></>}</p>}
       {displayNotice && <p role="status" className="mt-2 text-sm text-emerald-700">{displayNotice}</p>}
     </div>}
