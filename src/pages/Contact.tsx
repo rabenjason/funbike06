@@ -16,17 +16,19 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
-  const accessory = findProductById(inquiryId);
+  const inquiryProduct = findProductById(inquiryId);
   const socialLinks = CONTACT_SOCIAL_LINKS.filter((link) => {
     try { return !!link.label && link.label.trim().toLowerCase() !== "facebook" && !isFacebookUrl(link.url) && ["http:", "https:"].includes(new URL(link.url).protocol); } catch { return false; }
   });
   const whatsappDigits = (CONTACT_WHATSAPP ?? "").replace(/\D/g, "");
   const whatsappUrl = /^\d{8,15}$/.test(whatsappDigits) ? `https://wa.me/${whatsappDigits}` : null;
-  const inquirySubject = accessory?.brandId === "tvs"
-    ? "tvs-accessoires"
-    : accessory?.categoryId === "pieces-detachees"
-      ? "pieces"
-      : "";
+  const inquirySubject = inquiryProduct?.categoryId === "motos"
+    ? (["tvs", "fantic", "sherco"].includes(inquiryProduct.brandId) && hasBrand(inquiryProduct.brandId) ? inquiryProduct.brandId : "autres")
+    : inquiryProduct?.brandId === "tvs"
+      ? "tvs-accessoires"
+      : inquiryProduct?.categoryId === "pieces-detachees"
+        ? "pieces"
+        : "";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,8 +159,10 @@ export default function Contact({ inquiryId }: { inquiryId?: string }) {
               name="message"
               maxLength={2000}
               rows={4}
-              defaultValue={accessory
-                ? `Bonjour, je souhaiterais connaître le prix, la disponibilité et la compatibilité de : ${accessory.name}.`
+              defaultValue={inquiryProduct
+                ? inquiryProduct.categoryId === "motos"
+                  ? `Bonjour, je souhaiterais connaître le prix et la disponibilité de la moto : ${inquiryProduct.name}.`
+                  : `Bonjour, je souhaiterais connaître le prix, la disponibilité et la compatibilité de : ${inquiryProduct.name}.`
                 : ""}
               className="mt-1.5 w-full resize-y border-b border-black/20 bg-transparent py-2 text-sm text-[#171816] outline-none transition focus:border-[#98741b] dark:border-white/20 dark:text-[#f2f0ea] dark:focus:border-[#ffd100]"
             />
