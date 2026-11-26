@@ -22,3 +22,14 @@ test('dates valides et période inclusive à Madagascar', () => {
   assert.equal(rules.isPromotionActive({ ...p, enabled:false }, new Date('2026-12-01T12:00:00Z')), false);
   assert.equal(rules.isPromotionActive({ ...p, published:false }, new Date('2026-12-01T12:00:00Z')), false);
 });
+
+test('trois modes : prix manuel et pourcentage indépendant sans altérer les anciennes offres', () => {
+  const base = { productId: 'p', categoryId: 'motos', originalPrice: 86300, discountPercent: 39.75 };
+  assert.deepEqual(rules.resolvePromotionPrice(base), { reduction: 34304, finalPrice: 51996, showPercent: true });
+  const fixed = { ...base, pricingMode: 'price', promotionalPrice: 52000, discountPercent: 0 };
+  assert.deepEqual(rules.resolvePromotionPrice(fixed), { reduction: 34300, finalPrice: 52000, showPercent: false });
+  const manual = { ...fixed, pricingMode: 'price_percent', discountPercent: 40 };
+  assert.deepEqual(rules.resolvePromotionPrice(manual), { reduction: 34300, finalPrice: 52000, showPercent: true });
+  assert.equal(rules.resolvePromotionPrice({ ...manual, discountPercent: 39.75 }).finalPrice, 52000);
+  for (const bad of [{ ...fixed, promotionalPrice: 86300 }, { ...fixed, promotionalPrice: -1 }, { ...fixed, promotionalPrice: 2.5 }, { ...fixed, discountPercent: 20 }, { ...manual, discountPercent: 101 }, { ...manual, pricingMode: 'inconnu' }]) assert.throws(() => rules.resolvePromotionPrice(bad), RangeError);
+});

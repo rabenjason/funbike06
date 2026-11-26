@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AdminCatalog } from "./AdminCatalog";
 import type { Product } from "../types/product";
-import { calculatePromotionPrice, formatAriary, type PromotionProduct } from "../lib/promotions";
+import { resolvePromotionPrice, formatAriary, type PromotionProduct } from "../lib/promotions";
 import { useConfirmation } from "../components/ConfirmationModal";
 
 const input = "mt-1 w-full rounded-md border border-black/20 bg-white px-3 py-2 text-sm";
@@ -31,8 +31,8 @@ export function PromotionProducts({ catalog, items, onChange, onCreate }: { cata
   const confirm = useConfirmation();
   const brandName = (product: Product) => catalog.brands.find((brand) => brand.id === product.brandId)?.name ?? product.brandId;
   const categoryName = (id: string) => catalog.categories.find((value) => value.id === id)?.name ?? id;
-  const matches = quickSearch.trim() ? catalog.products.filter((product) => normalize(`${product.name} ${brandName(product)}`).includes(normalize(quickSearch.trim()))).slice(0, 40) : [];
-  const list = catalog.products.filter((product) => {
+  const matches = useMemo(() => quickSearch.trim() ? catalog.products.filter((product) => normalize(`${product.name} ${brandName(product)}`).includes(normalize(quickSearch.trim()))).slice(0, 40) : [], [catalog.products, catalog.brands, quickSearch]);
+  const list = useMemo(() => catalog.products.filter((product) => {
     const value = normalize(`${product.name} ${product.id} ${brandName(product)} ${categoryName(product.categoryId)}`);
     return (!category || product.categoryId === category) && normalize(query).trim().split(/\s+/).filter(Boolean).every((word) => value.includes(word));
   }).slice().sort((a, b) => {
@@ -40,14 +40,14 @@ export function PromotionProducts({ catalog, items, onChange, onCreate }: { cata
     if (sort === "name-desc") return -name || a.id.localeCompare(b.id);
     if (sort === "brand") return brandName(a).localeCompare(brandName(b), "fr", { sensitivity: "base" }) || name || a.id.localeCompare(b.id);
     return name || a.id.localeCompare(b.id);
-  });
+  }), [catalog.products, catalog.brands, catalog.categories, query, category, sort]);
   const listCurrent = Math.min(listPage, Math.max(1, Math.ceil(list.length / pageSize)));
   const selectedCurrent = Math.min(selectedPage, Math.max(1, Math.ceil(items.length / pageSize)));
-  const categories = [...new Set(catalog.products.map((product) => product.categoryId))].sort((a, b) => categoryName(a).localeCompare(categoryName(b), "fr"));
+  const categories = useMemo(() => [...new Set(catalog.products.map((product) => product.categoryId))].sort((a, b) => categoryName(a).localeCompare(categoryName(b), "fr")), [catalog.products, catalog.categories]);
   useEffect(() => { setSelectedPage((page) => Math.min(page, Math.max(1, Math.ceil(items.length / pageSize)))); }, [items.length]);
   useEffect(() => { setListPage((page) => Math.min(page, Math.max(1, Math.ceil(list.length / pageSize)))); }, [list.length]);
   const firstInvalid = items.findIndex((item) => {
-    try { calculatePromotionPrice(item.originalPrice, item.discountPercent); return false; } catch { return true; }
+    try { resolvePromotionPrice(item); return false; } catch { return true; }
   });
   function add(product: Product) {
     if (items.some((item) => same(item, product))) { setQuickSearch(""); return; }
@@ -66,12 +66,28 @@ export function PromotionProducts({ catalog, items, onChange, onCreate }: { cata
     }
   }
   function priceEditor(item: PromotionProduct) {
-    let calculation: ReturnType<typeof calculatePromotionPrice> | undefined;
-    try { calculation = calculatePromotionPrice(item.originalPrice, item.discountPercent); } catch { /* champ invalide */ }
+    let calculation: ReturnType<typeof resolvePromotionPrice> | undefined;
+    try { calculation = resolvePromotionPrice(item); } catch { /* champ invalide */ }
+    const mode = item.pricingMode ?? "percent";
     const change = (patch: Partial<PromotionProduct>) => onChange(items.map((value) => value.productId === item.productId && value.categoryId === item.categoryId ? { ...value, ...patch } : value));
-    return <><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Prix original (Ar)<input type="number" min="1" max="1000000000000" step="1" className={input} value={Number.isFinite(item.originalPrice) ? item.originalPrice : ''} onChange={(event) => change({ originalPrice: event.target.value === '' ? NaN : Number(event.target.value) })} /></label><label className="text-xs font-semibold">Réduction (%)<input type="number" min="0.01" max="100" step="0.01" className={input} value={Number.isFinite(item.discountPercent) ? item.discountPercent : ''} onChange={(event) => change({ discountPercent: event.target.value === '' ? NaN : Number(event.target.value) })} /></label></div>
-      <p className="mt-2 text-sm">{calculation ? <>Réduction : {formatAriary(calculation.reduction)} · Prix promotionnel : <strong>{formatAriary(calculation.finalPrice)}</strong> · −{item.discountPercent} %</> : 'Renseignez un prix et une réduction valides.'}</p></>;
+    function changeMode(next: "percent" | "price" | "price_percent") {
+      const initialPrice = calculation?.finalPrice ?? item.promotionalPrice ?? NaN;
+      if (next === "percent") {
+        const { pricingMode: _mode, promotionalPrice: _price, ...rest } = item;
+        onChange(items.map((value) => value.productId === item.productId && value.categoryId === item.categoryId ? { ...rest, pricingMode: "percent", discountPercent: item.discountPercent > 0 ? item.discountPercent : NaN } : value));
+      } else {
+        change({ pricingMode: next, promotionalPrice: initialPrice, discountPercent: next === "price" ? 0 : item.discountPercent > 0 ? item.discountPercent : NaN });
+      }
+    }
+    const percentFromPrices = Number.isSafeInteger(item.originalPrice) && item.originalPrice > 0 && Number.isSafeInteger(item.promotionalPrice) && item.promotionalPrice! >= 0 && item.promotionalPrice! < item.originalPrice ? Math.round((item.originalPrice - item.promotionalPrice!) / item.originalPrice * 10000) / 100 : NaN;
+    return <><label className="mt-3 block text-xs font-semibold">Type de promotion<select className={input} value={mode} onChange={(event) => changeMode(event.target.value as "percent" | "price" | "price_percent")}><option value="percent">Pourcentage : prix calculé</option><option value="price">Prix réduit sans pourcentage</option><option value="price_percent">Prix réduit et pourcentage personnalisés</option></select></label>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs font-semibold">Prix original (Ar)<input type="number" min="1" max="1000000000000" step="1" className={input} value={Number.isFinite(item.originalPrice) ? item.originalPrice : ''} onChange={(event) => change({ originalPrice: event.target.value === '' ? NaN : Number(event.target.value) })} /></label>
+      {mode !== "percent" && <label className="text-xs font-semibold">Prix promotionnel (Ar)<input type="number" min="0" max="999999999999" step="1" className={input} value={Number.isFinite(item.promotionalPrice) ? item.promotionalPrice : ''} onChange={(event) => change({ promotionalPrice: event.target.value === '' ? NaN : Number(event.target.value) })} /></label>}
+      {mode !== "price" && <label className="text-xs font-semibold">{mode === "percent" ? "Réduction (%)" : "Pourcentage affiché (%)"}<input type="number" min="0.01" max="100" step="0.01" className={input} value={Number.isFinite(item.discountPercent) ? item.discountPercent : ''} onChange={(event) => change({ discountPercent: event.target.value === '' ? NaN : Number(event.target.value) })} /></label>}</div>
+      {mode === "price_percent" && <p className="mt-2 text-xs text-black/60">Le prix réduit et le pourcentage affiché sont indépendants. <button type="button" className="font-semibold underline disabled:opacity-50" disabled={!Number.isFinite(percentFromPrices) || percentFromPrices <= 0} onClick={() => change({ discountPercent: percentFromPrices })}>Calculer le pourcentage à partir des prix</button></p>}
+      <p className="mt-2 text-sm">{calculation ? <>Réduction : {formatAriary(calculation.reduction)} · Prix promotionnel : <strong>{formatAriary(calculation.finalPrice)}</strong>{calculation.showPercent && <> · −{item.discountPercent} %</>}</> : 'Renseignez un prix et une réduction valides.'}</p></>;
   }
+
   return <div className="rounded-lg bg-white p-5"><h2 className="font-bold">Produits de la promotion</h2><p className="mt-1 text-xs text-black/60">Seuls les produits publiés et les marques visibles apparaissent sur le site. Le prix de la promotion ne modifie pas la fiche du catalogue.</p>
     <div className="mt-4 flex flex-wrap gap-2" aria-label="Gestion des produits de la promotion"><button type="button" aria-pressed={tab === "selected"} className={tab === "selected" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : button} onClick={() => setTab("selected")}>Produits sélectionnés ({items.length})</button><button type="button" aria-pressed={tab === "list"} className={tab === "list" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : button} onClick={() => setTab("list")}>Liste des produits</button><button type="button" className={button} onClick={onCreate}>Créer un produit</button></div>
     {limitError && <p role="alert" className="mt-2 text-sm text-red-700">{limitError}</p>}

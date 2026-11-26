@@ -230,8 +230,29 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     let promo = await call('promotions.php', { method: 'POST', authenticated: true, body: { campaign } });
     assert.equal(promo.status, 201, JSON.stringify(promo.body));
     const promoId = promo.body.campaign.id;
-    // Réservations : écriture publique contrôlée, données privées, instantané fiable.
+    // Prix imposé et pourcentage affiché restent indépendants jusqu'à la réservation.
     const reservationFile = join(serverDir, 'storage/private/promotion-reservations.json');
+    const savedCampaign = promo.body.campaign;
+    const fixedItem = { ...savedCampaign.products[0], originalPrice: 86300, pricingMode: 'price', promotionalPrice: 52000, discountPercent: 0 };
+    const updateCampaign = async (item) => call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...savedCampaign, products: [item] } } });
+    for (const invalid of [{ ...fixedItem, promotionalPrice: 86300 }, { ...fixedItem, promotionalPrice: -1 }, { ...fixedItem, promotionalPrice: 52000.5 }, { ...fixedItem, pricingMode: 'price_percent', discountPercent: 101 }, { ...fixedItem, pricingMode: 'incorrect' }]) assert.equal((await updateCampaign(invalid)).status, 400);
+    assert.equal((await updateCampaign(fixedItem)).status, 200);
+    assert.equal((await call('promotions.php')).body.campaigns[0].products[0].promotionalPrice, 52000);
+    const manualBody = { source: 'form', campaignId: promoId, productId: promoProduct.id, categoryId: 'motos', originalPrice: 86300, discountPercent: 0, pricingMode: 'price', promotionalPrice: 52000, name: 'Jean', phone: '0341234567', city: 'Tana', quantity: 1 };
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...manualBody, promotionalPrice: 51996 } })).status, 409);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...manualBody, pricingMode: undefined } })).status, 409);
+    const fixedReservation = await call('promotion-reservations.php', { method: 'POST', body: manualBody });
+    assert.equal(fixedReservation.status, 201, JSON.stringify(fixedReservation.body)); assert.equal(fixedReservation.body.promotion.promotionalPrice, 52000); assert.equal(fixedReservation.body.promotion.pricingMode, 'price');
+    assert.equal((await updateCampaign({ ...savedCampaign.products[0], originalPrice: 86300, discountPercent: 40 })).status, 409, 'ancien client ne convertit pas une offre manuelle');
+    const rounded = { ...fixedItem, pricingMode: 'price_percent', discountPercent: 40 };
+    assert.equal((await updateCampaign(rounded)).status, 200);
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: manualBody })).status, 409);
+    const manualReservation = await call('promotion-reservations.php', { method: 'POST', body: { ...manualBody, pricingMode: 'price_percent', discountPercent: 40 } });
+    assert.equal(manualReservation.status, 201); assert.equal(manualReservation.body.promotion.promotionalPrice, 52000); assert.equal(manualReservation.body.promotion.discountPercent, 40);
+    assert.equal((await updateCampaign({ ...savedCampaign.products[0], pricingMode: 'percent' })).status, 200, 'changement explicite au mode historique');
+    assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...manualBody, pricingMode: 'price_percent', discountPercent: 40 } })).status, 409);
+    const resetFixture = JSON.parse(readFileSync(reservationFile, 'utf8')); resetFixture.reservations = []; resetFixture.limits = {}; writeFileSync(reservationFile, JSON.stringify(resetFixture)); // fixture isolée
+    // Réservations : écriture publique contrôlée, données privées, instantané fiable.
     const reservationCookie = cookie;
     assert.equal((await call('promotion-reservations.php')).status, 401);
     assert.equal((await call('promotion-reservations.php', { method: 'PUT', body: {} })).status, 401);
@@ -241,7 +262,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, originalPrice: 1 } })).status, 409);
     assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, phone: 'incorrect' } })).status, 400);
     assert.equal((await call('promotion-reservations.php', { method: 'POST', body: { ...requestBody, source: 'whatsapp' } })).status, 409);
-    assert.equal(existsSync(reservationFile), false);
+    assert.equal(JSON.parse(readFileSync(reservationFile, 'utf8')).reservations.length, 0);
     const reserved = await call('promotion-reservations.php', { method: 'POST', body: requestBody });
     assert.equal(reserved.status, 201, JSON.stringify(reserved.body)); assert.match(reserved.body.id, /^[a-f0-9]{32}$/);
     assert.equal(reserved.body.promotion.promotionalPrice, 800000); assert.equal(reserved.body.phone, null); assert.equal(reserved.body.customer, undefined); assert.equal(reserved.body.internalNotes, undefined);

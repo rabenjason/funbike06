@@ -3,19 +3,19 @@ import { createPortal } from "react-dom";
 import { brands, mainProductImage } from "../catalog";
 import type { Product } from "../types/product";
 import type { Promotion, PromotionProduct } from "../lib/promotions";
-import { calculatePromotionPrice, formatAriary } from "../lib/promotions";
+import { resolvePromotionPrice, formatAriary } from "../lib/promotions";
 import { productPath } from "../lib/routes";
 import { WhatsAppIcon } from "./Whatsapp";
 import "../styles/promotion-reservation.css";
 
-type Saved = { id: string; phone: string | null; product: { name: string; brand: string; path: string }; promotion: { name: string; originalPrice: number; promotionalPrice: number; discountPercent: number } };
+type Saved = { id: string; phone: string | null; product: { name: string; brand: string; path: string }; promotion: { name: string; originalPrice: number; promotionalPrice: number; discountPercent: number; pricingMode?: "percent" | "price" | "price_percent" } };
 type FormDetails = { name: string; phone: string; city: string; quantity: number; message: string };
 function buildWhatsappUrl(saved: Saved, template?: string, details?: FormDetails): string {
   const p = saved.promotion; const item = saved.product;
   const link = new URL(item.path, window.location.origin).href;
   const introduction = (template || 'Bonjour FUNBIKE, je souhaite me renseigner sur {produit}.\n{lien}').replace(/\{produit\}/g, () => item.name).replace(/\{lien\}/g, () => link);
   const customer = details ? `\n\nClient : ${details.name.trim()}\nTéléphone : ${details.phone.trim()}\nVille : ${details.city.trim()}\nQuantité : ${details.quantity}${details.message.trim() ? `\nMessage : ${details.message.trim()}` : ''}` : '';
-  const text = `${introduction}\n\nPromotion : ${p.name}\nProduit : ${item.name}\nMarque : ${item.brand}\nPrix promotionnel : ${formatAriary(p.promotionalPrice)}\nAncien prix : ${formatAriary(p.originalPrice)}\nRéduction : -${p.discountPercent} %\nLien du produit : ${link}\nDemande : ${saved.id}${customer}\n\nJe souhaite connaître la disponibilité et les modalités de réservation.\nMerci.`;
+  const text = `${introduction}\n\nPromotion : ${p.name}\nProduit : ${item.name}\nMarque : ${item.brand}\nPrix promotionnel : ${formatAriary(p.promotionalPrice)}\nAncien prix : ${formatAriary(p.originalPrice)}${p.pricingMode === "price" ? "" : `\nRéduction : -${p.discountPercent} %`}\nLien du produit : ${link}\nDemande : ${saved.id}${customer}\n\nJe souhaite connaître la disponibilité et les modalités de réservation.\nMerci.`;
   return `https://wa.me/${saved.phone!.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
 }
 // La navigation dans l'onglet courant évite les bloqueurs de pop-up après l'écriture asynchrone.
@@ -45,12 +45,12 @@ export function PromotionReservationDialog({ product, campaign, offer, canWhatsa
     return () => { document.removeEventListener('keydown', keydown); document.body.style.overflow = overflow; if (previous?.isConnected) previous.focus(); };
   }, []);
   const image = mainProductImage(product); const brand = brands.find((b) => b.id === product.brandId)?.name ?? "";
-  const { finalPrice } = calculatePromotionPrice(offer.originalPrice, offer.discountPercent);
+  const { finalPrice, showPercent } = resolvePromotionPrice(offer);
   async function send(source: "form" | "whatsapp") {
     if (pending.current || completed.current || uncertain) return;
     pending.current = true; busyRef.current = true; setBusy(true); setError("");
     try {
-      const response = await fetch('/server/api/promotion-reservations.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, campaignId: campaign.id, productId: product.id, categoryId: product.categoryId, originalPrice: offer.originalPrice, discountPercent: offer.discountPercent, ...(source === 'form' ? { name, phone, city, quantity, message } : { quantity: 1 }), website: '' }) });
+      const response = await fetch('/server/api/promotion-reservations.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source, campaignId: campaign.id, productId: product.id, categoryId: product.categoryId, originalPrice: offer.originalPrice, discountPercent: offer.discountPercent, ...(offer.pricingMode && offer.pricingMode !== "percent" ? { pricingMode: offer.pricingMode, promotionalPrice: finalPrice } : {}), ...(source === 'form' ? { name, phone, city, quantity, message } : { quantity: 1 }), website: '' }) });
       let result: any;
       try { result = await response.json(); } catch { setUncertain(true); throw new Error('Réception non confirmée. Contactez FUNBIKE avant de refaire une demande pour éviter un doublon.'); }
       if (!response.ok) {
@@ -64,7 +64,7 @@ export function PromotionReservationDialog({ product, campaign, offer, canWhatsa
         && typeof savedPromotion?.name === 'string' && Number.isSafeInteger(savedPromotion?.originalPrice)
         && Number.isSafeInteger(savedPromotion?.promotionalPrice) && typeof savedPromotion?.discountPercent === 'number'
         && savedPromotion.originalPrice === offer.originalPrice && savedPromotion.discountPercent === offer.discountPercent
-        && savedPromotion.promotionalPrice === finalPrice
+        && savedPromotion.promotionalPrice === finalPrice && (!offer.pricingMode || offer.pricingMode === "percent" || savedPromotion.pricingMode === offer.pricingMode)
         && ((source === 'form' && result.phone === null) || (typeof result.phone === 'string' && /^\+[0-9\s().-]+$/.test(result.phone) && /^[1-9]\d{7,14}$/.test(result.phone.replace(/\D/g, ''))));
       if (!validResponse) { setUncertain(true); throw new Error('Réception non confirmée. Contactez FUNBIKE avant de refaire une demande pour éviter un doublon.'); }
       completed.current = true;
@@ -83,7 +83,7 @@ export function PromotionReservationDialog({ product, campaign, offer, canWhatsa
   return createPortal(<div className="fb-whatsapp-overlay" onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
     <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} className="fb-whatsapp-dialog fb-reservation-dialog">
       <div className="flex items-start justify-between gap-3"><div><h2 id={titleId} className="fb-whatsapp-title">Réserver cette promotion</h2><p className="fb-whatsapp-product">Demande sans paiement, sous réserve de disponibilité.</p></div><button type="button" aria-label="Fermer le modal" disabled={busy} className="fb-reservation-close" onClick={onClose}>×</button></div>
-      <div className="fb-reservation-product">{image?.url && <img src={image.url} alt="" />}<div><p className="font-bold">{product.name}</p><p className="fb-whatsapp-product">{brand} · {campaign.name}</p><p className="mt-1 text-sm"><del>{formatAriary(offer.originalPrice)}</del> <strong>{formatAriary(finalPrice)}</strong> · −{offer.discountPercent} %</p><a className="fb-reservation-link" href={productPath(product)} target="_blank" rel="noopener noreferrer">Voir la fiche produit</a></div></div>
+      <div className="fb-reservation-product">{image?.url && <img src={image.url} alt="" />}<div><p className="font-bold">{product.name}</p><p className="fb-whatsapp-product">{brand} · {campaign.name}</p><p className="mt-1 text-sm"><del>{formatAriary(offer.originalPrice)}</del> <strong>{formatAriary(finalPrice)}</strong>{showPercent && <> · −{offer.discountPercent} %</>}</p><a className="fb-reservation-link" href={productPath(product)} target="_blank" rel="noopener noreferrer">Voir la fiche produit</a></div></div>
       {error && <p role="alert" className="fb-reservation-error">{error}</p>}
       {stage === 'choice' && <div className="fb-whatsapp-options"><button className="fb-whatsapp-choice" type="button" disabled={busy || uncertain} onClick={() => { setError(''); setStage('form'); }}>Réserver via le formulaire</button>{canWhatsapp && <button className="fb-whatsapp-primary" type="button" disabled={busy || uncertain} onClick={() => void send('whatsapp')}><WhatsAppIcon /><span>{busy ? 'Enregistrement…' : 'Contacter un commercial'}</span></button>}<p className="fb-whatsapp-hint">La demande est enregistrée avant la redirection vers WhatsApp. Vous devez ensuite envoyer le message vous-même.</p></div>}
       {stage === 'form' && <form onSubmit={submit} className="fb-reservation-form">

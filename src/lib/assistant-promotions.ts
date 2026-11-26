@@ -1,5 +1,5 @@
 import { schedulePublicOperation } from "./publicDataRequest";
-import { calculatePromotionPrice, isPromotionActive, type Promotion } from "./promotions";
+import { resolvePromotionPrice, isPromotionActive, type Promotion } from "./promotions";
 
 export type PromotionSnapshot = { campaigns: Promotion[]; now: number };
 /** Une lecture fraîche et indépendante : une panne des promotions ne bloque pas les autres sujets. */
@@ -18,7 +18,7 @@ export async function loadAssistantPromotions(signal: AbortSignal): Promise<Prom
       if (!c || typeof c !== 'object' || typeof c.name !== 'string' || typeof c.startDate !== 'string' || typeof c.endDate !== 'string' || typeof c.enabled !== 'boolean' || typeof c.published !== 'boolean' || !Array.isArray(c.products)) return null;
       for (const item of c.products) {
         if (!item || typeof item.productId !== 'string' || typeof item.categoryId !== 'string') return null;
-        try { calculatePromotionPrice(item.originalPrice, item.discountPercent); } catch { return null; }
+        try { resolvePromotionPrice(item); } catch { return null; }
       }
       if (isPromotionActive(c, new Date(now))) campaigns.push(c);
     }
