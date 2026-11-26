@@ -676,6 +676,9 @@ test('réservation : formulaire, confirmation et échec bloquant WhatsApp', asyn
   const action = await view.findByRole('button', { name: 'Réserver' });
   await waitFor(() => { fireEvent.click(action); assert.ok(within(view.getByRole('dialog')).queryByRole('button', { name: 'Contacter un commercial' })); });
   let dialog = within(view.getByRole('dialog'));
+  assert.ok(dialog.getByRole('button', { name: 'Réserver via le formulaire' }));
+  assert.ok(dialog.getByRole('button', { name: 'Contacter un commercial' }));
+  assert.doesNotMatch(view.getByRole('dialog').textContent, /La demande est enregistrée avant la redirection vers WhatsApp|Vous devez ensuite envoyer le message vous-même/);
   fireEvent.click(dialog.getByRole('button', { name: 'Réserver via le formulaire' }));
   for (const [label, value] of [['Nom complet', 'Jean Rakoto'], ['Numéro de téléphone', '0341234567'], ['Ville', 'Antananarivo'], ['Quantité', '2'], ['Message (facultatif)', 'Livraison ?']]) fireEvent.change(dialog.getByLabelText(label, { exact: false }), { target: { value } });
   fireEvent.click(dialog.getByRole('button', { name: 'Envoyer ma réservation' }));
