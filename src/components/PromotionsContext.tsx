@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { readPublicJson } from "../lib/publicDataRequest";
 import type { Product } from "../types/product";
 import { products } from "../catalog/products";
-import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, isPromotionPriceColor, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
+import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, isPromotionPriceColor, defaultHomeSignText, isHomeSignText, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; originalPriceColor: string; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, originalPriceColor: "", offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; originalPriceColor: string; homeSignEnabled: boolean; homeSignText: string; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, originalPriceColor: "", homeSignEnabled: true, homeSignText: defaultHomeSignText, offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Promotion[]>([]);
@@ -13,17 +13,19 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [preferredCategory, setPreferredCategory] = useState<PromotionCategory>("motos");
   const [showCardDescription, setShowCardDescription] = useState(false);
   const [originalPriceColor, setOriginalPriceColor] = useState("");
+  const [homeSignEnabled, setHomeSignEnabled] = useState(true);
+  const [homeSignText, setHomeSignText] = useState(defaultHomeSignText);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     let alive = true; let sequence = 0; let midnight: number | undefined;
     async function refresh() {
       const number = ++sequence;
       try {
-        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown; originalPriceColor?: unknown };
+        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown; originalPriceColor?: unknown; homeSignEnabled?: unknown; homeSignText?: unknown };
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
         if (alive && number === sequence) {
           const serverNow = Date.parse(result.serverTime);
-          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setOriginalPriceColor(isPromotionPriceColor(result.originalPriceColor) ? result.originalPriceColor : ""); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
+          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setOriginalPriceColor(isPromotionPriceColor(result.originalPriceColor) ? result.originalPriceColor : ""); setHomeSignEnabled(result.homeSignEnabled !== false); setHomeSignText(isHomeSignText(result.homeSignText) ? result.homeSignText : defaultHomeSignText); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
           window.clearTimeout(midnight);
           const elapsed = ((serverNow + 3 * 3600000) % 86400000 + 86400000) % 86400000;
           midnight = window.setTimeout(() => { setClock(Date.now()); void refresh(); }, 86400000 - elapsed + 1000);
@@ -40,8 +42,8 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     const now = new Date(clock + offset);
     const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription, originalPriceColor };
-  }, [data, offset, clock, status, preferredCategory, showCardDescription, originalPriceColor]);
+    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText };
+  }, [data, offset, clock, status, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function PromotionBadge({ product, className = "" }: { product: Product; className?: string }) {

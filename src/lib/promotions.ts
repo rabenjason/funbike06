@@ -1,3 +1,5 @@
+export const defaultHomeSignText = "Promotions disponibles !";
+export const isHomeSignText = (value: unknown): value is string => typeof value === "string" && !!value.trim() && Array.from(value).length <= 100 && !/[\x00-\x1f\x7f]/.test(value);
 export const isPromotionPriceColor = (value: unknown): value is string => typeof value === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(value);
 export type PromotionCategory = "tous" | "motos" | "equipements" | "pieces";
 export const isPromotionCategory = (value: unknown): value is PromotionCategory => value === "tous" || value === "motos" || value === "equipements" || value === "pieces";
