@@ -1,0 +1,14 @@
+/* Complète le modal WhatsApp existant sans toucher aux autres pages. */
+.fb-reservation-dialog { width: min(100%, 33rem); }
+.fb-reservation-close { flex: none; width: 2.75rem; height: 2.75rem; border-radius: .5rem; font-size: 1.5rem; line-height: 1; color: var(--wa-muted); }
+.fb-reservation-product { display: flex; align-items: center; gap: .8rem; margin-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--wa-border); overflow-wrap: anywhere; }
+.fb-reservation-product img { flex: none; width: 5.5rem; height: 4.5rem; padding: .3rem; object-fit: contain; border-radius: .65rem; background: #fff; }
+.fb-reservation-link { display: inline-block; margin-top: .35rem; color: inherit; text-decoration: underline; font-size: .75rem; }
+.fb-reservation-form { display: grid; gap: .7rem; margin-top: 1rem; }
+.fb-reservation-form label { display: grid; gap: .3rem; font-size: .8rem; font-weight: 650; }
+.fb-reservation-form input, .fb-reservation-form textarea { width: 100%; min-height: 2.75rem; padding: .55rem .7rem; border: 1px solid var(--wa-border); border-radius: .55rem; background: var(--wa-surface); color: var(--wa-text); font-size: .85rem; line-height: 1.4; }
+.fb-reservation-form textarea { resize: vertical; }
+.fb-reservation-dialog :disabled { opacity: .55; cursor: not-allowed; }
+.fb-reservation-error { margin-top: .8rem; padding: .7rem; border: 1px solid #b43c31; border-radius: .5rem; color: #a52b22; background: #fff0ee; font-size: .8rem; }
+.dark .fb-reservation-error { color: #ffc1ba; background: #482222; }
+.fb-reservation-result { display: grid; gap: .65rem; margin-top: 1rem; font-size: .85rem; overflow-wrap: anywhere; }
