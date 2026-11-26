@@ -898,6 +898,10 @@ test('accueil : panneau disponible seulement avec promotions actives et réglage
   assert.match(css, /animation:\s*fb-promo-swing\s+2\.8s\s+ease-in-out\s+infinite/);
   assert.match(css, /@media\s*\(max-width:\s*639px\)[\s\S]*?\.fb-home-promo--home\s*\{\s*margin-top:\s*clamp\(/);
   assert.ok(sign.classList.contains('fb-home-promo--home'));
+  assert.match(css, /@media\s*\(min-width:\s*1024px\)[\s\S]*?\.fb-home-promo--home\s*\{[^}]*justify-content:\s*flex-end/);
+  assert.match(css, /\.fb-home-promo--home \.fb-home-promo-sign\s*\{\s*order:\s*1/);
+  const home = readFileSync('src/pages/Home.tsx', 'utf8');
+  assert.match(home, /order-1 w-full lg:flex lg:items-start lg:justify-between lg:gap-8[\s\S]*?<\/motion\.div>\s*<HomePromotionSign go=\{go\} \/>/);
 });
 
 test('admin : texte et activation du panneau, annulation et validation', async () => {
