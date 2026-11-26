@@ -513,6 +513,7 @@ textarea.chat-composer:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .skeleton.hero-image-skeleton::after { animation: none; transform: none; }
+  .promotion-skeleton .skeleton::after { animation: none; transform: none; }
 }
 
 /* Two identical halves; each is repeated as needed to fill the viewport. */
