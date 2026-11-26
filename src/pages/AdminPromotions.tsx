@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { AdminCatalog } from "./AdminCatalog";
 import type { Product } from "../types/product";
-import { isPromotionCategory, type PromotionCategory, type Promotion } from "../lib/promotions";
+import { defaultPromotionAppearance, isPromotionAppearance, isPromotionCategory, type PromotionAppearance, type PromotionCategory, type Promotion } from "../lib/promotions";
+import { PromotionCampaignHeader } from "../components/PromotionCampaignHeader";
 import { request, json } from "../lib/adminApi";
 import { optimizeProductImage, photoOptimizationMessage } from "../lib/optimizeProductImage";
 import { useConfirmation } from "../components/ConfirmationModal";
@@ -51,6 +52,9 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   useEffect(() => { onDirtyChange(draft !== null || displayDirty); return () => onDirtyChange(false); }, [draft !== null, displayDirty, onDirtyChange]);
   useEffect(() => { onSavingChange(busy || productBusy); return () => onSavingChange(false); }, [busy, productBusy, onSavingChange]);
   const set = <K extends keyof Promotion>(key: K, value: Promotion[K]) => setDraft((current) => current ? { ...current, [key]: value } : current);
+  function setAppearance<K extends keyof PromotionAppearance>(key: K, value: PromotionAppearance[K]) {
+    setDraft((current) => current && isPromotionAppearance(current.appearance) ? { ...current, appearance: { ...current.appearance, [key]: value } } : current);
+  }
   function add(product: Product) {
     if (draft && draft.products.length >= 500 && !draft.products.some((item) => item.productId === product.id && item.categoryId === product.categoryId)) {
       setError("Le produit est conservé dans le catalogue, mais une campagne ne peut pas dépasser 500 produits."); return;
@@ -105,8 +109,27 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
         <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">Nom<input required maxLength={150} className={input} value={draft.name} onChange={(e) => set('name', e.target.value)} /></label><label className="text-sm font-semibold">Bannière facultative<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || productBusy} className={input} onChange={(e) => { void upload(e.target.files?.[0]); e.currentTarget.value = ''; }} /></label>
         <label className="text-sm font-semibold">Début (Madagascar)<input type="date" required className={input} value={draft.startDate} onChange={(e) => set('startDate', e.target.value)} /></label><label className="text-sm font-semibold">Fin incluse (Madagascar)<input type="date" required className={input} value={draft.endDate} onChange={(e) => set('endDate', e.target.value)} /></label></div>
         <label className="block text-sm font-semibold">Description<textarea maxLength={5000} className={input} value={draft.description} onChange={(e) => set('description', e.target.value)} /></label>
-        <p className="text-xs text-black/60">La nouvelle image est optimisée sur cet appareil avant l’envoi (8 Mo maximum après optimisation). L’original et les images déjà enregistrées restent inchangés. La description et la bannière restent enregistrées, mais ne sont pas affichées sur la page Promotions.</p>{imageStatus && <p aria-live="polite" className="text-xs text-black/60">{imageStatus}</p>}
-        {draft.bannerUrl && <div><img src={draft.bannerUrl} alt="Bannière de la campagne" className="max-h-48 max-w-full object-contain" /><button className={`${button} mt-2`} disabled={busy} onClick={() => set('bannerUrl', '')}>Retirer la bannière</button></div>}
+        <p className="text-xs text-black/60">La nouvelle image est optimisée sur cet appareil avant l’envoi (8 Mo maximum après optimisation). L’original et les images déjà enregistrées restent inchangés. Sans personnalisation, la description et la bannière restent enregistrées sans être affichées.</p>{imageStatus && <p aria-live="polite" className="text-xs text-black/60">{imageStatus}</p>}
+        {draft.bannerUrl && <div><img src={draft.bannerUrl} alt="Bannière de la campagne" className="max-h-48 max-w-full object-contain" /><button type="button" className={`${button} mt-2`} disabled={busy} onClick={() => set('bannerUrl', '')}>Retirer la bannière</button></div>}
+        <fieldset className="space-y-4 border-t border-black/10 pt-4"><legend className="font-bold">Présentation du titre</legend>
+          <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={isPromotionAppearance(draft.appearance)} disabled={busy} onChange={(e) => set('appearance', e.target.checked ? defaultPromotionAppearance() : null)} /> Personnaliser la présentation</label>
+          <p className="text-xs text-black/60">Désactivé : présentation actuelle conservée. Chaque campagne possède son propre style.</p>
+          {isPromotionAppearance(draft.appearance) && <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold">Style du titre<select className={input} disabled={busy} value={draft.appearance.style} onChange={(e) => { const style = e.target.value; if (style === 'sobre' || style === 'sportif' || style === 'festif' || style === 'black-friday') setAppearance('style', style); }}><option value="sobre">Sobre</option><option value="sportif">Sportif</option><option value="festif">Festif</option><option value="black-friday">Black Friday</option></select></label>
+              <label className="text-sm font-semibold">Fond<select className={input} disabled={busy} value={draft.appearance.showBanner ? 'photo' : 'sans'} onChange={(e) => setAppearance('showBanner', e.target.value === 'photo')}><option value="sans">Sans photo</option><option value="photo">Avec la photo de bannière</option></select></label>
+            </div>
+            {draft.appearance.showBanner && !draft.bannerUrl && <p className="text-xs text-amber-700">Aucune photo choisie : un fond sans photo sera affiché jusqu’à l’ajout d’une bannière.</p>}
+            <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.appearance.showDescription} disabled={busy} onChange={(e) => setAppearance('showDescription', e.target.checked)} /> Afficher la description sous le titre</label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div><label className="block text-sm font-semibold">Couleur du titre<input type="color" aria-label="Couleur du titre" disabled={busy} className="ml-2 h-10 w-14 align-middle" value={draft.appearance.titleColor || '#171816'} onChange={(e) => setAppearance('titleColor', e.target.value)} /></label><button type="button" className="mt-1 text-xs underline" disabled={busy || !draft.appearance.titleColor} onClick={() => setAppearance('titleColor', '')}>Utiliser la couleur du thème</button></div>
+              <div><label className="block text-sm font-semibold">Couleur des mots mis en valeur<input type="color" aria-label="Couleur des mots mis en valeur" disabled={busy} className="ml-2 h-10 w-14 align-middle" value={draft.appearance.highlightColor || '#ffd100'} onChange={(e) => setAppearance('highlightColor', e.target.value)} /></label><button type="button" className="mt-1 text-xs underline" disabled={busy || !draft.appearance.highlightColor} onClick={() => setAppearance('highlightColor', '')}>Utiliser la couleur d’accent du thème</button></div>
+            </div>
+            <label className="block text-sm font-semibold">Mots du titre à mettre en valeur (facultatif)<input className={input} maxLength={150} disabled={busy} value={draft.appearance.highlight} onChange={(e) => setAppearance('highlight', e.target.value)} placeholder="Exemple : Noël" /></label>
+            {draft.appearance.highlight && !draft.name.includes(draft.appearance.highlight) && <p className="text-xs text-amber-700">Ces mots doivent être présents dans le titre, avec la même orthographe, pour être mis en couleur.</p>}
+            <div><p className="mb-2 text-sm font-semibold">Aperçu indicatif</p><div className="fb-promotion-preview"><PromotionCampaignHeader campaign={{ ...draft, name: draft.name || 'Aperçu de la promotion' }} preview /></div><p className="mt-2 text-xs text-black/60">Vérifiez la lisibilité des couleurs sur mobile et avec les thèmes clair et sombre. Les couleurs automatiques suivent le thème du site.</p></div>
+          </>}
+        </fieldset>
         <div className="flex flex-wrap gap-5 text-sm"><label><input type="checkbox" checked={draft.enabled} onChange={(e) => set('enabled', e.target.checked)} /> Activée</label><label><input type="checkbox" checked={draft.published} onChange={(e) => set('published', e.target.checked)} /> Publiée</label></div><p className="text-xs text-black/60">Visible uniquement si activée et publiée, pendant les dates choisies. Une même fiche ne peut pas avoir deux offres publiées et activées aux mêmes dates.</p>
       </div>
       <PromotionProducts catalog={catalog} items={draft.products} onChange={(items) => set("products", items)} onCreate={() => setCreatingProduct(true)} />

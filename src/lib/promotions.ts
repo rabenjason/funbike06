@@ -7,11 +7,33 @@ export interface PromotionProduct {
   originalPrice: number;
   discountPercent: number;
 }
+export type PromotionStyle = "sobre" | "sportif" | "festif" | "black-friday";
+export interface PromotionAppearance {
+  style: PromotionStyle;
+  showBanner: boolean;
+  showDescription: boolean;
+  titleColor: string;
+  highlight: string;
+  highlightColor: string;
+}
+export const defaultPromotionAppearance = (): PromotionAppearance => ({ style: "sobre", showBanner: false, showDescription: false, titleColor: "", highlight: "", highlightColor: "" });
+export function isPromotionAppearance(value: unknown): value is PromotionAppearance {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  return typeof item.style === "string" && ["sobre", "sportif", "festif", "black-friday"].includes(item.style)
+    && typeof item.showBanner === "boolean" && typeof item.showDescription === "boolean"
+    && typeof item.highlight === "string" && Array.from(item.highlight).length <= 150
+    && typeof item.titleColor === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(item.titleColor)
+    && typeof item.highlightColor === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(item.highlightColor);
+}
+
 export interface Promotion {
   id: string;
   name: string;
   description: string;
   bannerUrl?: string;
+  /** Absente ou nulle : conserver le rendu historique. */
+  appearance?: PromotionAppearance | null;
   startDate: string;
   endDate: string;
   enabled: boolean;

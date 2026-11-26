@@ -263,6 +263,20 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const withBanner = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url } } });
     assert.equal(withBanner.status, 200, JSON.stringify(withBanner.body));
     assert.equal((await call('promotions.php')).body.campaigns[0].bannerUrl, uploaded.body.url);
+    const appearance = { style: 'festif', showBanner: true, showDescription: true, titleColor: '#ffffff', highlight: 'ssai', highlightColor: '#ffd100' };
+    for (const invalid of [{ ...appearance, style: 'inconnu' }, { ...appearance, showBanner: 1 }, { ...appearance, titleColor: 'red' }, { ...appearance, highlightColor: '#fff' }, { ...appearance, highlight: 'x'.repeat(151) }, []]) {
+      const before = readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8');
+      assert.equal((await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: invalid } } })).status, 400);
+      assert.equal(readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8'), before);
+    }
+    const styled = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance } } });
+    assert.equal(styled.status, 200); assert.deepEqual(styled.body.campaign.appearance, appearance);
+    assert.deepEqual((await call('promotions.php')).body.campaigns[0].appearance, appearance);
+    const oldClient = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url } } });
+    assert.deepEqual(oldClient.body.campaign.appearance, appearance, 'un ancien client ne perd pas le style');
+    const resetAppearance = await call('promotions.php', { method: 'PUT', authenticated: true, body: { campaign: { ...campaign, id: promoId, bannerUrl: uploaded.body.url, appearance: null } } });
+    assert.equal(resetAppearance.status, 200); assert.equal(resetAppearance.body.campaign.appearance, undefined);
+    assert.equal(resetAppearance.body.campaign.bannerUrl, uploaded.body.url);
     const hiddenCatalog = JSON.parse(originalCatalog);
     hiddenCatalog.products.find((p) => p.id === promoProduct.id).status = 'DRAFT';
     writeFileSync(promoFile, JSON.stringify(hiddenCatalog));

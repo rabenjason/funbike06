@@ -67,3 +67,6 @@
   --fb-social-accent: #c6d8ff;
   --fb-social-ink: #183883;
 }
+
+/* Le contour festif des campagnes reprend aussi l’accent du thème TVS. */
+:root[data-site-theme="tvs"] [data-promotion-style="festif"] { border-color: rgb(230 45 56 / .4); }
