@@ -13,7 +13,10 @@ if ($method === 'GET') funbikeJsonResponse(200, ['data' => $current, 'revision' 
 $body = funbikeReadJsonBody();
 if (!is_string($body['revision'] ?? null) || !hash_equals($revision, $body['revision'])) funbikeJsonResponse(409, ['error' => 'Le thème a changé. Rechargez avant de réenregistrer.']);
 if (!in_array($body['theme'] ?? null, ['funbike', 'tvs'], true)) funbikeJsonResponse(400, ['error' => 'Thème invalide.']);
-$data = ['theme' => $body['theme']];
+// Un ancien client ne doit pas effacer le mode initial choisi.
+$defaultMode = array_key_exists('defaultMode', $body) ? $body['defaultMode'] : $current['defaultMode'];
+if (!in_array($defaultMode, ['light', 'dark'], true)) funbikeJsonResponse(400, ['error' => 'Mode jour ou nuit invalide.']);
+$data = ['theme' => $body['theme'], 'defaultMode' => $defaultMode];
 $file = dirname(__DIR__) . '/storage/data/site-theme.json';
 if (!funbikeAtomicWrite($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))) funbikeJsonResponse(500, ['error' => 'Impossible d’enregistrer le thème.']);
 funbikeJsonResponse(200, ['data' => $data, 'revision' => funbikeSiteThemeRevision($data)]);

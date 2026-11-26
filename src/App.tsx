@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Footer, Header, type Route } from "./components/Layout";
 import CatChat from "./components/CatChat";
-import { chatbotEnabled } from "./content/homepage";
+import { chatbotEnabled, defaultDisplayMode } from "./content/homepage";
 import CookieConsent, { readConsent } from "./components/CookieConsent";
 import { PageLoading, RouteProgress } from "./components/Loaders";
 import { WhatsappProvider } from "./components/Whatsapp";
@@ -63,7 +63,7 @@ type RouteHistory = { entries: HistoryEntry[]; index: number };
 const historyKey = "__funbikeRouteKey";
 
 export default function App() {
-  const [dark, setDark] = useState(readDarkPreference);
+  const [dark, setDark] = useState(() => readDarkPreference(defaultDisplayMode));
   const session = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const sequence = useRef(0);
   const [history, setHistory] = useState<RouteHistory>(() => ({ entries: [{ key: `${session.current}:0`, route: parseRoute(window.location.pathname, window.location.search) }], index: 0 }));
@@ -111,7 +111,6 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
-    persistTheme(dark);
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", dark ? "#141513" : "#ffffff");
   }, [dark]);
 
@@ -179,7 +178,7 @@ export default function App() {
       {progressKey > 0 && <RouteProgress key={progressKey} />}
 
       <div className="min-h-screen bg-white text-[#171816] transition-colors duration-300 dark:bg-[#141513] dark:text-[#f2f0ea]">
-        <Header route={route} go={go} dark={dark} toggle={() => setDark((d) => !d)} />
+        <Header route={route} go={go} dark={dark} toggle={() => { const next = !dark; persistTheme(next); setDark(next); }} />
         <main>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

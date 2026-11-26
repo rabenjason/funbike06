@@ -106,7 +106,8 @@ test("sélecteur équipements : logo et nom, sélection accessible et repli sans
   assert.equal(fallback.querySelector('.brand-logo-slot--image'), null);
   assert.equal(all.querySelector('.brand-logo-slot--image'), null);
   const css = readFileSync('src/index.css', 'utf8');
-  assert.match(css, /\.equipment-brand-button \.brand-logo-slot--image\s*\{[^}]*background:\s*#fff/s);
+  assert.match(css, /\.dark \.equipment-brand-button \.brand-logo-slot--image\s*\{[^}]*background:\s*#fff/s);
+  assert.doesNotMatch(css, /^\.equipment-brand-button \.brand-logo-slot--image\s*\{/m, 'le mode jour conserve le rendu précédent');
   assert.match(css, /\.dark \.equipment-brand-button \.brand-logo-slot--image \.partner-logo\s*\{[^}]*mix-blend-mode:\s*normal;[^}]*filter:\s*none/s);
 
   assert.ok(html.includes('Marque Logo'));

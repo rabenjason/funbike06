@@ -1,18 +1,17 @@
-/** Versioned preference prevents an old saved light choice from overriding the newly requested dark-first experience. */
+/** Le mode par défaut ne remplace jamais un choix enregistré par le visiteur. */
 const THEME_KEY = "fb-theme-v2";
+export type DisplayMode = "light" | "dark";
 
-export function readDarkPreference(): boolean {
+export function readDarkPreference(defaultMode: DisplayMode = "dark"): boolean {
   try {
-    return localStorage.getItem(THEME_KEY) !== "light";
-  } catch {
-    return true;
-  }
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "light" || saved === "dark") return saved === "dark";
+  } catch { /* Le mode par défaut reste disponible sans stockage. */ }
+  return defaultMode === "dark";
 }
 
+/** Uniquement lors d’un choix explicite, pas à chaque chargement. */
 export function persistTheme(isDark: boolean): void {
-  try {
-    localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
-  } catch {
-    // Theme still works for this session when browser storage is unavailable.
-  }
+  try { localStorage.setItem(THEME_KEY, isDark ? "dark" : "light"); }
+  catch { /* Le choix reste actif pour cette session. */ }
 }

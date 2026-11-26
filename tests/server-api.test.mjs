@@ -194,7 +194,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('site-theme.php', { method: 'PUT', body: { theme: 'tvs', revision: 'x' } })).status, 401);
     cookie = themeCookie;
     const themeInitial = await call('site-theme.php', { authenticated: true });
-    assert.equal(themeInitial.body.data.theme, 'funbike');
+    assert.equal(themeInitial.body.data.theme, 'funbike'); assert.equal(themeInitial.body.data.defaultMode, 'dark');
     assert.equal(existsSync(themeFile), false);
     assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'autre', revision: themeInitial.body.revision } })).status, 400);
     const themeTvs = await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'tvs', revision: themeInitial.body.revision } });
@@ -203,9 +203,18 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', revision: themeInitial.body.revision } })).status, 409);
     assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', revision: themeTvs.body.revision } })).status, 200);
     assert.equal((await call('homepage-content.php')).body.siteTheme, 'funbike');
+    const beforeMode = await call('site-theme.php', { authenticated: true });
+    assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', defaultMode: 'invalid', revision: beforeMode.body.revision } })).status, 400);
+    const lightMode = await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'funbike', defaultMode: 'light', revision: beforeMode.body.revision } });
+    assert.equal(lightMode.status, 200); assert.equal(lightMode.body.data.defaultMode, 'light');
+    assert.equal((await call('homepage-content.php')).body.defaultMode, 'light');
+    assert.equal((await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'tvs', revision: beforeMode.body.revision } })).status, 409);
+    const legacyThemeUpdate = await call('site-theme.php', { method: 'PUT', authenticated: true, body: { theme: 'tvs', revision: lightMode.body.revision } });
+    assert.equal(legacyThemeUpdate.status, 200); assert.equal(legacyThemeUpdate.body.data.defaultMode, 'light');
     writeFileSync(themeFile, '{invalid');
     assert.equal((await call('site-theme.php', { authenticated: true })).status, 500);
     assert.equal((await call('homepage-content.php')).body.siteTheme, 'funbike');
+    assert.equal((await call('homepage-content.php')).body.defaultMode, 'dark');
     assert.equal(readFileSync(themeFile, 'utf8'), '{invalid');
     writeFileSync(themeFile, '{"theme":"funbike"}');
 

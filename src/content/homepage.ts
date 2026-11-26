@@ -25,6 +25,7 @@ export let chatbotName = "Piston";
 export let chatbotLogo: string | null = null;
 export let siteLogo = LOGO;
 export let siteTheme: "funbike" | "tvs" = "funbike";
+export let defaultDisplayMode: "light" | "dark" = "dark";
 export let homepageContent: HomepageContent = initial.content;
 export let homepageCategories: HomepageLink[] = initial.links;
 export let homepageExclusiveBrands: HomepageData["exclusiveBrands"] = initial.exclusiveBrands;
@@ -59,7 +60,7 @@ export async function loadHomepageData(signal?: AbortSignal) {
   const current = ++homepageSequence;
   const value = await readPublicJson("homepage-content.php", signal);
   if (!value || typeof value !== "object" || !validHomepage((value as { data?: unknown }).data)) throw new Error("Données de l’accueil invalides.");
-  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown; chatbotEnabled?: unknown; chatbotName?: unknown; chatbotLogo?: unknown; siteLogo?: unknown };
+  const response = value as { data: HomepageData; shercoBannerConfigured?: unknown; shercoBannerImage?: unknown; siteTheme?: unknown; defaultMode?: unknown; chatbotEnabled?: unknown; chatbotName?: unknown; chatbotLogo?: unknown; siteLogo?: unknown };
   let image = "https://www.sherco.com/wp-content/uploads/SHERCO50ccV2-32.jpg" as string | null;
   if (response.shercoBannerConfigured === true) {
     if (response.shercoBannerImage !== null && (typeof response.shercoBannerImage !== "string" || !/^\/server\/uploads\/homepage\/sherco-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.shercoBannerImage))) throw new Error("Image de bannière invalide.");
@@ -67,6 +68,7 @@ export async function loadHomepageData(signal?: AbortSignal) {
   } else if (response.shercoBannerConfigured !== undefined && response.shercoBannerConfigured !== false) throw new Error("Configuration de bannière invalide.");
   if (signal?.aborted || current !== homepageSequence) throw new Error("Chargement annulé.");
   if (response.siteTheme !== undefined && response.siteTheme !== "funbike" && response.siteTheme !== "tvs") throw new Error("Thème du site invalide.");
+  if (response.defaultMode !== undefined && response.defaultMode !== "light" && response.defaultMode !== "dark") throw new Error("Mode du site invalide.");
   if (response.chatbotEnabled !== undefined && typeof response.chatbotEnabled !== "boolean") throw new Error("Réglage du chatbot invalide.");
   if (response.chatbotName !== undefined && (typeof response.chatbotName !== "string" || !response.chatbotName.trim() || response.chatbotName.trim() !== response.chatbotName || [...response.chatbotName].length > 40 || /[\x00-\x1f\x7f<>*]/.test(response.chatbotName))) throw new Error("Nom du chatbot invalide.");
   if (response.chatbotLogo !== undefined && response.chatbotLogo !== null && (typeof response.chatbotLogo !== "string" || !/^\/server\/uploads\/chatbot\/logo-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.chatbotLogo))) throw new Error("Logo du chatbot invalide.");
@@ -76,5 +78,6 @@ export async function loadHomepageData(signal?: AbortSignal) {
   chatbotEnabled = response.chatbotEnabled !== false;
   siteLogo = typeof response.siteLogo === "string" && (response.siteLogo === LOGO || /^\/server\/uploads\/site-logo\/logo-[a-f0-9]{32}\.(jpg|png|webp)$/.test(response.siteLogo)) ? response.siteLogo : LOGO;
   siteTheme = response.siteTheme === "tvs" ? "tvs" : "funbike";
+  defaultDisplayMode = response.defaultMode === "light" ? "light" : "dark";
   shercoBannerImage = image;
 }
