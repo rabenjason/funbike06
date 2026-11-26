@@ -12,6 +12,12 @@
 @media (max-width: 639px) {
   .fb-home-promo--home { margin-top: clamp(4rem, 14svh, 8rem); }
 }
+/* Sur ordinateur, le panneau est à droite du texte, sans recouvrir celui-ci. */
+@media (min-width: 1024px) {
+  .fb-home-promo--home { flex: 0 1 18rem; justify-content: flex-end; margin-top: 0; }
+  .fb-home-promo--home .fb-home-promo-sign { order: 1; }
+  .fb-home-promo--home .fb-home-promo-copy { text-align: right; }
+}
 .fb-home-promo:focus-visible { outline: 3px solid #ffd100; outline-offset: 5px; border-radius: 4px; }
 .fb-home-promo-sign {
   position: relative;

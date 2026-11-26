@@ -64,29 +64,31 @@ export default function Home({ go }: { go: (p: string, id?: string) => void }) {
         {/* Mobile order: text → "À la une" bar → buttons at the very bottom.
             Desktop order: text → buttons → "À la une" bar. */}
         <div className="relative z-10 mx-auto flex min-h-[max(560px,calc(100svh-64px))] w-full max-w-(--container-site) flex-col px-5 pb-4 pt-10 sm:min-h-[720px] sm:px-7 sm:pb-9 sm:pt-16 lg:min-h-[min(820px,calc(100svh-68px))] lg:px-10 lg:pb-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.1 }}
-            className="order-1 w-full max-w-[820px]"
-          >
-            <p className="fluid-eyebrow flex items-center gap-2 font-bold uppercase leading-snug text-white/75">
-              <FontAwesomeIcon icon={faLocationDot} className="shrink-0 text-[#ffd100]" />
-              <span>{homepageContent.hero.localisation}</span>
-            </p>
-            <h1 className="fluid-hero mt-4 max-w-xl text-balance font-display font-semibold text-white sm:mt-7">
-              {homepageContent.hero.titreLigne1}
-              <br className="hidden sm:inline" /> {homepageContent.hero.titreLigne2}
-            </h1>
-            <p className="fluid-body mt-3.5 max-w-md text-pretty text-white/80 sm:mt-4">
-              {["sherco", "fantic", "tvs"].every(hasBrand) ? homepageContent.hero.description : homepageContent.hero.descriptionSansMarques}
-            </p>
-            <p className="fluid-body mt-3 flex items-center text-white/90">
-              {homepageContent.hero.sloganPrefix}&nbsp;
-              <TypedText strings={[...homepageContent.hero.usages]} className="font-semibold text-[#ffd100]" />
-            </p>
+          <div className="order-1 w-full lg:flex lg:items-start lg:justify-between lg:gap-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.1 }}
+              className="w-full max-w-[820px] lg:min-w-0 lg:flex-1"
+            >
+              <p className="fluid-eyebrow flex items-center gap-2 font-bold uppercase leading-snug text-white/75">
+                <FontAwesomeIcon icon={faLocationDot} className="shrink-0 text-[#ffd100]" />
+                <span>{homepageContent.hero.localisation}</span>
+              </p>
+              <h1 className="fluid-hero mt-4 max-w-xl text-balance font-display font-semibold text-white sm:mt-7">
+                {homepageContent.hero.titreLigne1}
+                <br className="hidden sm:inline" /> {homepageContent.hero.titreLigne2}
+              </h1>
+              <p className="fluid-body mt-3.5 max-w-md text-pretty text-white/80 sm:mt-4">
+                {["sherco", "fantic", "tvs"].every(hasBrand) ? homepageContent.hero.description : homepageContent.hero.descriptionSansMarques}
+              </p>
+              <p className="fluid-body mt-3 flex items-center text-white/90">
+                {homepageContent.hero.sloganPrefix}&nbsp;
+                <TypedText strings={[...homepageContent.hero.usages]} className="font-semibold text-[#ffd100]" />
+              </p>
+            </motion.div>
             <HomePromotionSign go={go} />
-          </motion.div>
+          </div>
 
           {/* Buttons — mobile: full-width, stacked, anchored at the bottom (chat sits right above) */}
           <motion.div
