@@ -9,7 +9,7 @@ import { PromotionBadge, PromotionPrice } from "./PromotionsContext";
 import { WhatsAppIcon, WhatsappDialog, preparedWhatsappUrl, useWhatsapp, whatsappForProduct } from "./Whatsapp";
 
 /** Carte commune réservée à la page Promotions, sans modifier les cartes du catalogue. */
-export function PromotionCard({ product, go }: { product: Product; go: (page: string, id?: string, categoryId?: string) => void }) {
+export function PromotionCard({ product, go, showDescription = false }: { product: Product; showDescription?: boolean; go: (page: string, id?: string, categoryId?: string) => void }) {
   const settings = useWhatsapp();
   const phone = whatsappForProduct(settings, product);
   const [open, setOpen] = useState(false);
@@ -32,14 +32,14 @@ export function PromotionCard({ product, go }: { product: Product; go: (page: st
       <a href={productPath(product)} aria-label={`Voir les détails de ${product.name}`} onClick={(event) => navigateLink(event, go, page, product.id, routeCategory)} className="absolute inset-0 block">
         <SmartImage src={imageUrl} alt={image?.altText || product.name} className="absolute inset-0" imgClassName="object-contain p-3 transition-transform duration-500 group-hover:scale-[1.04] sm:p-4" />
       </a>
-      <PromotionBadge product={product} />
+      <PromotionBadge product={product} className="rounded-xl" />
       {gallery.length > 1 && <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1.5">{gallery.map((_, index) => <button key={`${product.id}-image-${index}`} type="button" onClick={() => setActiveImage(index)} aria-label={`Voir la photo ${index + 1}`} aria-current={activeImage === index} className="grid h-7 min-w-7 place-items-center px-1"><span className={activeImage === index ? "block h-[3px] w-6 bg-[#171816]" : "block h-[3px] w-1.5 bg-black/35 hover:bg-black/60"} /></button>)}</div>}
     </div>
     <div className="flex min-w-0 flex-1 flex-col border-t border-black/10 p-3 dark:border-white/10 sm:p-4">
       <p className="line-clamp-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/55 dark:text-white/55"><span aria-hidden="true" className="mr-2 inline-block h-1 w-4 rounded-full bg-[#ffd100] align-middle" />{category}</p>
       <button type="button" className="mt-2 min-w-0 text-left" onClick={goDetail} aria-label={product.name}><h4 className="line-clamp-2 min-h-[2.4em] break-words font-display text-sm font-bold leading-[1.2] text-[#171816] dark:text-white">{product.name}</h4></button>
-      <p className="mt-2 line-clamp-2 min-h-[2.5rem] break-words text-xs leading-5 text-black/55 dark:text-white/55">{product.description}</p>
-      <div className="mt-auto min-h-10 min-w-0 pt-2"><PromotionPrice product={product} card /></div>
+      {showDescription && <p className="mt-2 line-clamp-2 min-h-[2.5rem] break-words text-xs leading-5 text-black/55 dark:text-white/55">{product.description}</p>}
+      <div className="mt-auto min-h-10 min-w-0 pt-2 sm:[&_strong]:text-lg"><PromotionPrice product={product} card /></div>
       <div className="mt-3 flex min-w-0 gap-2">
         {isMoto ? phone && settings ? (settings.askIntent ? <button type="button" className={actionClass} onClick={() => setOpen(true)}><WhatsAppIcon /> WhatsApp</button> : <a className={actionClass} href={preparedWhatsappUrl(settings, phone, product)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon /> WhatsApp</a>) : <button type="button" className={actionClass} onClick={goDetail}>Découvrir</button>
           : <button type="button" className={actionClass} onClick={() => phone && settings ? setOpen(true) : go("contact", product.id)}>Se renseigner</button>}

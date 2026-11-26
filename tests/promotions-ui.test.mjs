@@ -183,12 +183,12 @@ test('une seule pagination pour plusieurs campagnes, recherche et retour à la p
 });
 
 test('dashboard : choix global enregistré sans modifier les campagnes', async () => {
-  let setting = 'motos', revision = 'r1'; const requests = [];
+  let setting = 'motos', showCardDescription = false, revision = 'r1'; const requests = [];
   globalThis.fetch = async (url, options = {}) => {
     requests.push({ url: String(url), options });
     if (String(url).endsWith('promotions-display.php')) {
-      if (options.method === 'PUT') { const body = JSON.parse(options.body); assert.equal(body.revision, revision); setting = body.preferredCategory; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting }, revision }) };
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -199,7 +199,7 @@ test('dashboard : choix global enregistré sans modifier les campagnes', async (
   fireEvent.change(view.getByLabelText('Catégorie affichée en premier'), { target: { value: 'equipements' } });
   assert.equal(dirty, true);
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
-  await waitFor(() => assert.ok(view.getByText('Catégorie enregistrée.')));
+  await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
   assert.equal(setting, 'equipements'); assert.equal(dirty, false);
   assert.equal(requests.filter(({ options }) => options.method === 'PUT').length, 1);
   assert.ok(requests.find(({ options }) => options.method === 'PUT').url.endsWith('promotions-display.php'));
@@ -458,11 +458,11 @@ test('Tous : pagination commune et retour à la première page', async () => {
 });
 
 test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé après rechargement', async () => {
-  let setting = 'motos', revision = 'r1'; const writes = [];
+  let setting = 'motos', showCardDescription = false, revision = 'r1'; const writes = [];
   globalThis.fetch = async (url, options = {}) => {
     if (String(url).endsWith('promotions-display.php')) {
-      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); setting = body.preferredCategory; revision = 'r2'; }
-      return { ok: true, json: async () => ({ data: { preferredCategory: setting }, revision }) };
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); setting = body.preferredCategory; showCardDescription = body.showCardDescription; revision = 'r2'; }
+      return { ok: true, json: async () => ({ data: { preferredCategory: setting, showCardDescription }, revision }) };
     }
     return { ok: true, json: async () => ({ campaigns: [] }) };
   };
@@ -474,8 +474,8 @@ test('admin : Tous peut être choisi, enregistré une seule fois et retrouvé ap
   assert.deepEqual([...select.options].map(option => option.textContent), ['Tous', 'Motos', 'Équipements et casques', 'Pièces détachées']);
   fireEvent.change(select, { target: { value: 'tous' } });
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
-  await waitFor(() => assert.ok(view.getByText('Catégorie enregistrée.')));
-  assert.deepEqual(writes, [{ preferredCategory: 'tous', revision: 'r1' }]);
+  await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
+  assert.deepEqual(writes, [{ preferredCategory: 'tous', showCardDescription: false, revision: 'r1' }]);
   view.unmount(); view = render(component());
   await waitFor(() => assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'tous'));
   assert.equal(writes.length, 1);
@@ -587,4 +587,52 @@ test('cartes promotions : structure commune et contacts WhatsApp selon catégori
     assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, phone);
     fireEvent.keyDown(document, { key: 'Escape' });
   }
+});
+
+test('descriptions : réglage global, annulation et sauvegarde sans autre écriture', async () => {
+  let data = { preferredCategory: 'equipements', showCardDescription: false }, revision = 'r1';
+  const writes = [];
+  globalThis.fetch = async (url, options = {}) => {
+    if (String(url).endsWith('promotions-display.php')) {
+      if (options.method === 'PUT') { const body = JSON.parse(options.body); writes.push(body); assert.equal(body.revision, revision); data = { preferredCategory: body.preferredCategory, showCardDescription: body.showCardDescription }; revision = 'r2'; }
+      return { ok: true, json: async () => ({ data, revision }) };
+    }
+    return { ok: true, json: async () => ({ campaigns: [] }) };
+  };
+  const catalog = { products: [], brands: [], categories: [], families: [], types: [], models: [] };
+  let dirty = false;
+  const component = () => React.createElement(ConfirmationProvider, null, React.createElement(AdminPromotions, { catalog, onDirtyChange(v) { dirty = v; }, onSavingChange() {}, productEditor: () => null }));
+  let view = render(component());
+  const label = 'Afficher la description sur toutes les cartes Promotions';
+  await waitFor(() => assert.ok(view.getByLabelText(label)));
+  assert.equal(view.getByLabelText(label).checked, false);
+  fireEvent.click(view.getByLabelText(label)); assert.equal(dirty, true);
+  fireEvent.click(view.getByRole('button', { name: 'Annuler' })); assert.equal(view.getByLabelText(label).checked, false); assert.equal(dirty, false);
+  fireEvent.click(view.getByLabelText(label)); fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
+  await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
+  assert.deepEqual(writes, [{ preferredCategory: 'equipements', showCardDescription: true, revision: 'r1' }]);
+  assert.equal(dirty, false); view.unmount(); view = render(component());
+  await waitFor(() => assert.equal(view.getByLabelText(label).checked, true));
+  assert.equal(view.getByLabelText('Catégorie affichée en premier').value, 'equipements'); assert.equal(writes.length, 1);
+});
+
+test('descriptions : masquées par défaut ou affichées sur chaque carte Promotions uniquement', async () => {
+  const products = [catalog.motorcycles[0], catalog.ridingGear[0], catalog.spareParts[0]];
+  const originals = products.map(p => p.description);
+  products.forEach((p, i) => { p.description = `Description testunique${i}`; });
+  try {
+  const campaign = { id: 'descriptions', name: 'Promo descriptions', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: products.map(p => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000000, discountPercent: 20 })) };
+  let showCardDescription;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ campaigns: [campaign], preferredCategory: 'tous', showCardDescription, serverTime: new Date().toISOString() }) });
+  const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
+  await waitFor(() => assert.equal(view.container.querySelectorAll('article').length, 3));
+  let cards = [...view.container.querySelectorAll('article')];
+  for (const [i, card] of cards.entries()) assert.equal(card.textContent.includes(products[i].description), false);
+  showCardDescription = true; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => { cards = [...view.container.querySelectorAll('article')]; for (const [i, card] of cards.entries()) assert.ok(card.textContent.includes(products[i].description)); });
+  showCardDescription = false; fireEvent(document, new window.Event('visibilitychange'));
+  await waitFor(() => { for (const [i, card] of [...view.container.querySelectorAll('article')].entries()) assert.equal(card.textContent.includes(products[i].description), false); });
+  fireEvent.change(view.getByLabelText('Rechercher une promotion'), { target: { value: products[1].description.split(' ')[0] } });
+  assert.ok(view.getByRole('region', { name: 'Produits en promotion' }).textContent.includes(products[1].name), 'la recherche reste possible même si le texte est masqué');
+  } finally { products.forEach((p, i) => { p.description = originals[i]; }); }
 });

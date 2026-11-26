@@ -22,10 +22,12 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
   const [productBusy, setProductBusy] = useState(false);
   const [preferred, setPreferred] = useState<PromotionCategory>("motos");
   const [savedPreferred, setSavedPreferred] = useState<PromotionCategory>("motos");
+  const [showCardDescription, setShowCardDescription] = useState(false);
+  const [savedShowCardDescription, setSavedShowCardDescription] = useState(false);
   const [displayRevision, setDisplayRevision] = useState("");
   const [displayError, setDisplayError] = useState("");
   const [displayNotice, setDisplayNotice] = useState("");
-  const displayDirty = !!displayRevision && preferred !== savedPreferred;
+  const displayDirty = !!displayRevision && (preferred !== savedPreferred || showCardDescription !== savedShowCardDescription);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const [imageStatus, setImageStatus] = useState("");
   const uploadController = useRef<AbortController | null>(null);
@@ -36,16 +38,17 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
     try {
       const result = await request("promotions-display.php");
       if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.revision !== "string") throw new Error("Réponse de réglage invalide.");
-      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setDisplayRevision(result.revision);
+      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory);
+      setShowCardDescription(result.data.showCardDescription === true); setSavedShowCardDescription(result.data.showCardDescription === true); setDisplayRevision(result.revision);
     } catch (err) { setDisplayError((err as Error).message); }
   }
   async function saveDisplay() {
     if (!displayRevision || busy) return;
     setBusy(true); setDisplayError(""); setDisplayNotice("");
     try {
-      const result = await request("promotions-display.php", json("PUT", { preferredCategory: preferred, revision: displayRevision }));
-      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.revision !== "string") throw new Error("Réponse invalide. Rechargez pour vérifier l’enregistrement.");
-      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setDisplayRevision(result.revision); setDisplayNotice("Catégorie enregistrée.");
+      const result = await request("promotions-display.php", json("PUT", { preferredCategory: preferred, showCardDescription, revision: displayRevision }));
+      if (!isPromotionCategory(result.data?.preferredCategory) || typeof result.data?.showCardDescription !== "boolean" || typeof result.revision !== "string") throw new Error("Réponse invalide. Rechargez pour vérifier l’enregistrement.");
+      setPreferred(result.data.preferredCategory); setSavedPreferred(result.data.preferredCategory); setShowCardDescription(result.data.showCardDescription); setSavedShowCardDescription(result.data.showCardDescription); setDisplayRevision(result.revision); setDisplayNotice("Affichage enregistré.");
     } catch (err) { setDisplayError((err as Error).message); } finally { setBusy(false); }
   }
   useEffect(() => { void load(); void loadDisplay(); }, []);
@@ -99,7 +102,9 @@ export default function AdminPromotions({ catalog, productEditor, onDirtyChange,
     {loaded && !draft && <div className="rounded-lg bg-white p-4">
       <h2 className="font-bold">Affichage de la page Promotions</h2>
       <p className="mt-1 text-sm text-black/60">Choisissez la catégorie affichée en premier pour toutes les campagnes. Si elle est vide, une catégorie disponible sera affichée.</p>
-      {displayRevision && <div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm font-semibold">Catégorie affichée en premier<select disabled={busy} className={input} value={preferred} onChange={(e) => { const value = e.target.value; if (isPromotionCategory(value)) setPreferred(value); setDisplayNotice(""); }}><option value="tous">Tous</option><option value="motos">Motos</option><option value="equipements">Équipements et casques</option><option value="pieces">Pièces détachées</option></select></label><button type="button" className={primary} disabled={!displayDirty || busy} onClick={() => void saveDisplay()}>Enregistrer l’affichage</button>{displayDirty && <button type="button" className={button} disabled={busy} onClick={() => { setPreferred(savedPreferred); setDisplayError(""); }}>Annuler</button>}</div>}
+      {displayRevision && <div className="mt-3 flex flex-wrap items-end gap-3"><label className="text-sm font-semibold">Catégorie affichée en premier<select disabled={busy} className={input} value={preferred} onChange={(e) => { const value = e.target.value; if (isPromotionCategory(value)) setPreferred(value); setDisplayNotice(""); }}><option value="tous">Tous</option><option value="motos">Motos</option><option value="equipements">Équipements et casques</option><option value="pieces">Pièces détachées</option></select></label><button type="button" className={primary} disabled={!displayDirty || busy} onClick={() => void saveDisplay()}>Enregistrer l’affichage</button>{displayDirty && <button type="button" className={button} disabled={busy} onClick={() => { setPreferred(savedPreferred); setShowCardDescription(savedShowCardDescription); setDisplayError(""); }}>Annuler</button>}</div>}
+      {displayRevision && <label className="mt-4 flex items-center gap-2 text-sm font-semibold"><input type="checkbox" disabled={busy} checked={showCardDescription} onChange={(e) => { setShowCardDescription(e.target.checked); setDisplayNotice(""); }} /> Afficher la description sur toutes les cartes Promotions</label>}
+      <p className="mt-1 text-xs text-black/60">Ce réglage concerne toutes les catégories de la page Promotions, sans modifier les descriptions enregistrées ni les autres pages.</p>
       {displayError && <p role="alert" className="mt-2 text-sm text-red-700">{displayError}{!displayRevision && <> <button type="button" className="underline" onClick={() => void loadDisplay()}>Réessayer</button></>}</p>}
       {displayNotice && <p role="status" className="mt-2 text-sm text-emerald-700">{displayNotice}</p>}
     </div>}
