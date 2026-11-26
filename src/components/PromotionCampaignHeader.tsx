@@ -36,7 +36,9 @@ export function PromotionCampaignHeader({ campaign, clockOffset = 0, preview = f
   const isSport = appearance.style === "sportif";
   const titleIndex = appearance.highlight ? campaign.name.indexOf(appearance.highlight) : -1;
   const heading = titleIndex < 0 ? campaign.name : <>{campaign.name.slice(0, titleIndex)}<span className={darkBackground ? "text-[#ffd100]" : "text-[#98741b] dark:text-[#ffd100]"} style={appearance.highlightColor ? { color: appearance.highlightColor } : undefined}>{appearance.highlight}</span>{campaign.name.slice(titleIndex + appearance.highlight.length)}</>;
-  const titleStyle = appearance.titleColor ? { color: appearance.titleColor } : undefined;
+  // La police locale ne dispose que de glyphes droits et le site désactive globalement la synthèse.
+  // Autoriser uniquement la synthèse de l’italique sur ce titre, sans changer les autres textes.
+  const titleStyle = { ...(appearance.titleColor ? { color: appearance.titleColor } : {}), ...(appearance.titleItalic ? { fontSynthesis: "style" } : {}) };
   const appearanceClass = appearance.style === "sportif" ? "border-l-4 border-[#ffd100]" : appearance.style === "festif" ? "border border-[#ffd100]/40" : appearance.style === "black-friday" ? "border border-white/15" : "border border-black/10 dark:border-white/10";
   return <section aria-labelledby={id} data-promotion-style={appearance.style} data-promotion-image={image ? "true" : "false"} className={`relative isolate overflow-hidden ${appearanceClass} ${darkBackground ? "bg-[#171816] text-white" : "bg-[#f5f3eb] text-[#171816] dark:bg-[#1c1d1a] dark:text-white"}`}>
     {image && <><img src={image} alt="" aria-hidden="true" loading="lazy" className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover" /><div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-r from-black/90 via-black/75 to-black/55" /></>}
