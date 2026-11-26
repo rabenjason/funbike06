@@ -6,7 +6,7 @@ import { productTypes } from "../catalog/productTypes";
 import type { Product } from "../types/product";
 import { PromotionCard } from "../components/PromotionCard";
 import { usePromotions } from "../components/PromotionsContext";
-import type { Promotion, PromotionCategory } from "../lib/promotions";
+import { isPromotionAppearance, type Promotion, type PromotionCategory } from "../lib/promotions";
 
 const groups: { key: PromotionCategory; label: string; categories: string[] }[] = [
   { key: "motos", label: "Motos", categories: ["motos"] },
@@ -57,7 +57,9 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   // Five numbered buttons at most, even for very large campaigns.
   const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
-  return <div className="page-compact-top w-full pb-10 pt-6 sm:pt-8">
+  // Seules les bannières personnalisées touchent la navigation ; les états et titres historiques gardent leur marge.
+  const edgeToNav = status === "ready" && campaigns.length > 0 && isPromotionAppearance(campaigns[0].appearance);
+  return <div className={`w-full pb-10 ${edgeToNav ? "" : "page-compact-top pt-6 sm:pt-8"}`}>
     <h1 className="sr-only">Promotions</h1>
     <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-6 md:px-8 lg:px-10">
     {status === "loading" && <p role="status">Chargement des promotions…</p>}
