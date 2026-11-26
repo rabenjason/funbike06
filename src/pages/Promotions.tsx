@@ -7,6 +7,7 @@ import type { Product } from "../types/product";
 import { PromotionCard } from "../components/PromotionCard";
 import { usePromotions } from "../components/PromotionsContext";
 import { isPromotionAppearance, type Promotion, type PromotionCategory } from "../lib/promotions";
+import { useBriefLoading } from "../hooks/useBriefLoading";
 
 const groups: { key: PromotionCategory; label: string; categories: string[] }[] = [
   { key: "motos", label: "Motos", categories: ["motos"] },
@@ -17,6 +18,13 @@ const allGroup = { key: "tous" as const, label: "Tous", categories: groups.flatM
 const perPage = 8;
 const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const typeKey = (product: Product) => `${product.categoryId}:${product.productTypeId}`;
+
+function PromotionCardsLoading({ count = 4 }: { count?: number }) {
+  return <div role="status" className="promotion-skeleton" aria-label="Chargement des promotions">
+    <span className="sr-only">Chargement des promotions…</span>
+    <div aria-hidden="true" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{Array.from({ length: count }, (_, i) => <div key={i} className="overflow-hidden rounded-xl border border-black/10 dark:border-white/10"><div className="skeleton aspect-[4/3]" /><div className="space-y-3 p-3 sm:p-4"><div className="skeleton h-3 w-1/2" /><div className="skeleton h-4 w-4/5" /><div className="skeleton h-4 w-2/3" /><div className="skeleton h-11 w-full rounded-md" /></div></div>)}</div>
+  </div>;
+}
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
   const { campaigns, status, clockOffset, preferredCategory, showCardDescription, originalPriceColor } = usePromotions();
@@ -54,6 +62,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   const currentPage = Math.min(page, totalPages);
   useEffect(() => { setPage((current) => Math.min(current, totalPages)); }, [totalPages]);
   const visible = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const transitionLoading = useBriefLoading(JSON.stringify([active?.key ?? "", selectedType, currentPage]));
   // Five numbered buttons at most, even for very large campaigns.
   const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
@@ -62,7 +71,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   return <div className={`w-full pb-10 ${edgeToNav ? "" : "page-compact-top pt-6 sm:pt-8"}`}>
     <h1 className="sr-only">Promotions</h1>
     <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-6 md:px-8 lg:px-10">
-    {status === "loading" && <p role="status">Chargement des promotions…</p>}
+    {status === "loading" && <div className="promotion-skeleton"><div className="skeleton mb-6 h-32 w-full" aria-hidden="true" /><PromotionCardsLoading /></div>}
     {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
     {status === "ready" && campaigns.length === 0 && <div><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
     </div>
@@ -77,7 +86,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
           {types.length > 0 && <label className="min-w-0 text-xs font-semibold text-black/65 dark:text-white/65 sm:w-52">Filtrer par type<select className="mt-1 h-10 w-full rounded-md border border-black/20 bg-white px-3 text-sm text-[#171816] dark:border-white/20 dark:bg-[#1a1b18] dark:text-white" value={selectedType} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tous les types</option>{types.map((entry) => <option key={`${entry.categoryId}:${entry.id}`} value={`${entry.categoryId}:${entry.id}`}>{entry.name}</option>)}</select></label>}
         </div>
         <div className="my-4 flex items-baseline justify-between gap-3"><h3 className="font-display text-lg font-semibold text-[#171816] dark:text-[#f2f0ea]">{active.label}</h3></div>
-        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="flex min-w-0 flex-col">{campaigns.length > 1 && <p className="mb-2 min-h-8 line-clamp-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}<PromotionCard product={product} campaign={campaign} go={go} showDescription={showCardDescription} originalPriceColor={originalPriceColor} /></div>)}</div>}
+        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : transitionLoading ? <PromotionCardsLoading count={visible.length} /> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="flex min-w-0 flex-col">{campaigns.length > 1 && <p className="mb-2 min-h-8 line-clamp-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}<PromotionCard product={product} campaign={campaign} go={go} showDescription={showCardDescription} originalPriceColor={originalPriceColor} /></div>)}</div>}
         {totalPages > 1 && <nav aria-label="Pagination des promotions" className="mt-8 flex flex-wrap items-center justify-center gap-1 border-t border-black/10 pt-4 dark:border-white/10">
           <button type="button" className="min-h-11 rounded px-3 text-sm font-semibold disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Précédent</button>
           {pageNumbers.map((n) => <button key={n} type="button" aria-label={`Page ${n}`} aria-current={n === currentPage ? "page" : undefined} onClick={() => setPage(n)} className={`h-11 w-11 rounded text-sm font-semibold ${n === currentPage ? "bg-[#ffd100] text-[#171816]" : "text-black/65 hover:bg-black/5 dark:text-white/65 dark:hover:bg-white/10"}`}>{n}</button>)}
