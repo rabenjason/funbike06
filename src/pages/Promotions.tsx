@@ -19,7 +19,7 @@ const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u0
 const typeKey = (product: Product) => `${product.categoryId}:${product.productTypeId}`;
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
-  const { campaigns, status, clockOffset, preferredCategory, showCardDescription } = usePromotions();
+  const { campaigns, status, clockOffset, preferredCategory, showCardDescription, originalPriceColor } = usePromotions();
   const [chosenCategory, setChosenCategory] = useState<PromotionCategory | null>(null);
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
@@ -57,14 +57,16 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   // Five numbered buttons at most, even for very large campaigns.
   const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
   const pageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
-  return <div className="page-compact-top mx-auto w-full max-w-(--container-site) px-4 pb-10 pt-6 sm:px-6 sm:pt-8 md:px-8 lg:px-10">
+  return <div className="page-compact-top w-full pb-10 pt-6 sm:pt-8">
     <h1 className="sr-only">Promotions</h1>
+    <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-6 md:px-8 lg:px-10">
     {status === "loading" && <p role="status">Chargement des promotions…</p>}
     {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
     {status === "ready" && campaigns.length === 0 && <div><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
+    </div>
     {status === "ready" && campaigns.length > 0 && <>
       <div className="space-y-4">{campaigns.map((campaign) => <PromotionCampaignHeader key={campaign.id} campaign={campaign} clockOffset={clockOffset} />)}</div>
-      {active && <section className="mt-4" aria-label="Produits en promotion">
+      {active && <section className="mx-auto mt-4 w-full max-w-(--container-site) px-4 sm:px-6 md:px-8 lg:px-10" aria-label="Produits en promotion">
         <div className="flex gap-5 overflow-x-auto border-b border-black/10 dark:border-white/10" aria-label="Catégories de promotions">
           {available.map((group) => <button key={group.key} type="button" aria-pressed={active.key === group.key} onClick={() => { setChosenCategory(group.key); setType(""); setPage(1); }} className={`shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition ${active.key === group.key ? "border-[#ffd100] text-[#171816] dark:text-white" : "border-transparent text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"}`}>{group.label}</button>)}
         </div>
@@ -73,7 +75,7 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
           {types.length > 0 && <label className="min-w-0 text-xs font-semibold text-black/65 dark:text-white/65 sm:w-52">Filtrer par type<select className="mt-1 h-10 w-full rounded-md border border-black/20 bg-white px-3 text-sm text-[#171816] dark:border-white/20 dark:bg-[#1a1b18] dark:text-white" value={selectedType} onChange={(e) => { setType(e.target.value); setPage(1); }}><option value="">Tous les types</option>{types.map((entry) => <option key={`${entry.categoryId}:${entry.id}`} value={`${entry.categoryId}:${entry.id}`}>{entry.name}</option>)}</select></label>}
         </div>
         <div className="my-4 flex items-baseline justify-between gap-3"><h3 className="font-display text-lg font-semibold text-[#171816] dark:text-[#f2f0ea]">{active.label}</h3></div>
-        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="flex min-w-0 flex-col">{campaigns.length > 1 && <p className="mb-2 min-h-8 line-clamp-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}<PromotionCard product={product} campaign={campaign} go={go} showDescription={showCardDescription} /></div>)}</div>}
+        {filtered.length === 0 ? <p className="py-5 text-sm text-black/60 dark:text-white/60">Aucun produit ne correspond à votre recherche ou à ce filtre.</p> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">{visible.map(({ product, campaign }) => <div key={`${campaign.id}:${product.categoryId}:${product.id}`} className="flex min-w-0 flex-col">{campaigns.length > 1 && <p className="mb-2 min-h-8 line-clamp-2 text-xs font-semibold text-black/60 dark:text-white/60">{campaign.name}</p>}<PromotionCard product={product} campaign={campaign} go={go} showDescription={showCardDescription} originalPriceColor={originalPriceColor} /></div>)}</div>}
         {totalPages > 1 && <nav aria-label="Pagination des promotions" className="mt-8 flex flex-wrap items-center justify-center gap-1 border-t border-black/10 pt-4 dark:border-white/10">
           <button type="button" className="min-h-11 rounded px-3 text-sm font-semibold disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Précédent</button>
           {pageNumbers.map((n) => <button key={n} type="button" aria-label={`Page ${n}`} aria-current={n === currentPage ? "page" : undefined} onClick={() => setPage(n)} className={`h-11 w-11 rounded text-sm font-semibold ${n === currentPage ? "bg-[#ffd100] text-[#171816]" : "text-black/65 hover:bg-black/5 dark:text-white/65 dark:hover:bg-white/10"}`}>{n}</button>)}

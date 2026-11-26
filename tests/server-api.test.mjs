@@ -284,7 +284,7 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     assert.equal((await call('promotions-display.php', { method: 'PUT', body: { preferredCategory: 'pieces', revision: 'x' } })).status, 401);
     cookie = promoCookie;
     const initialDisplay = await call('promotions-display.php', { authenticated: true });
-    assert.equal(initialDisplay.status, 200); assert.equal(initialDisplay.body.data.preferredCategory, 'motos'); assert.equal(initialDisplay.body.data.showCardDescription, false);
+    assert.equal(initialDisplay.status, 200); assert.equal(initialDisplay.body.data.preferredCategory, 'motos'); assert.equal(initialDisplay.body.data.showCardDescription, false); assert.equal(initialDisplay.body.data.originalPriceColor, '');
     assert.equal(existsSync(displayFile), false);
     assert.equal((await call('promotions.php')).body.preferredCategory, 'motos');
     const campaignBeforeDisplay = readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8');
@@ -307,10 +307,16 @@ test('API PHP : authentification, brouillons et cohérence des données', { skip
     const descriptionOn = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: savedAll.body.revision, preferredCategory: 'tous', showCardDescription: true } });
     assert.equal(descriptionOn.status, 200); assert.equal(descriptionOn.body.data.showCardDescription, true);
     assert.equal((await call('promotions.php')).body.showCardDescription, true);
-    const oldDisplayClient = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: descriptionOn.body.revision, preferredCategory: 'tous' } });
+    assert.equal((await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: descriptionOn.body.revision, preferredCategory: 'tous', originalPriceColor: 'red' } })).status, 400);
+    const colorSaved = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: descriptionOn.body.revision, preferredCategory: 'tous', originalPriceColor: '#ff0000' } });
+    assert.equal(colorSaved.status, 200); assert.equal((await call('promotions.php')).body.originalPriceColor, '#ff0000');
+    const oldDisplayClient = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: colorSaved.body.revision, preferredCategory: 'tous' } });
+    assert.equal(oldDisplayClient.body.data.originalPriceColor, '#ff0000', 'ancien client conserve la couleur');
     assert.equal(oldDisplayClient.status, 200); assert.equal(oldDisplayClient.body.data.showCardDescription, true, 'un ancien client conserve le choix');
     const descriptionOff = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: oldDisplayClient.body.revision, preferredCategory: 'tous', showCardDescription: false } });
     assert.equal(descriptionOff.status, 200); assert.equal((await call('promotions.php')).body.showCardDescription, false);
+    const colorReset = await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: descriptionOff.body.revision, preferredCategory: 'tous', originalPriceColor: '' } });
+    assert.equal(colorReset.status, 200); assert.equal((await call('promotions.php')).body.originalPriceColor, '');
     assert.equal((await call('promotions-display.php', { method: 'PUT', authenticated: true, body: { revision: displaySaved.body.revision, preferredCategory: 'pieces' } })).status, 409);
     assert.equal((await call('promotions-display.php', { authenticated: true })).body.data.preferredCategory, 'tous');
     assert.equal(readFileSync(join(serverDir, 'storage/data/promotions.json'), 'utf8'), campaignBeforeDisplay);

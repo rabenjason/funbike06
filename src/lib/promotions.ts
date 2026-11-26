@@ -1,3 +1,4 @@
+export const isPromotionPriceColor = (value: unknown): value is string => typeof value === "string" && /^(?:|#[0-9a-fA-F]{6})$/.test(value);
 export type PromotionCategory = "tous" | "motos" | "equipements" | "pieces";
 export const isPromotionCategory = (value: unknown): value is PromotionCategory => value === "tous" || value === "motos" || value === "equipements" || value === "pieces";
 

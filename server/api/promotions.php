@@ -37,7 +37,7 @@ if ($method === 'GET') {
         if ($campaign['products']) $visible[] = $campaign;
     }
     $display = funbikePromotionDisplayRead();
-    funbikeJsonResponse(200, ['campaigns' => $visible, 'serverTime' => gmdate('c'), 'preferredCategory' => ($display['preferredCategory'] ?? 'motos'), 'showCardDescription' => ($display['showCardDescription'] ?? false)]);
+    funbikeJsonResponse(200, ['campaigns' => $visible, 'serverTime' => gmdate('c'), 'preferredCategory' => ($display['preferredCategory'] ?? 'motos'), 'showCardDescription' => ($display['showCardDescription'] ?? false), 'originalPriceColor' => ($display['originalPriceColor'] ?? '')]);
 }
 if ($method === 'POST' && isset($_FILES['banner'])) {
     $image = $_FILES['banner'];
