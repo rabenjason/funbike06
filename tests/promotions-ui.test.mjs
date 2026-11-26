@@ -810,6 +810,8 @@ test('Promotions : bannière pleine largeur et prix barré coloré uniquement su
   const banner = view.getByRole('region', { name: 'Promotions' });
   assert.equal(banner.parentElement.parentElement.classList.contains('max-w-(--container-site)'), false);
   assert.equal(banner.parentElement.parentElement.classList.contains('px-4'), false);
+  assert.equal(banner.parentElement.parentElement.classList.contains('page-compact-top'), false);
+  assert.equal(banner.parentElement.parentElement.classList.contains('pt-6'), false);
   assert.equal(banner.classList.contains('rounded-xl'), false);
   const del = view.getByRole('region', { name: 'Produits en promotion' }).querySelector('del');
   assert.equal(del.style.color, '');
