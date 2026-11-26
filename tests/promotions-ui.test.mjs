@@ -201,7 +201,7 @@ test('dashboard : choix global enregistré sans modifier les campagnes', async (
   assert.equal(dirty, true);
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer l’affichage' }));
   await waitFor(() => assert.ok(view.getByText('Affichage enregistré.')));
-  assert.equal(setting, 'equipements'); assert.equal(dirty, false);
+  assert.equal(setting, 'equipements'); await waitFor(() => assert.equal(dirty, false));
   assert.equal(requests.filter(({ options }) => options.method === 'PUT').length, 1);
   assert.ok(requests.find(({ options }) => options.method === 'PUT').url.endsWith('promotions-display.php'));
 });
@@ -523,8 +523,10 @@ test('bannières : styles, photo locale facultative, couleurs, description et ch
     assert.equal(view.getByText('Noël').style.color, 'rgb(255, 0, 0)');
     assert.equal(view.getByRole('heading').style.color, 'rgb(255, 255, 255)');
     assert.equal(view.getByRole('heading').classList.contains('italic'), false);
+    assert.equal(view.getByRole('heading').style.fontSynthesis, '');
     view.rerender(React.createElement(PromotionCampaignHeader, { campaign: { ...base, appearance: { ...appearance, titleItalic: true } }, clockOffset: offset }));
     assert.equal(view.getByRole('heading').classList.contains('italic'), true);
+    assert.equal(view.getByRole('heading').style.fontSynthesis, 'style');
     assert.equal(view.getByText('Noël').style.color, 'rgb(255, 0, 0)');
   }
   const appearance = { ...defaultPromotionAppearance(), showBanner: true, highlight: 'absent' };
@@ -561,7 +563,8 @@ test('dashboard : personnalisation par campagne, aperçu et enregistrement sans 
   const preview = view.container.querySelector('.fb-promotion-preview');
   assert.equal(preview.querySelector('section').dataset.promotionStyle, 'festif');
   assert.ok(preview.querySelector('h2').classList.contains('italic'));
-  fireEvent.click(view.getByLabelText('Mettre le titre en italique')); assert.equal(preview.querySelector('h2').classList.contains('italic'), false);
+  assert.equal(preview.querySelector('h2').style.fontSynthesis, 'style');
+  fireEvent.click(view.getByLabelText('Mettre le titre en italique')); assert.equal(preview.querySelector('h2').classList.contains('italic'), false); assert.equal(preview.querySelector('h2').style.fontSynthesis, '');
   fireEvent.click(view.getByLabelText('Mettre le titre en italique'));
   assert.equal(preview.querySelector('img').getAttribute('src'), campaign.bannerUrl);
   assert.ok(preview.textContent.includes('Description Noël')); assert.equal(preview.querySelector('h2 span').textContent, 'Noël');
