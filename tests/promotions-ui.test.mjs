@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
+import { readFileSync } from 'node:fs';
 import { seedCatalog } from './helpers/catalog.mjs';
 let dom, server, render, cleanup, fireEvent, waitFor, within, act, catalog, Header, Provider, Promotions, AdminPromotions, ConfirmationProvider, BikeCard;
 let originalFetch;
@@ -573,6 +574,16 @@ test('cartes promotions : structure commune et contacts WhatsApp selon catégori
   await waitFor(() => assert.ok(view.getByRole('button', { name: /WhatsApp/ })));
   const cards = [...view.container.querySelectorAll('article')]; assert.equal(cards.length, 3);
   for (const card of cards) { assert.ok(card.querySelector('.aspect-\\[4\\/3\\]')); assert.ok(card.querySelector('img').className.includes('object-contain')); assert.ok(card.querySelector('[aria-label="Réduction de 20 %"]')); assert.ok(within(card).getByRole('link', { name: /Voir la fiche/ })); }
+  for (const card of cards) {
+    const action = card.querySelector('.fb-promotion-action');
+    const details = within(card).getByRole('link', { name: /Voir la fiche/ });
+    assert.ok(action.classList.contains('h-11') && action.classList.contains('min-w-0'));
+    assert.ok(details.classList.contains('h-11') && details.classList.contains('w-11'));
+    assert.ok(action.querySelector('span'), 'le libellé reste centré et peut passer sur deux lignes');
+  }
+  const css = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  const actionStyle = css.match(/\.fb-promotion-action\s*\{([^}]*)\}/)?.[1] ?? '';
+  assert.match(actionStyle, /font-size:\s*0\.625rem/); assert.match(actionStyle, /line-height:\s*1\.15/);
   fireEvent.click(within(cards[0]).getByRole('button', { name: /WhatsApp/ }));
   fireEvent.click(within(view.getByRole('dialog')).getByRole('button', { name: 'Informations' }));
   assert.equal(new URL(within(view.getByRole('dialog')).getByRole('link', { name: /Continuer/ }).href).pathname, '/261340011111');

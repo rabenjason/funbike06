@@ -358,6 +358,15 @@ textarea.chat-composer:focus-visible {
   box-shadow: var(--fb-card-shadow-hover);
 }
 
+/* Les boutons Promotions gardent une taille lisible malgré le reset global
+   « button { font: inherit } », y compris lorsque le libellé tient sur deux lignes. */
+.fb-promotion-action {
+  font-size: 0.625rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .fb-card-media {
   background: var(--fb-card-media);
 }
