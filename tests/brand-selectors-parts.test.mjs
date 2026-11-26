@@ -19,7 +19,7 @@ before(async () => {
 after(async () => { cleanup(); dom.window.close(); await server.close(); });
 
 test('pièces : même sélecteur, Toutes, marques compatibles et navigation conservées', async () => {
-  const brand = { id: 'test-compatible', name: 'Marque Test', isPublished: true, isEquipmentBrand: false };
+  const brand = { id: 'test-compatible', name: 'Marque Test', logo: '/server/uploads/brands/test/logo.png', isPublished: true, isEquipmentBrand: false };
   const part = { ...catalog.spareParts[0], id: 'part-compatible', name: 'Pièce compatible', brandId: 'unknown-brand', compatibleBrandIds: [brand.id], status: 'PUBLISHED' };
   catalog.brands.push(brand); catalog.spareParts.push(part);
   try {
@@ -30,6 +30,8 @@ test('pièces : même sélecteur, Toutes, marques compatibles et navigation cons
     assert.equal(all.getAttribute('aria-pressed'), 'true'); assert.equal(chosen.getAttribute('aria-pressed'), 'false');
     assert.equal(chosen.getAttribute('aria-controls'), 'spare-parts-products');
     assert.ok(chosen.classList.contains('equipment-brand-button'));
+    assert.ok(chosen.querySelector('.brand-logo-slot--image img[src="/server/uploads/brands/test/logo.png"]'));
+    assert.equal(all.querySelector('.brand-logo-slot--image'), null);
     fireEvent.click(chosen);
     assert.equal(chosen.getAttribute('aria-pressed'), 'true'); assert.equal(all.getAttribute('aria-pressed'), 'false');
     assert.ok(chosen.querySelector('.equipment-brand-active'));
