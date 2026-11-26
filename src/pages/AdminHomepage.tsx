@@ -3,6 +3,7 @@ import { HomepageManager, type AdminCatalog, type HomepageField } from "./AdminC
 import { AdminFeatureBanner } from "./AdminFeatureBanner";
 import { AdminSiteLogo } from "./AdminSiteLogo";
 import { AdminWhatsapp } from "./AdminWhatsapp";
+import { AdminDefaultMode } from "./AdminDefaultMode";
 import { json, request } from "../lib/adminApi";
 import { useConfirmation } from "../components/ConfirmationModal";
 import { validHomepage, type HomepageContent, type HomepageData, type HomepageLink } from "../content/homepage";
@@ -33,10 +34,10 @@ const destinations: { value: HomepageLink["to"]; label: string }[] = [
 const icons: { value: HomepageLink["icon"]; label: string }[] = [{ value: "moto", label: "Moto" }, { value: "helmet", label: "Casque" }, { value: "parts", label: "Pièces" }, { value: "gear", label: "Équipement" }];
 
 export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange, onSavingChange }: { catalog: AdminCatalog; onToggle: (p: Product, field: HomepageField, value: boolean) => Promise<void>; dirty: boolean; saving: boolean; onDirtyChange: (value: boolean) => void; onSavingChange: (value: boolean) => void }) {
-  const [mode, setMode] = useState<"products" | "content" | "sherco" | "logo" | "whatsapp">("products");
+  const [mode, setMode] = useState<"products" | "content" | "sherco" | "logo" | "whatsapp" | "display-mode">("products");
   const [logoView, setLogoView] = useState<"settings" | "library">("settings");
   const confirm = useConfirmation();
-  async function changeMode(next: "products" | "content" | "sherco" | "logo" | "whatsapp") {
+  async function changeMode(next: "products" | "content" | "sherco" | "logo" | "whatsapp" | "display-mode") {
     if (mode === next || saving) return;
     if (dirty && !await confirm({ title: "Abandonner les modifications ?", description: "Les modifications non enregistrées seront perdues.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })) return;
     onDirtyChange(false); setMode(next); setLogoView("settings");
@@ -52,9 +53,10 @@ export function AdminHomepage({ catalog, onToggle, dirty, saving, onDirtyChange,
       <button type="button" className={mode === "content" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "content"} disabled={saving} onClick={() => void changeMode("content")}>Textes et liens</button>
       <button type="button" className={mode === "sherco" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "sherco"} disabled={saving} onClick={() => void changeMode("sherco")}>Bannière de mise en avant</button>
       <button type="button" className={mode === "logo" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "logo"} disabled={saving} onClick={() => void changeMode("logo")}>Logo du site</button>
+      <button type="button" className={mode === "display-mode" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "display-mode"} disabled={saving} onClick={() => void changeMode("display-mode")}>Mode jour / nuit</button>
       <button type="button" className={mode === "whatsapp" ? "rounded-md bg-[#171816] px-3 py-2 text-sm font-semibold text-white" : secondary} aria-pressed={mode === "whatsapp"} disabled={saving} onClick={() => void changeMode("whatsapp")}>WhatsApp</button>
     </div>
-    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} saving={saving} onSavingChange={onSavingChange} dirty={dirty} onDirtyChange={onDirtyChange} confirmLeave={() => confirm({ title: "Abandonner les modifications ?", description: "Le nom non enregistré sera perdu.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "sherco" ? <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "whatsapp" ? <AdminWhatsapp onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminSiteLogo key={logoView} view={logoView} onViewChange={changeLogoView} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
+    {mode === "products" ? <HomepageManager catalog={catalog} onToggle={onToggle} saving={saving} onSavingChange={onSavingChange} dirty={dirty} onDirtyChange={onDirtyChange} confirmLeave={() => confirm({ title: "Abandonner les modifications ?", description: "Le nom non enregistré sera perdu.", confirmLabel: "Abandonner", cancelLabel: "Continuer à modifier", destructive: true })} /> : mode === "content" ? <HomepageContentEditor catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "sherco" ? <AdminFeatureBanner catalog={catalog} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "display-mode" ? <AdminDefaultMode onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : mode === "whatsapp" ? <AdminWhatsapp onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} /> : <AdminSiteLogo key={logoView} view={logoView} onViewChange={changeLogoView} onDirtyChange={onDirtyChange} onSavingChange={onSavingChange} />}
   </div>;
 }
 

@@ -4,7 +4,7 @@ import React from 'react';
 import { JSDOM } from 'jsdom';
 import { createServer } from 'vite';
 
-let dom, server, Admin, render, fireEvent, waitFor, cleanup, within, originalFetch, users, theme, calls, failTheme, failRename;
+let dom, server, Admin, render, fireEvent, waitFor, cleanup, within, originalFetch, users, theme, defaultMode, calls, failTheme, failRename;
 const ok = (body) => ({ ok: true, json: async () => structuredClone(body) });
 before(async () => {
   dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/admin' });
@@ -16,14 +16,14 @@ before(async () => {
 });
 beforeEach(() => {
   users = [{ id: 'super', username: 'boss', role: 'superadmin', mustChangePassword: false }, { id: 'editor', username: 'editor', role: 'admin', mustChangePassword: false }];
-  theme = 'funbike'; calls = []; failTheme = false; failRename = false;
+  theme = 'funbike'; defaultMode = 'dark'; calls = []; failTheme = false; failRename = false;
   globalThis.fetch = async (url, options = {}) => {
     const path = String(url).replace('/server/api/', ''); const method = options.method ?? 'GET';
     const body = options.body ? JSON.parse(options.body) : null; calls.push({ path, method, body });
     if (path === 'site-theme.php') {
       if (failTheme) return { ok: false, json: async () => ({ error: 'Le thème a changé.' }) };
-      if (method === 'PUT') theme = body.theme;
-      return ok({ data: { theme }, revision: `revision-${theme}` });
+      if (method === 'PUT') { theme = body.theme; if (body.defaultMode !== undefined) defaultMode = body.defaultMode; }
+      return ok({ data: { theme, defaultMode }, revision: `revision-${theme}-${defaultMode}` });
     }
     if (path === 'auth/users.php') return ok({ users });
     if (path === 'auth/username.php') {
@@ -52,7 +52,7 @@ test('thème global : choix explicite, sauvegarde, retour et gestion des conflit
   assert.equal(theme, 'funbike', 'choix non publié avant enregistrement');
   fireEvent.click(view.getByRole('button', { name: 'Appliquer le thème' }));
   await waitFor(() => assert.equal(theme, 'tvs'));
-  assert.deepEqual(calls.find((c) => c.path === 'site-theme.php' && c.method === 'PUT').body, { theme: 'tvs', revision: 'revision-funbike' });
+  assert.deepEqual(calls.find((c) => c.path === 'site-theme.php' && c.method === 'PUT').body, { theme: 'tvs', revision: 'revision-funbike-dark' });
   await waitFor(() => assert.match(view.getByRole('status').textContent, /tous les visiteurs/));
   assert.equal(document.documentElement.dataset.siteTheme, undefined, 'le dashboard ne change pas de thème');
   failTheme = true;
@@ -85,4 +85,25 @@ test('superadmin : renommage de soi et des autres, confirmation par mot de passe
   fireEvent.click(view.getByRole('button', { name: 'Enregistrer le nom' }));
   await waitFor(() => assert.equal(users[1].username, 'editor-new'));
   assert.match(view.getByRole('status').textContent, /autres sessions/);
+});
+
+
+test('Accueil : mode initial jour ou nuit, protection des changements et conservation du thème', async () => {
+  const view = await open('Accueil');
+  fireEvent.click(await view.findByRole('button', { name: 'Mode jour / nuit' }));
+  await waitFor(() => assert.ok(view.getByLabelText(/Nuit/).checked));
+  assert.equal(view.getByRole('button', { name: 'Enregistrer le mode initial' }).disabled, true);
+  fireEvent.click(view.getByLabelText(/^Jour/));
+  assert.equal(defaultMode, 'dark');
+  fireEvent.click(view.getByRole('button', { name: 'Sélections de produits' }));
+  const dialog = await view.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Continuer à modifier' }));
+  assert.equal(view.getByLabelText(/^Jour/).checked, true);
+  fireEvent.click(view.getByRole('button', { name: 'Enregistrer le mode initial' }));
+  await waitFor(() => assert.equal(defaultMode, 'light'));
+  assert.deepEqual(calls.find(c => c.path === 'site-theme.php' && c.method === 'PUT').body, { theme: 'funbike', defaultMode: 'light', revision: 'revision-funbike-dark' });
+  await view.findByText(/Mode initial enregistré/); assert.equal(theme, 'funbike');
+  failTheme = true; fireEvent.click(view.getByLabelText(/^Nuit/)); fireEvent.click(view.getByRole('button', { name: 'Enregistrer le mode initial' }));
+  await waitFor(() => assert.match(view.getByRole('alert').textContent, /Le thème a changé/));
+  assert.equal(defaultMode, 'light'); assert.equal(view.getByLabelText(/^Nuit/).checked, true);
 });

@@ -11,6 +11,7 @@ after(async () => { globalThis.fetch = originalFetch; dom?.window.close(); await
 test('le HTML public reste visible si les API sont bloquées, puis disparaît après chargement', async () => {
   dom = new JSDOM('<!doctype html><html class="fb-booting"><head><title>TVS HLX Plus</title></head><body><div id="seo-fallback"><main><h1>TVS HLX Plus</h1><p>Contenu SEO public</p></main></div><div id="root"></div></body></html>', { url: 'http://localhost/motos/tvs-hlx-plus', pretendToBeVisual: true });
   globalThis.window = dom.window; globalThis.document = dom.window.document; globalThis.location = dom.window.location;
+  globalThis.localStorage = dom.window.localStorage;
   globalThis.HTMLElement = dom.window.HTMLElement; globalThis.Element = dom.window.Element;
   globalThis.Image = dom.window.Image; globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -27,7 +28,7 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   globalThis.fetch = async (url) => {
     if (blocked) return { ok: false, status: 403 };
     const path = String(url).replace('/server/api/', '');
-    if (path === 'homepage-content.php') return { ok: true, json: async () => ({ data: JSON.parse(readFileSync('server/api/_lib/homepage-defaults.json', 'utf8')), siteTheme: 'tvs' }) };
+    if (path === 'homepage-content.php') return { ok: true, json: async () => ({ data: JSON.parse(readFileSync('server/api/_lib/homepage-defaults.json', 'utf8')), siteTheme: 'tvs', defaultMode: 'light' }) };
     const [file, key] = files[path] ?? [];
     if (!file) return { ok: false, status: 404 };
     const value = JSON.parse(readFileSync(`server/storage/data/${file}`, 'utf8'))[key];
@@ -45,6 +46,11 @@ test('le HTML public reste visible si les API sont bloquées, puis disparaît ap
   await waitFor(() => assert.equal(document.getElementById('seo-fallback'), null), { timeout: 10000 });
   assert.equal(document.documentElement.classList.contains('fb-booting'), false);
   assert.equal(document.documentElement.dataset.siteTheme, 'tvs', 'thème public appliqué avant la fin du démarrage');
+  assert.equal(document.documentElement.classList.contains('dark'), false, 'le mode initial serveur est appliqué avant le rendu');
+  assert.equal(localStorage.getItem('fb-theme-v2'), null, 'le mode par défaut n’est pas enregistré comme choix personnel');
+  const toggle = document.querySelector('header button[aria-label*="nuit" i]'); assert.ok(toggle);
+  fireEvent.click(toggle); assert.equal(localStorage.getItem('fb-theme-v2'), 'dark');
+  assert.equal(document.documentElement.classList.contains('dark'), true);
   assert.equal(document.querySelector('#root [aria-label="Chargement du site"]'), null, 'aucun second écran de chargement React');
   assert.match(document.getElementById('root').textContent, /TVS HLX Plus/, 'la fiche directe est prête avant la disparition du chargement');
   assert.doesNotMatch(document.getElementById('root').textContent, /Chargement de la page/);

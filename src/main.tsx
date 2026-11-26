@@ -28,7 +28,7 @@ function initializePublicData() {
     const controller = new AbortController();
     publicData = Promise.all([
       import("./catalog/loadServerData").then(async (catalog) => ({ catalog, data: await catalog.loadInitialCatalog(location.pathname, controller.signal) })),
-      import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(controller.signal); document.documentElement.dataset.siteTheme = homepage.siteTheme; }),
+      import("./content/homepage").then(async (homepage) => { await homepage.loadHomepageData(controller.signal); document.documentElement.dataset.siteTheme = homepage.siteTheme; document.documentElement.classList.toggle("dark", readDarkPreference(homepage.defaultDisplayMode)); }),
     ]).then(([{ catalog, data }]) => {
       // Les autres sources ne retardent pas la première page ; leur résultat est partagé à la navigation.
       void catalog.startBackgroundCatalog(data).catch(() => {});
