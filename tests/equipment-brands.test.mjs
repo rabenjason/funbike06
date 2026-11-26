@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { createServer } from "vite";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { readFileSync } from "node:fs";
+import { JSDOM } from "jsdom";
 
 let server;
 let data;
@@ -95,6 +97,18 @@ test("sélecteur équipements : logo et nom, sélection accessible et repli sans
   assert.match(html, /aria-pressed="true"/);
   assert.match(html, /aria-pressed="false"/);
   assert.ok(html.includes('/logo.png'));
+  const document = new JSDOM(html).window.document;
+  const buttons = [...document.querySelectorAll('button')];
+  const logo = buttons.find(button => button.textContent.includes('Marque Logo'));
+  const fallback = buttons.find(button => button.textContent.includes('Autre Marque'));
+  const all = buttons.find(button => button.textContent.includes('Toutes'));
+  assert.ok(logo.querySelector('.brand-logo-slot--image img[src="/logo.png"]'));
+  assert.equal(fallback.querySelector('.brand-logo-slot--image'), null);
+  assert.equal(all.querySelector('.brand-logo-slot--image'), null);
+  const css = readFileSync('src/index.css', 'utf8');
+  assert.match(css, /\.equipment-brand-button \.brand-logo-slot--image\s*\{[^}]*background:\s*#fff/s);
+  assert.match(css, /\.dark \.equipment-brand-button \.brand-logo-slot--image \.partner-logo\s*\{[^}]*mix-blend-mode:\s*normal;[^}]*filter:\s*none/s);
+
   assert.ok(html.includes('Marque Logo'));
   assert.ok(html.includes('Autre Marque'));
   assert.ok(html.includes('>AU</span>'), 'initiales si le logo est absent');

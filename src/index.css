@@ -476,6 +476,20 @@ textarea.chat-composer:focus-visible {
   filter: drop-shadow(0 0 8px rgb(255 255 255 / 0.45));
 }
 
+/* Sélecteurs d’équipements et de pièces : support uniforme pour les images,
+   sans altérer les logos ni les autres usages de partner-logo. */
+.equipment-brand-button .brand-logo-slot--image {
+  box-sizing: border-box;
+  padding: 3px;
+  border-radius: 4px;
+  background: #fff;
+}
+.equipment-brand-button .brand-logo-slot--image .partner-logo,
+.dark .equipment-brand-button .brand-logo-slot--image .partner-logo {
+  mix-blend-mode: normal;
+  filter: none;
+}
+
 /* Skeleton placeholders */
 .skeleton {
   position: relative;

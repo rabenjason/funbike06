@@ -22,7 +22,7 @@ export function BrandVisual({ brand }: { brand: AccessoryBrand }) {
   }
 
   return (
-    <span className="brand-logo-slot" aria-hidden="true">
+    <span className={`brand-logo-slot${brand.logo ? " brand-logo-slot--image" : ""}`} aria-hidden="true">
       {brand.logo ? <img src={brand.logo} alt="" className="partner-logo" /> : <span className="text-xs font-bold">{brand.name?.slice(0, 2).toUpperCase()}</span>}
     </span>
   );
