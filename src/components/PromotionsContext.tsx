@@ -4,24 +4,25 @@ import type { Product } from "../types/product";
 import { products } from "../catalog/products";
 import { calculatePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Promotion[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [offset, setOffset] = useState(0);
   const [preferredCategory, setPreferredCategory] = useState<PromotionCategory>("motos");
+  const [showCardDescription, setShowCardDescription] = useState(false);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
     let alive = true; let sequence = 0; let midnight: number | undefined;
     async function refresh() {
       const number = ++sequence;
       try {
-        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown };
+        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown };
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
         if (alive && number === sequence) {
           const serverNow = Date.parse(result.serverTime);
-          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
+          setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
           window.clearTimeout(midnight);
           const elapsed = ((serverNow + 3 * 3600000) % 86400000 + 86400000) % 86400000;
           midnight = window.setTimeout(() => { setClock(Date.now()); void refresh(); }, 86400000 - elapsed + 1000);
@@ -38,15 +39,15 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
     const now = new Date(clock + offset);
     const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status, clockOffset: offset, preferredCategory };
-  }, [data, offset, clock, status, preferredCategory]);
+    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription };
+  }, [data, offset, clock, status, preferredCategory, showCardDescription]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
-export function PromotionBadge({ product }: { product: Product }) {
+export function PromotionBadge({ product, className = "" }: { product: Product; className?: string }) {
   const item = usePromotions().offer(product);
   if (!item) return null;
   try { calculatePromotionPrice(item.originalPrice, item.discountPercent); } catch { return null; }
-  return <span className="pointer-events-none absolute right-3 top-3 z-10 bg-[#ffd100] px-3 py-1.5 text-sm font-extrabold tracking-tight text-[#171816] shadow-sm" aria-label={`Réduction de ${item.discountPercent} %`}>−{item.discountPercent} %</span>;
+  return <span className={`pointer-events-none absolute right-3 top-3 z-10 bg-[#ffd100] px-3 py-1.5 text-sm font-extrabold tracking-tight text-[#171816] shadow-sm ${className}`} aria-label={`Réduction de ${item.discountPercent} %`}>−{item.discountPercent} %</span>;
 }
 
 export function PromotionPrice({ product, card = false, align = "left" }: { product: Product; card?: boolean; align?: "left" | "right" }) {
