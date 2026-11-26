@@ -20,7 +20,7 @@ function safeImage(path: string) { return /^\/server\/(uploads|public)\/[^?#]*$/
 
 export function AdminPromotionReservations({ onChanged, onDirtyChange, onSavingChange }: { onChanged: () => void; onDirtyChange: (dirty: boolean) => void; onSavingChange: (busy: boolean) => void }) {
   const confirm = useConfirmation();
-  const [items, setItems] = useState<Reservation[]>([]); const [loaded, setLoaded] = useState(false); const [loading, setLoading] = useState(false); const [attempt, setAttempt] = useState(0);
+  const [items, setItems] = useState<Reservation[]>([]); const [listRevision, setListRevision] = useState(""); const [loaded, setLoaded] = useState(false); const [loading, setLoading] = useState(false); const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState(""); const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(""); const [status, setStatus] = useState(""); const [source, setSource] = useState(""); const [period, setPeriod] = useState(""); const [from, setFrom] = useState(""); const [to, setTo] = useState(""); const [order, setOrder] = useState("desc"); const [page, setPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]); const [selected, setSelected] = useState<Reservation | null>(null); const [draft, setDraft] = useState<Reservation | null>(null);
@@ -31,7 +31,7 @@ export function AdminPromotionReservations({ onChanged, onDirtyChange, onSavingC
     let active = true; setLoading(true); setLoaded(false); setError("");
     request('promotion-reservations.php').then((result) => {
       if (!Array.isArray(result.reservations)) throw new Error('Réponse invalide.');
-      if (active) { setItems(result.reservations); setLoaded(true); }
+      if (active) { setItems(result.reservations); setListRevision(typeof result.revision === "string" ? result.revision : ""); setLoaded(true); }
     }).catch((err) => { if (active) setError((err as Error).message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [attempt]);
@@ -45,7 +45,7 @@ export function AdminPromotionReservations({ onChanged, onDirtyChange, onSavingC
       const saved = result.reservation as Reservation;
       setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
       setSelected((current) => current?.id === saved.id ? saved : current); setDraft((current) => current?.id === saved.id ? structuredClone(saved) : current);
-      setNotice('Réservation enregistrée.'); onChanged();
+      setListRevision(''); setNotice('Réservation enregistrée.'); onChanged();
     } catch (err) { setError((err as Error).message || 'Réception non confirmée. Rechargez avant de réessayer.'); }
     finally { setBusy(false); }
   }
@@ -58,7 +58,19 @@ export function AdminPromotionReservations({ onChanged, onDirtyChange, onSavingC
       if (result.deleted !== ids.length) throw new Error('Réponse invalide. Rechargez pour vérifier la suppression.');
       setItems((current) => current.filter((item) => !ids.includes(item.id))); setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
       if (selected && ids.includes(selected.id)) { setSelected(null); setDraft(null); }
-      setNotice('Suppression effectuée.'); onChanged();
+      setListRevision(''); setNotice('Suppression effectuée.'); onChanged();
+    } catch (err) { setError((err as Error).message || 'Résultat inconnu. Rechargez pour vérifier.'); }
+    finally { setBusy(false); }
+  }
+  async function removeAll() {
+    if (busy || !items.length || !listRevision || !await abandon()) return;
+    if (!await confirm({ title: `Supprimer toutes les ${items.length} réservations ?`, description: 'Toutes les réservations, y compris celles masquées par les filtres, seront supprimées définitivement. Cette action est irréversible.', confirmLabel: 'Tout supprimer', destructive: true })) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const result = await request('promotion-reservations.php', json('DELETE', { deleteAll: true, revision: listRevision }));
+      if (result.deleted !== items.length || typeof result.revision !== 'string') throw new Error('Réponse invalide. Rechargez pour vérifier la suppression.');
+      setItems([]); setListRevision(result.revision); setSelectedIds([]); setSelected(null); setDraft(null); setPage(1);
+      setNotice('Toutes les réservations ont été supprimées.'); onChanged();
     } catch (err) { setError((err as Error).message || 'Résultat inconnu. Rechargez pour vérifier.'); }
     finally { setBusy(false); }
   }
@@ -89,7 +101,8 @@ export function AdminPromotionReservations({ onChanged, onDirtyChange, onSavingC
         {period === 'custom' && <><label className="text-xs font-semibold">Du<input type="date" className={input} value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} /></label><label className="text-xs font-semibold">Au<input type="date" className={input} value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} /></label></>}
         <label className="text-xs font-semibold">Trier par date<select className={input} value={order} onChange={(e) => { setOrder(e.target.value); setPage(1); }}><option value="desc">Plus récentes en premier</option><option value="asc">Plus anciennes en premier</option></select></label>
       </div>
-      <div className="rounded-lg bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{filtered.length} demande(s) · sélection conservée même après filtrage (100 maximum)</p><button className={button} type="button" disabled={busy || !selectedIds.length} onClick={() => void remove(selectedIds)}>Supprimer la sélection ({selectedIds.length})</button></div>
+      {!listRevision && items.length > 0 && <p className="text-sm text-black/60">Actualisez la liste avant de supprimer toutes les réservations.</p>}
+      <div className="rounded-lg bg-white p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{filtered.length} demande(s) · sélection conservée même après filtrage (100 maximum)</p><div className="flex flex-wrap gap-2"><button className={button} type="button" disabled={busy || !selectedIds.length} onClick={() => void remove(selectedIds)}>Supprimer la sélection ({selectedIds.length})</button><button className={button} type="button" disabled={busy || !items.length || !listRevision} onClick={() => void removeAll()}>Tout supprimer ({items.length})</button></div></div>
         <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead><tr className="border-b border-black/10 text-xs text-black/60"><th>Sélection</th>{['Identifiant', 'Date', 'Produit', 'Client', 'Téléphone', 'Ville', 'Quantité', 'Prix promo', 'Origine', 'Statut', 'Actions'].map((v) => <th key={v} className="px-2 py-2">{v}</th>)}</tr></thead><tbody>{visible.map((item) => <tr key={item.id} className="border-b border-black/10"><td><input type="checkbox" aria-label={`Sélectionner ${item.id}`} checked={selectedIds.includes(item.id)} disabled={busy || (selectedIds.length >= 100 && !selectedIds.includes(item.id))} onChange={() => toggle(item.id)} /></td><td className="px-2 py-3"><span className="break-all">{item.id}</span></td><td className="px-2">{dateFormat.format(new Date(item.createdAt))}</td><td className="px-2">{item.product.name}<br /><span className="text-xs text-black/55">{item.product.brand}</span></td><td className="px-2">{item.customer.name || '—'}</td><td className="px-2">{item.customer.phone || '—'}</td><td className="px-2">{item.customer.city || '—'}</td><td className="px-2">{item.quantity}</td><td className="px-2">{formatAriary(item.promotion.promotionalPrice)}</td><td className="px-2">{item.source === 'form' ? 'Formulaire' : 'WhatsApp'}</td><td className="px-2"><span className={`rounded-full px-2 py-1 text-xs ${colors[item.status]}`}>{statuses[item.status]}</span></td><td className="px-2"><button className={button} disabled={busy} onClick={() => void open(item)}>Ouvrir</button></td></tr>)}</tbody></table></div>
         {!filtered.length && <p className="mt-4 text-sm">Aucune réservation correspondante.</p>}
         <div className="mt-4 flex flex-wrap items-center gap-3"><button className={button} disabled={current <= 1} onClick={() => setPage(current - 1)}>Précédent</button><span className="text-sm">Page {current} / {pages}</span><button className={button} disabled={current >= pages} onClick={() => setPage(current + 1)}>Suivant</button></div>

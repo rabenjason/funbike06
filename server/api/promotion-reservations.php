@@ -57,6 +57,7 @@ function reservationDateValid($date) {
     return is_string($date) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $m) && (int)$m[1] > 0 && checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
 }
 function reservationRevision($item) { return hash('sha256', json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
+function reservationListRevision($data) { return hash('sha256', json_encode($data['reservations'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
 $data = reservationLoad($file);
 if ($method === 'POST') {
     $body = reservationBody();
@@ -87,13 +88,13 @@ if ($method === 'POST') {
     if (!is_string($image) || !preg_match('#^/server/(uploads|public)/[^\s?\#]*$#D', $image) || strpos($image, '..') !== false) $image = '';
     $prefix = ['motos' => 'motos', 'casques' => 'casques', 'equipements' => 'equipements', 'pieces-detachees' => 'pieces-detachees'][$categoryId];
     $snapshot = ['product' => ['id' => $productId, 'categoryId' => $categoryId, 'name' => $product['name'], 'brand' => $brand['name'] ?? '', 'path' => '/' . $prefix . '/' . rawurlencode($productId), 'image' => $image], 'promotion' => ['id' => $campaignId, 'name' => $campaign['name'], 'startDate' => $campaign['startDate'], 'endDate' => $campaign['endDate'], 'originalPrice' => $price, 'promotionalPrice' => $price - intdiv($price * (int) round($discount * 100) + 5000, 10000), 'discountPercent' => (float)$discount]];
+    // Les deux parcours utilisent le même contact actif ; le formulaire reste utilisable si WhatsApp est désactivé.
     $phone = null;
-    if ($source === 'whatsapp') {
-        $settingsFile = $dir . '/whatsapp-settings.json'; $settings = is_file($settingsFile) ? json_decode((string) @file_get_contents($settingsFile), true) : null;
-        $team = $categoryId === 'pieces-detachees' ? 'parts' : 'sales'; $group = $settings[$team] ?? null;
-        if (($settings['enabled'] ?? null) === true && is_array($group) && is_string($group['activeId'] ?? null) && is_array($group['people'] ?? null)) foreach ($group['people'] as $person) if (($person['id'] ?? null) === $group['activeId']) { $phone = $person['phone'] ?? null; break; }
-        if (!is_string($phone) || !preg_match('/^\+[0-9\s().-]+$/D', $phone) || !preg_match('/^[1-9][0-9]{7,14}$/D', preg_replace('/\D/', '', $phone))) funbikeJsonResponse(409, ['error' => 'Le contact WhatsApp est indisponible. Utilisez le formulaire.']);
-    }
+    $settingsFile = $dir . '/whatsapp-settings.json'; $settings = is_file($settingsFile) ? json_decode((string) @file_get_contents($settingsFile), true) : null;
+    $team = $categoryId === 'pieces-detachees' ? 'parts' : 'sales'; $group = $settings[$team] ?? null;
+    if (($settings['enabled'] ?? null) === true && is_array($group) && is_string($group['activeId'] ?? null) && is_array($group['people'] ?? null)) foreach ($group['people'] as $person) if (($person['id'] ?? null) === $group['activeId']) { $phone = $person['phone'] ?? null; break; }
+    if (!is_string($phone) || !preg_match('/^\+[0-9\s().-]+$/D', $phone) || !preg_match('/^[1-9][0-9]{7,14}$/D', preg_replace('/\D/', '', $phone))) $phone = null;
+    if ($source === 'whatsapp' && $phone === null) funbikeJsonResponse(409, ['error' => 'Le contact WhatsApp est indisponible. Utilisez le formulaire.']);
     $name = reservationText($body, 'name', 80, $source === 'form');
     $customerPhone = reservationText($body, 'phone', 60, $source === 'form'); reservationPhone($customerPhone, $source === 'form');
     $city = reservationText($body, 'city', 100, $source === 'form');
@@ -116,10 +117,17 @@ if ($method === 'GET') {
         funbikeJsonResponse(200, ['unreadCount' => $count]);
     }
     $items = array_map(function ($item) { $item['revision'] = reservationRevision($item); return $item; }, $data['reservations']);
-    funbikeJsonResponse(200, ['reservations' => $items]);
+    funbikeJsonResponse(200, ['reservations' => $items, 'revision' => reservationListRevision($data)]);
 }
 $body = reservationBody();
 if ($method === 'DELETE') {
+    if (($body['deleteAll'] ?? null) === true) {
+        $revision = $body['revision'] ?? null;
+        if (!is_string($revision) || !hash_equals(reservationListRevision($data), $revision)) funbikeJsonResponse(409, ['error' => 'La liste des réservations a changé. Rechargez avant de supprimer.']);
+        $count = count($data['reservations']); $data['reservations'] = [];
+        reservationSave($file, $data);
+        funbikeJsonResponse(200, ['deleted' => $count, 'revision' => reservationListRevision($data)]);
+    }
     $ids = $body['ids'] ?? null;
     if (!is_array($ids) || !$ids || count($ids) > 100) funbikeJsonResponse(400, ['error' => 'Sélection invalide.']);
     foreach ($ids as $id) if (!is_string($id) || !preg_match('/^[a-f0-9]{32}$/D', $id)) funbikeJsonResponse(400, ['error' => 'Identifiant invalide.']);
