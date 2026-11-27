@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { PromotionCampaignHeader } from "../components/PromotionCampaignHeader";
 import { products } from "../catalog/products";
 import { brands } from "../catalog/brands";
 import { productTypes } from "../catalog/productTypes";
 import type { Product } from "../types/product";
 import { PromotionCard } from "../components/PromotionCard";
+import { PageLoading } from "../components/Loaders";
+import { getBackgroundStatus, subscribeBackgroundStatus, startBackgroundCatalog } from "../catalog/loadServerData";
 import { usePromotions } from "../components/PromotionsContext";
 import { isPromotionAppearance, type Promotion, type PromotionCategory } from "../lib/promotions";
 import { useBriefLoading } from "../hooks/useBriefLoading";
@@ -27,7 +29,10 @@ function PromotionCardsLoading({ count = 4 }: { count?: number }) {
 }
 
 export default function Promotions({ go }: { go: (page: string, id?: string, categoryId?: string) => void }) {
-  const { campaigns, status, clockOffset, preferredCategory, showCardDescription, originalPriceColor } = usePromotions();
+  const { campaigns, hasPromotions, retry, status, clockOffset, preferredCategory, showCardDescription, originalPriceColor } = usePromotions();
+  const catalogStatus = useSyncExternalStore(subscribeBackgroundStatus, getBackgroundStatus, getBackgroundStatus);
+  const waitingForProducts = status === "ready" && hasPromotions && campaigns.length === 0 && catalogStatus === "loading";
+  const productsUnavailable = status === "ready" && hasPromotions && campaigns.length === 0 && catalogStatus !== "loading";
   const [chosenCategory, setChosenCategory] = useState<PromotionCategory | null>(null);
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
@@ -71,9 +76,10 @@ export default function Promotions({ go }: { go: (page: string, id?: string, cat
   return <div className={`w-full pb-10 ${edgeToNav ? "" : "page-compact-top pt-6 sm:pt-8"}`}>
     <h1 className="sr-only">Promotions</h1>
     <div className="mx-auto w-full max-w-(--container-site) px-4 sm:px-6 md:px-8 lg:px-10">
-    {status === "loading" && <div className="promotion-skeleton"><div className="skeleton mb-6 h-32 w-full" aria-hidden="true" /><PromotionCardsLoading /></div>}
-    {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. Veuillez réessayer.</p>}
-    {status === "ready" && campaigns.length === 0 && <div><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
+    {(status === "loading" || waitingForProducts) && <PageLoading />}
+    {status === "error" && <p role="alert">Les promotions sont momentanément indisponibles. <button type="button" className="underline" onClick={retry}>Réessayer</button></p>}
+    {productsUnavailable && <p role="alert">Les produits en promotion sont momentanément indisponibles. <button type="button" className="underline" onClick={() => void startBackgroundCatalog().catch(() => {})}>Réessayer</button></p>}
+    {status === "ready" && !hasPromotions && <div className="promotion-empty-state"><h2 className="fluid-h2 font-display font-semibold">Promotions</h2><p className="mt-3 text-sm text-black/60 dark:text-white/60">Aucune promotion active pour le moment.</p><p className="mt-2 text-sm text-black/60 dark:text-white/60">Découvrez notre catalogue ou revenez bientôt.</p></div>}
     </div>
     {status === "ready" && campaigns.length > 0 && <>
       <div className="space-y-4">{campaigns.map((campaign) => <PromotionCampaignHeader key={campaign.id} campaign={campaign} clockOffset={clockOffset} />)}</div>

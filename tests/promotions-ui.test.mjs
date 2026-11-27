@@ -839,16 +839,16 @@ test('Promotions : bannière pleine largeur et prix barré coloré uniquement su
 });
 
 
-test('Promotions : squelettes au chargement et aux changements de catégorie, type et page', async () => {
+test('Promotions : spinner au chargement et squelettes aux changements de catégorie, type et page', async () => {
   const bikes = catalog.motorcycles.slice(0, 9), gear = catalog.ridingGear[0];
   const campaign = { id: 'loading', name: 'Promos animées', description: '', startDate: '2020-01-01', endDate: '2099-12-31', enabled: true, published: true, products: [...bikes, gear].map(p => ({ productId: p.id, categoryId: p.categoryId, originalPrice: 1000, discountPercent: 10 })) };
   let release; let requests = 0;
   globalThis.fetch = () => { requests++; return new Promise(resolve => { release = () => resolve({ ok: true, json: async () => ({ campaigns: [campaign], preferredCategory: 'tous', serverTime: new Date().toISOString() }) }); }); };
   const view = render(React.createElement(Provider, null, React.createElement(Promotions, { go() {} })));
   await waitFor(() => assert.equal(requests, 1));
-  assert.ok(view.getByRole('status', { name: 'Chargement des promotions' }));
+  assert.ok(view.getByRole('status').textContent.includes('Chargement de la page'));
+  assert.ok(view.getByRole('status').querySelector('svg').classList.contains('motion-safe:animate-spin'));
   assert.equal(view.container.querySelectorAll('article').length, 0);
-  assert.ok(view.container.querySelectorAll('.promotion-skeleton .skeleton').length > 4);
   await act(async () => release());
   const results = await view.findByRole('region', { name: 'Produits en promotion' });
   await waitFor(() => assert.equal(results.querySelectorAll('article').length, 8));

@@ -8,7 +8,7 @@ export function HomePromotionSignVisual({ text }: { text: string }) {
 }
 /** Petit panneau dans le flux de l’accueil, jamais superposé aux commandes du site. */
 export function HomePromotionSign({ go }: { go: (page: string) => void }) {
-  const { campaigns, status, homeSignEnabled, homeSignText } = usePromotions();
-  if (status !== "ready" || !homeSignEnabled || campaigns.length === 0) return null;
+  const { hasPromotions, status, homeSignEnabled, homeSignText } = usePromotions();
+  if (status !== "ready" || !homeSignEnabled || !hasPromotions) return null;
   return <a href="/promotions" onClick={(event) => navigateLink(event, go, "promotions")} className="fb-home-promo fb-home-promo--home" aria-label={`${homeSignText} — Voir les promotions`}><HomePromotionSignVisual text={homeSignText} /></a>;
 }

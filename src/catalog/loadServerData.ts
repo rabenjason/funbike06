@@ -26,6 +26,9 @@ let dataGeneration = 0;
 let loadSequence = 0;
 let dealerSequence = 0;
 export function getPublicDataGeneration() { return dataGeneration; }
+const catalogListeners = new Set<() => void>();
+export function subscribePublicData(listener: () => void) { catalogListeners.add(listener); return () => { catalogListeners.delete(listener); }; }
+function publishDataChange() { dataGeneration++; catalogListeners.forEach((listener) => listener()); }
 function replace<T>(target: T[], values: T[]) { target.splice(0, target.length, ...values); }
 
 const normalizeProducts = (input: Product[]) => input.filter((product) => product.status === "PUBLISHED").map((product) => ({
@@ -52,6 +55,8 @@ type Preloaded = Record<string, Record<string, unknown>>;
 type BackgroundStatus = "ready" | "loading" | "error";
 let backgroundStatus: BackgroundStatus = "ready";
 let backgroundPromise: Promise<void> | undefined;
+let backgroundRetryTimer: number | undefined;
+let backgroundFailures = 0;
 const backgroundListeners = new Set<() => void>();
 export function getBackgroundStatus() { return backgroundStatus; }
 export function subscribeBackgroundStatus(listener: () => void) { backgroundListeners.add(listener); return () => backgroundListeners.delete(listener); }
@@ -91,15 +96,28 @@ export async function loadInitialCatalog(pathname: string, signal?: AbortSignal)
   replace(brands, newBrands); replace(families, newFamilies); replace(productTypes, newTypes);
   replace(motorcycles, lists[0]); replace(helmets, lists[1]); replace(ridingGear, lists[2]); replace(spareParts, lists[3]);
   replace(products, [...lists[0], ...lists[3], ...lists[1], ...lists[2]]);
-  setContactInfo(contact); dataGeneration++;
+  setContactInfo(contact); publishDataChange();
   return data;
+}
+// En cas de panne, réessayer en arrière-plan sans multiplier les requêtes :
+// délai progressif, un seul lot à la fois, et aucune lecture si l’onglet est caché.
+function scheduleBackgroundRetry() {
+  if (typeof window === "undefined" || backgroundRetryTimer !== undefined) return;
+  const delay = Math.min(300000, 30000 * 2 ** Math.min(backgroundFailures - 1, 4));
+  backgroundRetryTimer = window.setTimeout(() => {
+    backgroundRetryTimer = undefined;
+    if (backgroundStatus !== "error") return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") { scheduleBackgroundRetry(); return; }
+    void startBackgroundCatalog().catch(() => {});
+  }, delay + Math.floor(Math.random() * Math.min(5000, delay / 5)));
 }
 /** Les autres pages attendent les données complémentaires, avec réessai ciblé. */
 export function startBackgroundCatalog(preloaded?: Preloaded) {
   if (backgroundPromise) return backgroundPromise;
+  if (backgroundRetryTimer !== undefined) { window.clearTimeout(backgroundRetryTimer); backgroundRetryTimer = undefined; }
   setBackgroundStatus("loading");
-  const promise = loadServerData(undefined, undefined, true, preloaded).then(() => { setBackgroundStatus("ready"); }, (error) => { setBackgroundStatus("error"); throw error; });
-  backgroundPromise = promise.finally(() => { backgroundPromise = undefined; });
+  const promise = loadServerData(undefined, undefined, true, preloaded).then(() => { backgroundFailures = 0; setBackgroundStatus("ready"); }, (error) => { backgroundFailures++; setBackgroundStatus("error"); throw error; });
+  backgroundPromise = promise.finally(() => { backgroundPromise = undefined; if (backgroundStatus === "error") scheduleBackgroundRetry(); });
   return backgroundPromise;
 }
 export async function waitForBackgroundCatalog(signal?: AbortSignal) {
@@ -150,7 +168,7 @@ export async function loadServerData(signal?: AbortSignal, confirmBeforeCommit?:
     replace(motorcycles, motos); replace(helmets, casques); replace(ridingGear, gear); replace(spareParts, parts);
     replace(products, [...motos, ...parts, ...casques, ...gear]);
     setContactInfo(contact);
-    dataGeneration++;
+    publishDataChange();
     if (currentDealer !== null && backgroundStatus === "error") setBackgroundStatus("ready");
     if (currentDealer !== null && currentDealer === dealerSequence && newDealers !== null) {
       replace(DEALERS, newDealers); setDealerStatus("ready");
@@ -169,9 +187,9 @@ export async function reloadDealers(signal?: AbortSignal) {
     const dealers = list<Dealer>(await read("dealers.php", signal), "dealers");
     if (signal?.aborted || current !== dealerSequence) return;
     replace(DEALERS, dealers);
-    dataGeneration++;
+    publishDataChange();
     setDealerStatus("ready");
   } catch {
-    if (current === dealerSequence) { replace(DEALERS, []); dataGeneration++; setDealerStatus("error"); }
+    if (current === dealerSequence) { replace(DEALERS, []); publishDataChange(); setDealerStatus("error"); }
   }
 }

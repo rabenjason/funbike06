@@ -66,7 +66,7 @@ export function Header({
   toggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const hasPromotions = usePromotions().campaigns.length > 0;
+  const { hasPromotions } = usePromotions();
   const nav = hasPromotions ? NAV.flatMap((item) => item.key === "spares" ? [{ ...item, label: "Pièces" }, { key: "promotions", label: "Promotions" }] : [item]) : NAV;
   const activePage = navigationPage(route);
   return (
