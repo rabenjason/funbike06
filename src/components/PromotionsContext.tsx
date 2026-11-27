@@ -1,12 +1,16 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { readPublicJson } from "../lib/publicDataRequest";
 import type { Product } from "../types/product";
 import { products } from "../catalog/products";
+import { getPublicDataGeneration, subscribePublicData } from "../catalog/loadServerData";
 import { resolvePromotionPrice, formatAriary, isPromotionActive, isPromotionCategory, isPromotionPriceColor, defaultHomeSignText, isHomeSignText, type PromotionCategory, type Promotion, type PromotionProduct } from "../lib/promotions";
 
-const Context = createContext<{ campaigns: Promotion[]; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; originalPriceColor: string; homeSignEnabled: boolean; homeSignText: string; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, originalPriceColor: "", homeSignEnabled: true, homeSignText: defaultHomeSignText, offer: () => undefined });
+const Context = createContext<{ campaigns: Promotion[]; hasPromotions: boolean; retry: () => void; status: "loading" | "ready" | "error"; clockOffset: number; preferredCategory: PromotionCategory; showCardDescription: boolean; originalPriceColor: string; homeSignEnabled: boolean; homeSignText: string; offer: (product: Product) => PromotionProduct | undefined }>({ campaigns: [], hasPromotions: false, retry: () => {}, status: "loading", clockOffset: 0, preferredCategory: "motos", showCardDescription: false, originalPriceColor: "", homeSignEnabled: true, homeSignText: defaultHomeSignText, offer: () => undefined });
 export const usePromotions = () => useContext(Context);
 export function PromotionsProvider({ children }: { children: ReactNode }) {
+  const catalogVersion = useSyncExternalStore(subscribePublicData, getPublicDataGeneration, getPublicDataGeneration);
+  const refreshRef = useRef<() => void>(() => {});
+  const retry = useCallback(() => refreshRef.current(), []);
   const [data, setData] = useState<Promotion[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [offset, setOffset] = useState(0);
@@ -17,33 +21,43 @@ export function PromotionsProvider({ children }: { children: ReactNode }) {
   const [homeSignText, setHomeSignText] = useState(defaultHomeSignText);
   const [clock, setClock] = useState(Date.now());
   useEffect(() => {
-    let alive = true; let sequence = 0; let midnight: number | undefined;
+    let alive = true; let inFlight = false; let midnight: number | undefined;
+    const controller = new AbortController();
     async function refresh() {
-      const number = ++sequence;
+      if (!alive || inFlight) return;
+      inFlight = true;
+      setStatus((current) => current === "error" ? "loading" : current);
       try {
-        const result = await readPublicJson("promotions.php") as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown; originalPriceColor?: unknown; homeSignEnabled?: unknown; homeSignText?: unknown };
+        const result = await readPublicJson("promotions.php", controller.signal) as { campaigns: Promotion[]; serverTime: string; preferredCategory?: unknown; showCardDescription?: unknown; originalPriceColor?: unknown; homeSignEnabled?: unknown; homeSignText?: unknown };
         if (!Array.isArray(result.campaigns) || !Number.isFinite(Date.parse(result.serverTime))) throw new Error();
-        if (alive && number === sequence) {
+        if (alive) {
           const serverNow = Date.parse(result.serverTime);
           setOffset(serverNow - Date.now()); setPreferredCategory(isPromotionCategory(result.preferredCategory) ? result.preferredCategory : "motos"); setShowCardDescription(result.showCardDescription === true); setOriginalPriceColor(isPromotionPriceColor(result.originalPriceColor) ? result.originalPriceColor : ""); setHomeSignEnabled(result.homeSignEnabled !== false); setHomeSignText(isHomeSignText(result.homeSignText) ? result.homeSignText : defaultHomeSignText); setData(result.campaigns); setStatus("ready"); setClock(Date.now());
           window.clearTimeout(midnight);
           const elapsed = ((serverNow + 3 * 3600000) % 86400000 + 86400000) % 86400000;
           midnight = window.setTimeout(() => { setClock(Date.now()); void refresh(); }, 86400000 - elapsed + 1000);
         }
-      } catch { if (alive && number === sequence) { setData([]); setStatus("error"); } }
+      } catch { if (alive) { setData([]); setStatus("error"); } }
+      finally { inFlight = false; }
     }
+    refreshRef.current = () => { void refresh(); };
     void refresh();
-    const timer = window.setInterval(() => { setClock(Date.now()); void refresh(); }, 30000);
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") { setClock(Date.now()); void refresh(); } }, 30000);
     const visible = () => { if (document.visibilityState === 'visible') { setClock(Date.now()); void refresh(); } };
     document.addEventListener('visibilitychange', visible);
-    return () => { alive = false; window.clearInterval(timer); window.clearTimeout(midnight); document.removeEventListener('visibilitychange', visible); };
+    window.addEventListener('online', refreshRef.current);
+    const online = refreshRef.current;
+    return () => { alive = false; controller.abort(); refreshRef.current = () => {}; window.clearInterval(timer); window.clearTimeout(midnight); document.removeEventListener('visibilitychange', visible); window.removeEventListener('online', online); };
   }, []);
   const value = useMemo(() => {
     const now = new Date(clock + offset);
-    const campaigns = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
+    // L’API publique ne renvoie que les produits publiés : le menu et le panneau
+    // peuvent donc apparaître avant la fin du chargement du catalogue local.
+    const active = data.filter((c) => isPromotionActive(c, now) && Array.isArray(c.products) && c.products.length > 0);
+    const campaigns = active.filter((c) => c.products.some((item) => products.some((p) => p.id === item.productId && p.categoryId === item.categoryId)));
     const offer = (product: Product) => campaigns.flatMap((c) => c.products).find((item) => item.productId === product.id && item.categoryId === product.categoryId);
-    return { campaigns, offer, status, clockOffset: offset, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText };
-  }, [data, offset, clock, status, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText]);
+    return { campaigns, hasPromotions: active.length > 0, retry, offer, status, clockOffset: offset, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText };
+  }, [data, offset, clock, status, preferredCategory, showCardDescription, originalPriceColor, homeSignEnabled, homeSignText, catalogVersion, retry]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function PromotionBadge({ product, className = "" }: { product: Product; className?: string }) {
